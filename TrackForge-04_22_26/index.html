@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyBoost AI</title>
+    <style>
+        :root {
+            --bg: #f3f5f9;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --border: #d1d5db;
+            --primary: #2563eb;
+            --danger: #dc2626;
+            --danger-soft: #fee2e2;
+            --success-soft: #dcfce7;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.45;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px 16px 40px;
+        }
+
+        h1 { margin: 0 0 8px; }
+        .subtitle { margin: 0 0 20px; color: var(--muted); }
+
+        .panel {
+            background: var(--card);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            margin-bottom: 12px;
+            font-size: 20px;
+        }
+
+        details.panel-details > summary {
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 18px;
+            list-style: none;
+            padding: 4px 0;
+        }
+
+        details.panel-details > summary::-webkit-details-marker { display: none; }
+
+        details.panel-details .details-body {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed var(--border);
+        }
+
+        .field { margin-bottom: 10px; }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        textarea, input, select {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        textarea { min-height: 110px; resize: vertical; }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+            align-items: center;
+        }
+
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 14px;
+            background: var(--primary);
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        button.secondary { background: #4b5563; }
+        button.danger { background: var(--danger); }
+        button.outline {
+            background: #fff;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .status {
+            margin-top: 8px;
+            color: var(--muted);
+            min-height: 20px;
+            font-size: 14px;
+        }
+
+        .output {
+            margin-top: 12px;
+            padding: 12px;
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .output h3 { margin: 0 0 8px; font-size: 16px; }
+
+        .score-banner {
+            padding: 12px;
+            border-radius: 8px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .score-banner.muted { background: #f9fafb; border-color: var(--border); font-weight: 500; }
+
+        .qa-card, .error-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: #fff;
+        }
+
+        .error-card {
+            border-color: #fecaca;
+            background: var(--danger-soft);
+        }
+
+        .qa-card .mcq-options label {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+
+        .qa-card .mcq-options input { width: auto; margin-top: 3px; }
+
+        .feedback {
+            margin-top: 8px;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .feedback.ok { background: var(--success-soft); }
+        .feedback.bad { background: var(--danger-soft); }
+
+        .short-actions { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+
+        details.answer-box {
+            margin-top: 10px;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        details.answer-box > summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #e5e7eb;
+            margin-right: 6px;
+        }
+
+        .tag.subject { background: #dbeafe; color: #1e40af; }
+        .tag.not-understood { background: #fecaca; color: #991b1b; }
+
+        .empty { color: var(--muted); font-style: italic; }
+
+        .hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+        @media (min-width: 800px) {
+            .grid-2 {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+            .grid-3 {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <h1>StudyBoost AI</h1>
+        <p class="subtitle">Summarize notes, practice with AP-style questions, and review mistakes — keys stay on the server.</p>
+
+        <details class="panel panel-details" id="connectionPanel">
+            <summary>Connection &amp; model</summary>
+            <div class="details-body">
+                <p class="hint">API keys are read from the server environment only (<code>OPENAI_API_KEY</code> / <code>GEMINI_API_KEY</code>). Open this page via the local proxy (e.g. <code>http://127.0.0.1:8765/</code>), not as a raw <code>file://</code> page.</p>
+                <div class="status" id="healthStatus" aria-live="polite"></div>
+                <div class="grid-2">
+                    <div class="field">
+                        <label for="providerInput">Provider</label>
+                        <select id="providerInput">
+                            <option value="openai">OpenAI</option>
+                            <option value="gemini">Google Gemini</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="modelInput">Model</label>
+                        <input id="modelInput" type="text" placeholder="e.g. gpt-4o-mini or gemini-2.0-flash" />
+                    </div>
+                </div>
+                <div class="actions">
+                    <button id="saveUIPrefsBtn" type="button" class="secondary">Save preferences</button>
+                </div>
+                <div class="status" id="uiPrefsStatus" aria-live="polite"></div>
+            </div>
+        </details>
+
+        <section class="panel" aria-labelledby="summary-title">
+            <h2 id="summary-title">1) AI Note Summary</h2>
+            <div class="field">
+                <label for="noteInput">Paste your raw notes</label>
+                <textarea id="noteInput" placeholder="Paste class notes, textbook excerpts, or your own draft summary."></textarea>
+            </div>
+            <div class="actions">
+                <button id="summaryBtn" type="button">Generate Simplified Summary</button>
+            </div>
+            <div class="status" id="summaryStatus" aria-live="polite"></div>
+            <div class="output" id="summaryOutput">
+                <p class="empty">No summary generated yet.</p>
+            </div>
+        </section>
+
+        <section class="panel" aria-labelledby="quiz-title">
+            <h2 id="quiz-title">2) Practice Questions</h2>
+            <div class="grid-3">
+                <div class="field">
+                    <label for="apSubjectInput">AP course</label>
+                    <select id="apSubjectInput"></select>
+                </div>
+                <div class="field">
+                    <label for="questionFormatInput">Question format</label>
+                    <select id="questionFormatInput">
+                        <option value="3:2" selected>3 multiple choice + 2 short answer</option>
+                        <option value="5:0">5 multiple choice only</option>
+                        <option value="0:5">5 short answer only</option>
+                        <option value="4:1">4 multiple choice + 1 short answer</option>
+                        <option value="2:3">2 multiple choice + 3 short answer</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="difficultyInput">Difficulty</label>
+                    <select id="difficultyInput">
+                        <option value="basic">Basic</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="challenge">Challenge</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field">
+                <label for="topicInput">Focus topic (optional)</label>
+                <input id="topicInput" type="text" placeholder="e.g. Related rates, Glycolysis, Kirchhoff's laws">
+            </div>
+            <div class="field">
+                <label for="useNotesContextInput" style="display:flex;align-items:center;gap:10px;font-weight:600;margin:0;">
+                    <input id="useNotesContextInput" type="checkbox" checked disabled />
+                    Use last generated summary notes as extra context for questions
+                </label>
+                <p class="hint" id="notesContextHint">Generate a summary above first to enable this.</p>
+            </div>
+            <div class="actions">
+                <button id="quizBtn" type="button">Generate Practice Questions</button>
+            </div>
+            <div class="status" id="quizStatus" aria-live="polite"></div>
+            <div class="output" id="quizOutput">
+                <p class="empty">No questions generated yet.</p>
+            </div>
+        </section>
+
+        <section class="panel" aria-labelledby="errors-title">
+            <h2 id="errors-title">3) Mistake Log</h2>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="mistakeSubjectFilter">Filter by course</label>
+                    <select id="mistakeSubjectFilter">
+                        <option value="">All courses</option>
+                    </select>
+                </div>
+            </div>
+            <div class="actions">
+                <button id="showAllBtn" type="button" class="secondary">Show All</button>
+                <button id="showUnknownBtn" type="button" class="secondary">Show only “Not Understood”</button>
+                <button id="clearErrorsBtn" type="button" class="danger">Clear Mistake Log</button>
+            </div>
+            <div class="status" id="errorStatus" aria-live="polite"></div>
+            <div class="output" id="errorOutput">
+                <p class="empty">No mistake records yet.</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const STORAGE_KEY_ERRORS = "studyBoostMistakesV2";
+        const STORAGE_UI = "studyBoostUIPrefsV1";
+
+        const AP_SUBJECTS = [
+            { id: "calc_ab", label: "AP Calculus AB" },
+            { id: "calc_bc", label: "AP Calculus BC" },
+            { id: "stats", label: "AP Statistics" },
+            { id: "bio", label: "AP Biology" },
+            { id: "chem", label: "AP Chemistry" },
+            { id: "phys1", label: "AP Physics 1" },
+            { id: "phys_c_mech", label: "AP Physics C: Mechanics" },
+            { id: "envsci", label: "AP Environmental Science" },
+            { id: "psych", label: "AP Psychology" },
+            { id: "ush", label: "AP United States History" },
+            { id: "world", label: "AP World History" },
+            { id: "lang", label: "AP English Language" },
+            { id: "csa", label: "AP Computer Science A" },
+            { id: "other", label: "Other / General" }
+        ];
+
+        let generatedQuestions = [];
+        let errorRecords = readErrorRecords();
+        let showOnlyNotUnderstood = false;
+        let mistakeSubjectFilter = "";
+        let lastNotesContext = "";
+        let serverHealthy = false;
+
+        let quizResults = {};
+        let quizExpected = { mcq: 0, sa: 0 };
+
+        const noteInput = document.getElementById("noteInput");
+        const summaryBtn = document.getElementById("summaryBtn");
+        const summaryStatus = document.getElementById("summaryStatus");
+        const summaryOutput = document.getElementById("summaryOutput");
+
+        const providerInput = document.getElementById("providerInput");
+        const modelInput = document.getElementById("modelInput");
+        const saveUIPrefsBtn = document.getElementById("saveUIPrefsBtn");
+        const uiPrefsStatus = document.getElementById("uiPrefsStatus");
+        const healthStatus = document.getElementById("healthStatus");
+        const connectionPanel = document.getElementById("connectionPanel");
+
+        const apSubjectInput = document.getElementById("apSubjectInput");
+        const questionFormatInput = document.getElementById("questionFormatInput");
+        const topicInput = document.getElementById("topicInput");
+        const useNotesContextInput = document.getElementById("useNotesContextInput");
+        const notesContextHint = document.getElementById("notesContextHint");
+        const difficultyInput = document.getElementById("difficultyInput");
+        const quizBtn = document.getElementById("quizBtn");
+        const quizStatus = document.getElementById("quizStatus");
+        const quizOutput = document.getElementById("quizOutput");
+
+        const mistakeSubjectFilterEl = document.getElementById("mistakeSubjectFilter");
+        const showAllBtn = document.getElementById("showAllBtn");
+        const showUnknownBtn = document.getElementById("showUnknownBtn");
+        const clearErrorsBtn = document.getElementById("clearErrorsBtn");
+        const errorStatus = document.getElementById("errorStatus");
+        const errorOutput = document.getElementById("errorOutput");
+
+        function sanitizeText(value) {
+            return (value || "").trim().replace(/\s+/g, " ");
+        }
+
+        function escapeHtml(value) {
+            return String(value || "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        function getSentences(text) {
+            return text
+                .split(/[\n.!?]+/)
+                .map(function (item) { return sanitizeText(item); })
+                .filter(Boolean);
+        }
+
+        function readUIPrefs() {
+            try {
+                const raw = localStorage.getItem(STORAGE_UI);
+                if (!raw) return { provider: "openai", model: "" };
+                const p = JSON.parse(raw);
+                return {
+                    provider: p.provider === "gemini" ? "gemini" : "openai",
+                    model: typeof p.model === "string" ? p.model : ""
+                };
+            } catch (e) {
+                return { provider: "openai", model: "" };
+            }
+        }
+
+        function saveUIPrefs() {
+            const prefs = {
+                provider: providerInput.value,
+                model: sanitizeText(modelInput.value)
+            };
+            localStorage.setItem(STORAGE_UI, JSON.stringify(prefs));
+            uiPrefsStatus.textContent = "Preferences saved.";
+        }
+
+        function applyUIPrefs() {
+            const p = readUIPrefs();
+            providerInput.value = p.provider;
+            modelInput.value = p.model || defaultModelPlaceholder();
+        }
+
+        function defaultModelPlaceholder() {
+            return providerInput.value === "gemini" ? "gemini-2.0-flash" : "gpt-4o-mini";
+        }
+
+        providerInput.addEventListener("change", function () {
+            if (!sanitizeText(modelInput.value)) {
+                modelInput.placeholder = defaultModelPlaceholder();
+            }
+        });
+
+        function readErrorRecords() {
+            try {
+                let raw = localStorage.getItem(STORAGE_KEY_ERRORS);
+                if (!raw) {
+                    const legacy = localStorage.getItem("learningAssistantErrorsV1");
+                    if (legacy) {
+                        raw = legacy;
+                    }
+                }
+                const parsed = JSON.parse(raw || "[]");
+                if (!Array.isArray(parsed)) return [];
+                return parsed.map(migrateErrorRecord);
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function migrateErrorRecord(item) {
+            if (!item || typeof item !== "object") return item;
+            const copy = Object.assign({}, item);
+            if (!copy.subject) copy.subject = "Uncategorized";
+            return copy;
+        }
+
+        function saveErrorRecords() {
+            localStorage.setItem(STORAGE_KEY_ERRORS, JSON.stringify(errorRecords));
+            try {
+                localStorage.removeItem("learningAssistantErrorsV1");
+            } catch (e) {}
+        }
+
+        function populateSubjectSelects() {
+            apSubjectInput.innerHTML = "";
+            AP_SUBJECTS.forEach(function (s) {
+                const opt = document.createElement("option");
+                opt.value = s.id;
+                opt.textContent = s.label;
+                apSubjectInput.appendChild(opt);
+            });
+        }
+
+        function updateNotesContextUI() {
+            const hasNotes = !!sanitizeText(lastNotesContext);
+            useNotesContextInput.disabled = !hasNotes;
+            if (!hasNotes) {
+                useNotesContextInput.checked = false;
+            } else {
+                useNotesContextInput.checked = true;
+            }
+            notesContextHint.textContent = hasNotes
+                ? "Questions can use your summarized notes for tighter alignment."
+                : "Generate a summary above first to enable this.";
+        }
+
+        function refreshMistakeFilterOptions() {
+            const subjects = {};
+            errorRecords.forEach(function (r) {
+                if (r.subject) subjects[r.subject] = true;
+            });
+            const current = mistakeSubjectFilterEl.value;
+            mistakeSubjectFilterEl.innerHTML = '<option value="">All courses</option>';
+            Object.keys(subjects).sort().forEach(function (sub) {
+                const opt = document.createElement("option");
+                opt.value = sub;
+                opt.textContent = sub;
+                mistakeSubjectFilterEl.appendChild(opt);
+            });
+            if (current && subjects[current]) {
+                mistakeSubjectFilterEl.value = current;
+            }
+        }
+
+        function extractJsonObject(text) {
+            if (!text) return null;
+            const trimmed = String(text).trim();
+            try {
+                return JSON.parse(trimmed);
+            } catch (e) {}
+            const firstBrace = trimmed.indexOf("{");
+            const lastBrace = trimmed.lastIndexOf("}");
+            if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return null;
+            try {
+                return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1));
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function extractJsonArray(text) {
+            if (!text) return null;
+            const trimmed = String(text).trim();
+            try {
+                const parsed = JSON.parse(trimmed);
+                return Array.isArray(parsed) ? parsed : null;
+            } catch (e) {}
+            const a = trimmed.indexOf("[");
+            const b = trimmed.lastIndexOf("]");
+            if (a === -1 || b === -1 || b <= a) return null;
+            try {
+                const parsed = JSON.parse(trimmed.slice(a, b + 1));
+                return Array.isArray(parsed) ? parsed : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function normalizeQuestionType(typeValue) {
+            const t = String(typeValue || "").toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
+            if (t === "multiple_choice" || t === "mcq" || t === "choice" || t === "multiple") {
+                return "multiple_choice";
+            }
+            if (t === "short_answer" || t === "short" || t === "sa" || t === "free_response" || t === "frq") {
+                return "short_answer";
+            }
+            return "short_answer";
+        }
+
+        function normalizeAIQuestions(rawQuestions) {
+            if (!Array.isArray(rawQuestions)) return [];
+            return rawQuestions
+                .map(function (q, index) {
+                    if (!q || typeof q !== "object") return null;
+                    const normalizedType = normalizeQuestionType(q.type);
+                    const questionText = String(q.question || q.prompt || "").trim();
+                    const answerText = String(q.answer || q.correctAnswer || q.solution || "").trim();
+                    if (!questionText) return null;
+
+                    let options = undefined;
+                    if (normalizedType === "multiple_choice") {
+                        if (Array.isArray(q.options)) {
+                            options = q.options.map(function (opt) { return String(opt || "").trim(); }).filter(Boolean);
+                        } else if (Array.isArray(q.choices)) {
+                            options = q.choices.map(function (opt) { return String(opt || "").trim(); }).filter(Boolean);
+                        } else {
+                            options = [];
+                        }
+                    }
+
+                    return {
+                        id: (normalizedType === "multiple_choice" ? "mcq-" : "sa-") + Date.now() + "-" + index,
+                        type: normalizedType === "multiple_choice" ? "Multiple Choice" : "Short Answer",
+                        question: questionText,
+                        options: options,
+                        answer: answerText || "No answer provided by AI."
+                    };
+                })
+                .filter(Boolean);
+        }
+
+        function parseFormat(formatStr) {
+            const parts = (formatStr || "3:2").split(":");
+            const mcq = parseInt(parts[0], 10) || 0;
+            const sa = parseInt(parts[1], 10) || 0;
+            return { mcq: mcq, sa: sa };
+        }
+
+        function getTopicKeywords(topic) {
+            return String(topic || "")
+                .toLowerCase()
+                .replace(/[^a-z0-9\s]/g, " ")
+                .split(/\s+/)
+                .filter(function (word) { return word.length >= 4; })
+                .slice(0, 6);
+        }
+
+        function isQuizQualityAcceptable(questions, topic, expected) {
+            if (!Array.isArray(questions) || questions.length < 1) return false;
+            const mcqCount = questions.filter(function (q) { return q && q.type === "Multiple Choice"; }).length;
+            const shortCount = questions.filter(function (q) { return q && q.type === "Short Answer"; }).length;
+            if (mcqCount < expected.mcq || shortCount < expected.sa) return false;
+
+            const keywords = getTopicKeywords(topic);
+            if (!keywords.length) return true;
+
+            const joinedText = questions
+                .map(function (q) {
+                    return ((q && q.question) ? q.question : "") + " " + ((q && q.answer) ? q.answer : "");
+                })
+                .join(" ")
+                .toLowerCase();
+
+            const matched = keywords.filter(function (kw) {
+                return joinedText.indexOf(kw) !== -1;
+            }).length;
+
+            return matched >= Math.min(2, keywords.length);
+        }
+
+        async function fetchHealth() {
+            try {
+                const res = await fetch("/api/health", { method: "GET" });
+                if (!res.ok) throw new Error("bad");
+                const data = await res.json();
+                serverHealthy = !!data.ok;
+                const o = data.openai_configured ? "OpenAI key OK" : "OpenAI key missing";
+                const g = data.gemini_configured ? "Gemini key OK" : "Gemini key missing";
+                healthStatus.textContent = "Proxy: connected · " + o + " · " + g + ".";
+            } catch (e) {
+                serverHealthy = false;
+                healthStatus.textContent = "Proxy not reachable. Run server.py and open http://127.0.0.1:8765/ — do not use file://.";
+            }
+        }
+
+        async function proxyChat(messages) {
+            const provider = providerInput.value || "openai";
+            const model = sanitizeText(modelInput.value);
+            if (!model) {
+                throw new Error("Set a model in Connection & model (e.g. gpt-4o-mini).");
+            }
+            const res = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ provider: provider, model: model, messages: messages })
+            });
+            let data = {};
+            try {
+                data = await res.json();
+            } catch (e) {
+                data = {};
+            }
+            if (!res.ok) {
+                throw new Error(data.error || ("Proxy error " + res.status));
+            }
+            if (!data.content) {
+                throw new Error("Empty response from proxy.");
+            }
+            return data.content;
+        }
+
+        async function summarizeNotesWithAI(rawNotes) {
+            const system =
+                "You are a helpful AP / high school tutor. Return ONLY valid JSON. " +
+                "Keys: simplifiedSummary (string), keyPoints (array of strings). " +
+                "simplifiedSummary is one short paragraph. keyPoints has 4-8 bullets. " +
+                "No markdown fences.";
+            const user = "Summarize for study:\n\n" + rawNotes;
+            const content = await proxyChat([
+                { role: "system", content: system },
+                { role: "user", content: user }
+            ]);
+            const json = extractJsonObject(content);
+            if (!json || typeof json.simplifiedSummary !== "string" || !Array.isArray(json.keyPoints)) {
+                throw new Error("Could not parse summary JSON.");
+            }
+            return json;
+        }
+
+        function subjectLabelFromId(id) {
+            const found = AP_SUBJECTS.find(function (s) { return s.id === id; });
+            return found ? found.label : id;
+        }
+
+        async function generateQuizWithAI(topic, difficulty, expected, apSubjectId, notesContext) {
+            const diffMap = { basic: "basic", medium: "medium", challenge: "challenge" };
+            const diffLabel = diffMap[difficulty] || "medium";
+            const courseName = subjectLabelFromId(apSubjectId);
+
+            const system =
+                "You write AP-style practice questions. Return ONLY valid JSON with key questions (array). " +
+                "You MUST output exactly " + expected.mcq + " multiple_choice and " + expected.sa + " short_answer questions, in that total order preference: list MCQs first, then short answers. " +
+                "multiple_choice: type 'multiple_choice', question string, options array of exactly 4 strings starting with 'A. '..'D. ', answer equals the full correct option string. " +
+                "short_answer: type 'short_answer', question string, answer is a concise model answer (2-5 sentences). " +
+                "Questions must match the AP course style and difficulty; use authentic terminology and structures for that exam. " +
+                "Avoid generic study-skills questions. No markdown fences.";
+
+            let user = "AP course: " + courseName + "\n";
+            user += "Difficulty: " + diffLabel + "\n";
+            if (sanitizeText(topic)) {
+                user += "Topic focus: " + topic + "\n";
+            }
+            if (sanitizeText(notesContext)) {
+                user += "\nContext from student notes (use for alignment, do not quote verbatim):\n" + notesContext.slice(0, 8000) + "\n";
+            }
+            user += "\nGenerate exactly " + (expected.mcq + expected.sa) + " questions as specified.";
+
+            const content = await proxyChat([
+                { role: "system", content: system },
+                { role: "user", content: user }
+            ]);
+
+            const json = extractJsonObject(content);
+            if (json && Array.isArray(json.questions)) return json.questions;
+            if (json && Array.isArray(json.items)) return json.items;
+            const arr = extractJsonArray(content);
+            if (arr) return arr;
+            throw new Error("Could not parse quiz JSON.");
+        }
+
+        function summarizeNotesDemo(raw) {
+            const normalized = sanitizeText(raw);
+            if (!normalized) return null;
+            const sentences = getSentences(normalized);
+            const summaryText = sentences.slice(0, 2).join(" ");
+            const keyPoints = sentences.slice(0, 6);
+            const listHtml = keyPoints.map(function (p) {
+                return "<li>" + escapeHtml(p) + "</li>";
+            }).join("");
+            return { simplifiedSummary: summaryText || normalized, keyPointsHtml: listHtml };
+        }
+
+        function createMockQuestions(topic, apSubjectId, difficulty, expected) {
+            const label = { basic: "Basic", medium: "Medium", challenge: "Challenge" }[difficulty] || "Medium";
+            const course = subjectLabelFromId(apSubjectId);
+            const focus = sanitizeText(topic) || course;
+
+            const bank = {
+                calc_ab: {
+                    mcq: [
+                        {
+                            q: "[" + label + " · " + course + "] A particle moves along the x-axis with velocity v(t) = 3t^2 - 12t. At which t in [0,4] is the acceleration zero?",
+                            o: ["A. t = 0", "B. t = 1", "C. t = 2", "D. t = 4"],
+                            a: "C. t = 2"
+                        },
+                        {
+                            q: "[" + label + " · " + course + "] Which expression gives the derivative of ln(5x^2 + 1)?",
+                            o: ["A. 1/(5x^2+1)", "B. 10x/(5x^2+1)", "C. 5/(5x^2+1)", "D. 2x ln(5x^2+1)"],
+                            a: "B. 10x/(5x^2+1)"
+                        },
+                        {
+                            q: "[" + label + " · " + course + "] ∫ from 1 to e of (1/x) dx equals",
+                            o: ["A. 0", "B. 1", "C. e", "D. e − 1"],
+                            a: "B. 1"
+                        },
+                        {
+                            q: "[" + label + " · " + course + "] For f(x) = x^3 − 3x, which statement about local extrema on ℝ is correct?",
+                            o: ["A. Local max at x=1 only", "B. Local min at x=−1, local max at x=1", "C. No critical points", "D. Local max at x=−1 only"],
+                            a: "B. Local min at x=−1, local max at x=1"
+                        },
+                        {
+                            q: "[" + label + " · " + course + "] The definite integral represents the net area under a curve. If ∫_a^b f(x) dx = −3, what is a reasonable interpretation?",
+                            o: ["A. f is always negative", "B. area below the axis dominates", "C. f has no zeros", "D. integral is always positive"],
+                            a: "B. area below the axis dominates"
+                        }
+                    ],
+                    sa: [
+                        {
+                            q: "Explain the relationship between position, velocity, and acceleration for " + focus + " using one sentence each.",
+                            a: "Velocity is the derivative of position; acceleration is the derivative of velocity (or second derivative of position). Connect to your topic by naming what is changing and what rate."
+                        },
+                        {
+                            q: "Set up (do not evaluate) the integral for the volume of revolution for a representative problem related to " + focus + ".",
+                            a: "State disk/washer or shell, show radius/height in terms of the variable, and give correct bounds."
+                        },
+                        {
+                            q: "For a related rates problem about " + focus + ", what quantities are typically held constant vs changing?",
+                            a: "State which geometric relation links variables, differentiate with respect to time, and substitute known rates."
+                        },
+                        {
+                            q: "Describe how you would justify a local minimum using calculus tests for a function tied to " + focus + ".",
+                            a: "Find critical points, use first or second derivative test, conclude with function values."
+                        },
+                        {
+                            q: "Compare Riemann sum estimates vs exact integral for a concept from " + focus + ".",
+                            a: "Explain rectangles/trapezoids vs limit of sums; mention refinement as n increases."
+                        }
+                    ]
+                },
+                bio: {
+                    mcq: [
+                        {
+                            q: "[" + label + " · " + course + "] During glycolysis, the net ATP yield per glucose is typically:",
+                            o: ["A. 0", "B. 1", "C. 2", "D. 4"],
+                            a: "C. 2"
+                        },
+                        {
+                            q: "[" + label + " · " + course + "] Which organelle is the primary site of cellular respiration (Krebs & ETC)?",
+                            o: ["A. Chloroplast", "B. Mitochondrion", "C. Golgi", "D. Nucleus"],
+                            a: "B. Mitochondrion"
+                        },
+                        {
+                            q: "[" + label + " · " + course + "] Photosynthesis produces O2 from splitting which molecule?",
+                            o: ["A. CO2", "B. Glucose", "C. H2O", "D. ATP"],
+                            a: "C. H2O"
+                        },
+                        {
+                            q: "[" + label + " · " + course + "] DNA replication is semiconservative because:",
+                            o: ["A. Both strands are destroyed", "B. Each daughter duplex has one parental strand", "C. RNA primes both ends only", "D. Telomeres prevent replication"],
+                            a: "B. Each daughter duplex has one parental strand"
+                        },
+                        {
+                            q: "[" + label + " · " + course + "] Which change most directly increases genetic variation in meiosis?",
+                            o: ["A. Mitosis", "B. Crossing over", "C. Binary fission", "D. Photosynthesis"],
+                            a: "B. Crossing over"
+                        }
+                    ],
+                    sa: [
+                        {
+                            q: "Compare aerobic respiration and fermentation for " + focus + " in terms of NAD+ recycling.",
+                            a: "Aerobic uses ETC/O2 to regenerate NAD+; fermentation regenerates NAD+ without O2 by reducing pyruvate to lactate or ethanol+CO2."
+                        },
+                        {
+                            q: "Explain negative feedback in a homeostatic pathway relevant to " + focus + ".",
+                            a: "Sensor detects deviation, control center responds, effector reduces deviation; give one concrete example."
+                        },
+                        {
+                            q: "Describe how enzyme activity could be regulated for a pathway connected to " + focus + ".",
+                            a: "Competitive vs noncompetitive inhibition; allosteric regulation; environmental factors (pH/temperature)."
+                        },
+                        {
+                            q: "Outline how natural selection could act on a trait you studied in " + focus + ".",
+                            a: "Variation, heritability, differential survival/reproduction, change in allele frequencies."
+                        },
+                        {
+                            q: "Contrast DNA vs RNA structure/function for information flow relevant to " + focus + ".",
+                            a: "DNA double-stranded genetic storage; RNA single-stranded roles (mRNA/tRNA/rRNA); mention transcription."
+                        }
+                    ]
+                }
+            };
+
+            const key = apSubjectId === "bio" || apSubjectId === "chem" || apSubjectId === "envsci" ? "bio" : "calc_ab";
+            const pack = bank[key] || bank.calc_ab;
+
+            const out = [];
+            let mi = 0;
+            let si = 0;
+            for (let i = 0; i < expected.mcq; i++) {
+                const item = pack.mcq[mi % pack.mcq.length];
+                mi++;
+                out.push({
+                    id: "mcq-demo-" + Date.now() + "-" + i,
+                    type: "Multiple Choice",
+                    question: item.q.replace(focus, focus),
+                    options: item.o.slice(),
+                    answer: item.a
+                });
+            }
+            for (let j = 0; j < expected.sa; j++) {
+                const item = pack.sa[si % pack.sa.length];
+                si++;
+                out.push({
+                    id: "sa-demo-" + Date.now() + "-" + j,
+                    type: "Short Answer",
+                    question: item.q,
+                    answer: item.a
+                });
+            }
+            return out;
+        }
+
+        function scoreSummary() {
+            let answered = 0;
+            let correct = 0;
+            Object.keys(quizResults).forEach(function (id) {
+                const r = quizResults[id];
+                if (r && r.done) {
+                    answered++;
+                    if (r.correct) correct++;
+                }
+            });
+            return { answered: answered, correct: correct };
+        }
+
+        function renderScoreBanner() {
+            const total = generatedQuestions.length;
+            const s = scoreSummary();
+            if (!total) return "";
+            return (
+                '<div class="score-banner" id="scoreBanner">' +
+                "Score: " + s.correct + " correct · " + s.answered + " graded · " + total + " questions in this set." +
+                "</div>"
+            );
+        }
+
+        function updateScoreBanner() {
+            const el = document.getElementById("scoreBanner");
+            if (el) {
+                const s = scoreSummary();
+                const total = generatedQuestions.length;
+                el.textContent = "Score: " + s.correct + " correct · " + s.answered + " graded · " + total + " questions in this set.";
+            }
+        }
+
+        function renderQuestions() {
+            if (!generatedQuestions.length) {
+                quizOutput.innerHTML = "<p class='empty'>No questions generated yet.</p>";
+                return;
+            }
+
+            let html = renderScoreBanner();
+
+            generatedQuestions.forEach(function (item, index) {
+                const isMcq = item.type === "Multiple Choice" && item.options && item.options.length;
+                html += '<article class="qa-card" data-qid="' + escapeHtml(item.id) + '">';
+                html += '<div><span class="tag">' + escapeHtml(item.type) + "</span>";
+                html += "<strong>Question " + (index + 1) + "</strong></div>";
+                html += '<p class="qa-q">' + escapeHtml(item.question) + "</p>";
+
+                if (isMcq) {
+                    html += '<div class="mcq-options" data-role="mcq">';
+                    item.options.forEach(function (opt) {
+                        html += "<label>";
+                        html += '<input type="radio" name="mcq-' + escapeHtml(item.id) + '" value="' + escapeHtml(opt) + '" /> ';
+                        html += "<span>" + escapeHtml(opt) + "</span>";
+                        html += "</label>";
+                    });
+                    html += "</div>";
+                    html += '<div class="actions"><button type="button" class="secondary check-mcq" data-qid="' + escapeHtml(item.id) + '">Check answer</button></div>';
+                    html += '<div class="feedback" data-feedback="' + escapeHtml(item.id) + '" hidden></div>';
+                } else {
+                    html += '<div class="short-actions">';
+                    html += '<button type="button" class="outline self-correct" data-qid="' + escapeHtml(item.id) + '" data-correct="1">Mark correct</button>';
+                    html += '<button type="button" class="outline self-wrong" data-qid="' + escapeHtml(item.id) + '" data-correct="0">Mark incorrect</button>';
+                    html += "</div>";
+                    html += '<div class="feedback" data-feedback="' + escapeHtml(item.id) + '" hidden></div>';
+                }
+
+                html += "<details class=\"answer-box\">";
+                html += "<summary>Suggested answer (after you try)</summary>";
+                html += "<p>" + escapeHtml(item.answer) + "</p>";
+                html += "</details>";
+
+                html += '<div class="actions" style="margin-top:10px">';
+                html += '<button type="button" data-action="save-error" data-id="' + escapeHtml(item.id) + '">Add to Mistake Log</button>';
+                html += "</div>";
+
+                html += "</article>";
+            });
+
+            quizOutput.innerHTML = html;
+        }
+
+        function findQuestionCard(qid) {
+            if (typeof qid !== "string") return null;
+            const esc = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(qid) : qid;
+            return quizOutput.querySelector("[data-qid=\"" + esc + "\"]");
+        }
+
+        function handleQuizClick(ev) {
+            const t = ev.target;
+            if (!(t instanceof HTMLElement)) return;
+
+            const saveId = t.getAttribute("data-id");
+            const saveAction = t.getAttribute("data-action");
+            if (saveAction === "save-error" && saveId) {
+                addErrorRecord(saveId);
+                return;
+            }
+
+            if (t.classList.contains("check-mcq")) {
+                const qid = t.getAttribute("data-qid");
+                const card = findQuestionCard(qid);
+                if (!card) return;
+                const sel = card.querySelector('input[name="mcq-' + qid + '"]:checked');
+                const fb = card.querySelector('[data-feedback="' + qid + '"]');
+                const item = generatedQuestions.find(function (x) { return x.id === qid; });
+                if (!item || !fb) return;
+
+                if (quizResults[qid] && quizResults[qid].done) {
+                    fb.hidden = false;
+                    fb.className = "feedback bad";
+                    fb.textContent = "Already graded for this question.";
+                    return;
+                }
+
+                if (!sel) {
+                    fb.hidden = false;
+                    fb.className = "feedback bad";
+                    fb.textContent = "Select an option first.";
+                    return;
+                }
+
+                const ok = sanitizeText(sel.value) === sanitizeText(item.answer);
+                quizResults[qid] = { done: true, correct: ok };
+                fb.hidden = false;
+                fb.className = ok ? "feedback ok" : "feedback bad";
+                fb.textContent = ok ? "Correct." : "Incorrect. Compare with the suggested answer below.";
+                updateScoreBanner();
+                return;
+            }
+
+            if (t.classList.contains("self-correct") || t.classList.contains("self-wrong")) {
+                const qid = t.getAttribute("data-qid");
+                const isCorrect = t.getAttribute("data-correct") === "1";
+                const card = findQuestionCard(qid);
+                const fb = card ? card.querySelector('[data-feedback="' + qid + '"]') : null;
+                if (quizResults[qid] && quizResults[qid].done) {
+                    if (fb) {
+                        fb.hidden = false;
+                        fb.className = "feedback bad";
+                        fb.textContent = "Already graded.";
+                    }
+                    return;
+                }
+                quizResults[qid] = { done: true, correct: isCorrect };
+                if (fb) {
+                    fb.hidden = false;
+                    fb.className = isCorrect ? "feedback ok" : "feedback bad";
+                    fb.textContent = isCorrect ? "Counted as correct." : "Counted as incorrect.";
+                }
+                updateScoreBanner();
+            }
+        }
+
+        quizOutput.addEventListener("click", handleQuizClick);
+
+        async function generateQuiz() {
+            const topic = sanitizeText(topicInput.value);
+            const difficulty = difficultyInput.value;
+            const expected = parseFormat(questionFormatInput.value);
+            const apId = apSubjectInput.value;
+            const subjectLabel = subjectLabelFromId(apId);
+            const notesCtx = useNotesContextInput.checked ? lastNotesContext : "";
+
+            if (expected.mcq + expected.sa < 1) {
+                quizStatus.textContent = "Choose a format with at least one question.";
+                return;
+            }
+
+            quizStatus.textContent = "Generating questions...";
+            quizResults = {};
+
+            const tryDemo = function (reason) {
+                quizStatus.textContent = reason + " Showing AP-style offline questions.";
+                generatedQuestions = createMockQuestions(topic, apId, difficulty, expected);
+                renderQuestions();
+            };
+
+            if (!serverHealthy) {
+                tryDemo("Proxy unavailable.");
+                return;
+            }
+
+            try {
+                let aiQuestions = await generateQuizWithAI(topic, difficulty, expected, apId, notesCtx);
+                generatedQuestions = normalizeAIQuestions(aiQuestions);
+
+                if (!generatedQuestions.length) {
+                    throw new Error("Empty AI result.");
+                }
+
+                if (!isQuizQualityAcceptable(generatedQuestions, topic || subjectLabel, expected)) {
+                    quizStatus.textContent = "First result was too generic. Regenerating once...";
+                    aiQuestions = await generateQuizWithAI(topic, difficulty, expected, apId, notesCtx);
+                    generatedQuestions = normalizeAIQuestions(aiQuestions);
+                    if (!generatedQuestions.length || !isQuizQualityAcceptable(generatedQuestions, topic || subjectLabel, expected)) {
+                        throw new Error("Quality check failed.");
+                    }
+                }
+
+                renderQuestions();
+                quizStatus.textContent = "Questions generated.";
+            } catch (err) {
+                tryDemo("AI quiz failed: " + err.message);
+            }
+        }
+
+        function addErrorRecord(questionId) {
+            const found = generatedQuestions.find(function (item) {
+                return item.id === questionId;
+            });
+            if (!found) {
+                errorStatus.textContent = "Could not find the selected question.";
+                return;
+            }
+            const subj = subjectLabelFromId(apSubjectInput.value);
+            const exists = errorRecords.some(function (item) {
+                return item.sourceId === found.id;
+            });
+            if (exists) {
+                errorStatus.textContent = "Already in the mistake log.";
+                return;
+            }
+            errorRecords.unshift({
+                id: "err-" + Date.now(),
+                sourceId: found.id,
+                type: found.type,
+                question: found.question,
+                answer: found.answer,
+                status: "not_understood",
+                subject: subj,
+                createdAt: new Date().toISOString()
+            });
+            saveErrorRecords();
+            renderErrorRecords();
+            refreshMistakeFilterOptions();
+            errorStatus.textContent = "Saved to mistake log.";
+        }
+
+        function toggleErrorStatus(errorId) {
+            errorRecords = errorRecords.map(function (item) {
+                if (item.id !== errorId) return item;
+                return Object.assign({}, item, {
+                    status: item.status === "not_understood" ? "mastered" : "not_understood"
+                });
+            });
+            saveErrorRecords();
+            renderErrorRecords();
+        }
+
+        function removeErrorRecord(errorId) {
+            errorRecords = errorRecords.filter(function (item) {
+                return item.id !== errorId;
+            });
+            saveErrorRecords();
+            renderErrorRecords();
+            refreshMistakeFilterOptions();
+        }
+
+        function clearErrorRecords() {
+            if (!errorRecords.length) {
+                errorStatus.textContent = "Mistake log is already empty.";
+                return;
+            }
+            errorRecords = [];
+            saveErrorRecords();
+            renderErrorRecords();
+            refreshMistakeFilterOptions();
+            errorStatus.textContent = "Cleared.";
+        }
+
+        function renderErrorRecords() {
+            let records = errorRecords.slice();
+            if (showOnlyNotUnderstood) {
+                records = records.filter(function (item) {
+                    return item.status === "not_understood";
+                });
+            }
+            if (mistakeSubjectFilter) {
+                records = records.filter(function (item) {
+                    return item.subject === mistakeSubjectFilter;
+                });
+            }
+
+            if (!records.length) {
+                errorOutput.innerHTML = "<p class='empty'>No records for this filter.</p>";
+                return;
+            }
+
+            const html = records
+                .map(function (item, index) {
+                    const statusLabel = item.status === "not_understood" ? "Not Understood" : "Mastered";
+                    const statusClass = item.status === "not_understood" ? "not-understood" : "";
+                    return (
+                        '<article class="error-card">' +
+                        '<div><span class="tag subject">' + escapeHtml(item.subject || "Uncategorized") + "</span>" +
+                        '<span class="tag">' + escapeHtml(item.type) + "</span>" +
+                        '<span class="tag ' + statusClass + '">' + statusLabel + "</span>" +
+                        "<strong>Mistake " + (index + 1) + "</strong></div>" +
+                        "<p>" + escapeHtml(item.question) + "</p>" +
+                        '<details class="answer-box"><summary>Suggested answer</summary><p>' + escapeHtml(item.answer) + "</p></details>" +
+                        '<div class="actions">' +
+                        '<button type="button" class="secondary" data-action="toggle-status" data-id="' + escapeHtml(item.id) + '">' +
+                        (item.status === "not_understood" ? "Mark as Mastered" : "Mark Not Understood") +
+                        "</button>" +
+                        '<button type="button" class="danger" data-action="remove-error" data-id="' + escapeHtml(item.id) + '">Delete</button>' +
+                        "</div>" +
+                        "</article>"
+                    );
+                })
+                .join("");
+            errorOutput.innerHTML = html;
+        }
+
+        summaryBtn.addEventListener("click", async function () {
+            const raw = sanitizeText(noteInput.value);
+            if (!raw) {
+                summaryStatus.textContent = "Paste notes first.";
+                summaryOutput.innerHTML = "<p class='empty'>No summary yet.</p>";
+                return;
+            }
+            summaryStatus.textContent = "Generating summary...";
+
+            if (!serverHealthy) {
+                const demo = summarizeNotesDemo(raw);
+                summaryOutput.innerHTML =
+                    "<h3>Simplified Summary</h3><p>" + escapeHtml(demo ? demo.simplifiedSummary : raw) + "</p>" +
+                    "<h3>Key Points</h3><ul>" + (demo ? demo.keyPointsHtml : "") + "</ul>";
+                lastNotesContext = raw;
+                summaryStatus.textContent = "Offline summary (start server for AI). Notes linked to quiz.";
+                updateNotesContextUI();
+                return;
+            }
+
+            try {
+                const json = await summarizeNotesWithAI(raw);
+                const listHtml = (json.keyPoints || []).map(function (pt) {
+                    return "<li>" + escapeHtml(pt) + "</li>";
+                }).join("");
+                summaryOutput.innerHTML =
+                    "<h3>Simplified Summary</h3><p>" + escapeHtml(json.simplifiedSummary) + "</p>" +
+                    "<h3>Key Points</h3><ul>" + listHtml + "</ul>";
+                lastNotesContext = json.simplifiedSummary + "\n" + (json.keyPoints || []).join("\n");
+                summaryStatus.textContent = "Summary ready — quiz can use this context.";
+                updateNotesContextUI();
+            } catch (err) {
+                summaryStatus.textContent = "AI summary failed: " + err.message;
+                const demo = summarizeNotesDemo(raw);
+                summaryOutput.innerHTML =
+                    "<h3>Simplified Summary</h3><p>" + escapeHtml(demo ? demo.simplifiedSummary : raw) + "</p>" +
+                    "<h3>Key Points</h3><ul>" + (demo ? demo.keyPointsHtml : "") + "</ul>";
+                lastNotesContext = raw;
+                updateNotesContextUI();
+            }
+        });
+
+        quizBtn.addEventListener("click", generateQuiz);
+
+        showAllBtn.addEventListener("click", function () {
+            showOnlyNotUnderstood = false;
+            renderErrorRecords();
+            errorStatus.textContent = "Filter: all statuses.";
+        });
+
+        showUnknownBtn.addEventListener("click", function () {
+            showOnlyNotUnderstood = true;
+            renderErrorRecords();
+            errorStatus.textContent = 'Filter: only “Not Understood”.';
+        });
+
+        clearErrorsBtn.addEventListener("click", clearErrorRecords);
+
+        mistakeSubjectFilterEl.addEventListener("change", function () {
+            mistakeSubjectFilter = mistakeSubjectFilterEl.value;
+            renderErrorRecords();
+        });
+
+        errorOutput.addEventListener("click", function (event) {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            const action = target.getAttribute("data-action");
+            const id = target.getAttribute("data-id");
+            if (!id) return;
+            if (action === "toggle-status") toggleErrorStatus(id);
+            else if (action === "remove-error") removeErrorRecord(id);
+        });
+
+        saveUIPrefsBtn.addEventListener("click", saveUIPrefs);
+
+        populateSubjectSelects();
+        applyUIPrefs();
+        fetchHealth();
+        updateNotesContextUI();
+        renderErrorRecords();
+        refreshMistakeFilterOptions();
+    </script>
+</body>
+</html>
