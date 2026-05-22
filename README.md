@@ -42,10 +42,6 @@ Some challenges during development included:
 - Organizing the UI for both summaries and quizzes
 - Managing mistake review logic using local storage
 
-## Screenshots
-
-(You can add screenshots here later)
-
 ## Author
 
 Created by Sean
