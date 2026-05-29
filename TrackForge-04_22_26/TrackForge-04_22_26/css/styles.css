@@ -1,0 +1,224 @@
+
+:root {
+    --bg: #f3f5f9;
+    --card: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #d1d5db;
+    --primary: #2563eb;
+    --danger: #dc2626;
+    --danger-soft: #fee2e2;
+    --success-soft: #dcfce7;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.45;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+}
+
+h1 { margin: 0 0 8px; }
+.subtitle { margin: 0 0 20px; color: var(--muted); }
+
+.panel {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+}
+
+.panel h2 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 20px;
+}
+
+details.panel-details > summary {
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 18px;
+    list-style: none;
+    padding: 4px 0;
+}
+
+details.panel-details > summary::-webkit-details-marker { display: none; }
+
+details.panel-details .details-body {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+}
+
+.field { margin-bottom: 10px; }
+
+label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+textarea, input:not([type="checkbox"]):not([type="radio"]), select {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 14px;
+}
+
+input[type="checkbox"], input[type="radio"] {
+    width: auto;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+textarea { min-height: 110px; resize: vertical; }
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
+}
+
+button {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 14px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+button.secondary { background: #4b5563; }
+button.danger { background: var(--danger); }
+button.outline {
+    background: #fff;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+}
+
+.status {
+    margin-top: 8px;
+    color: var(--muted);
+    min-height: 20px;
+    font-size: 14px;
+}
+
+.output {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    background: #fafafa;
+}
+
+.output h3 { margin: 0 0 8px; font-size: 16px; }
+
+.score-banner {
+    padding: 12px;
+    border-radius: 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.score-banner.muted { background: #f9fafb; border-color: var(--border); font-weight: 500; }
+
+.qa-card, .error-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+    background: #fff;
+}
+
+.error-card {
+    border-color: #fecaca;
+    background: var(--danger-soft);
+}
+
+.qa-card .mcq-options label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+
+.qa-card .mcq-options input { width: auto; margin-top: 3px; }
+
+.feedback {
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.feedback.ok { background: var(--success-soft); }
+.feedback.bad { background: var(--danger-soft); }
+
+.short-actions { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+
+details.answer-box {
+    margin-top: 10px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fafafa;
+}
+
+details.answer-box > summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.tag {
+    display: inline-block;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #e5e7eb;
+    margin-right: 6px;
+}
+
+.tag.subject { background: #dbeafe; color: #1e40af; }
+.tag.not-understood { background: #fecaca; color: #991b1b; }
+
+.empty { color: var(--muted); font-style: italic; }
+
+.hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+@media (min-width: 800px) {
+    .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    .grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+    }
+}
+    
