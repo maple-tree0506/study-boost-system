@@ -13,7 +13,7 @@ import sqlite3
 import sys
 import time
 from collections import defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 from flask import Flask, jsonify, request, send_from_directory
@@ -215,7 +215,9 @@ def stats():
     ]
     by_subject.sort(key=lambda x: (-x["answered"], x["subject"]))
 
-    today = date.today()
+    # Use UTC to match created_at (stored in UTC); date.today() is server-local
+    # and would drop "today" from the window when local date < UTC date.
+    today = datetime.now(timezone.utc).date()
     daily = []
     for i in range(13, -1, -1):
         d = (today - timedelta(days=i)).isoformat()
