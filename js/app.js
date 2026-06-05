@@ -516,9 +516,8 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected, notesCont
     const label = { basic: "Basic", medium: "Medium", challenge: "Challenge" }[difficulty] || "Medium";
     const course = subjectLabelFromId(apSubjectId);
     const focus = sanitizeText(topic) || course;
-    // Include difficulty in the seed so each difficulty rotates to a different
-    // set of questions (the offline bank is not difficulty-tiered, but this
-    // prevents the three levels from returning identical questions).
+    // Seed also depends on difficulty so rotation differs per level, on top of the
+    // genuinely tiered banks (basic/medium/challenge) selected below.
     const notesSeed = notesContextSeed((difficulty || "medium") + "|" + (notesContext || topic || course));
     const notesLead = sanitizeText(notesContext).slice(0, 120);
     const notesPrefix = notesLead
@@ -630,8 +629,139 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected, notesCont
         }
     };
 
+    const basicBank = {
+        calc_ab: {
+            mcq: [
+                {
+                    q: "[" + label + " · " + course + "] What is the derivative of x^5?",
+                    o: ["A. 5x^4", "B. x^4", "C. 5x^5", "D. 4x^5"],
+                    a: "A. 5x^4"
+                },
+                {
+                    q: "[" + label + " · " + course + "] Evaluate the indefinite integral of 2x dx.",
+                    o: ["A. x^2 + C", "B. 2 + C", "C. 2x^2 + C", "D. x + C"],
+                    a: "A. x^2 + C"
+                },
+                {
+                    q: "[" + label + " · " + course + "] What is the limit of sin(x)/x as x approaches 0?",
+                    o: ["A. 0", "B. 1", "C. infinity", "D. undefined"],
+                    a: "B. 1"
+                },
+                {
+                    q: "[" + label + " · " + course + "] The derivative of the constant function f(x) = 7 is:",
+                    o: ["A. 7", "B. 1", "C. 0", "D. x"],
+                    a: "C. 0"
+                }
+            ],
+            sa: [
+                { q: "State the power rule for derivatives and give one example.", a: "d/dx[x^n] = n*x^(n-1); e.g., d/dx[x^3] = 3x^2." },
+                { q: "Define what a definite integral represents geometrically.", a: "The signed area between the curve and the x-axis over the interval [a, b]." },
+                { q: "What is the derivative of any constant, and why?", a: "Zero, because a constant never changes, so its rate of change is 0." },
+                { q: "Write the limit definition of the derivative of f at x.", a: "f'(x) = lim(h->0) [f(x+h) - f(x)] / h." }
+            ]
+        },
+        bio: {
+            mcq: [
+                {
+                    q: "[" + label + " · " + course + "] The net ATP yield from glycolysis per glucose is:",
+                    o: ["A. 0", "B. 1", "C. 2", "D. 4"],
+                    a: "C. 2"
+                },
+                {
+                    q: "[" + label + " · " + course + "] Which organelle is the main site of aerobic cellular respiration?",
+                    o: ["A. Chloroplast", "B. Mitochondrion", "C. Golgi apparatus", "D. Nucleus"],
+                    a: "B. Mitochondrion"
+                },
+                {
+                    q: "[" + label + " · " + course + "] Photosynthesis releases O2 by splitting which molecule?",
+                    o: ["A. CO2", "B. Glucose", "C. H2O", "D. ATP"],
+                    a: "C. H2O"
+                },
+                {
+                    q: "[" + label + " · " + course + "] The monomers (building blocks) of proteins are:",
+                    o: ["A. Nucleotides", "B. Amino acids", "C. Monosaccharides", "D. Fatty acids"],
+                    a: "B. Amino acids"
+                }
+            ],
+            sa: [
+                { q: "Define homeostasis in one sentence.", a: "The maintenance of a stable internal environment despite external changes." },
+                { q: "Name the main products of glycolysis.", a: "Two pyruvate molecules, a net of 2 ATP, and 2 NADH." },
+                { q: "State the primary role of DNA in a cell.", a: "To store and transmit the genetic instructions used to build proteins." },
+                { q: "What is an enzyme and what does it do?", a: "A biological catalyst (usually a protein) that speeds up reactions by lowering activation energy." }
+            ]
+        }
+    };
+
+    const challengeBank = {
+        calc_ab: {
+            mcq: [
+                {
+                    q: "[" + label + " · " + course + "] For f(x) = x^3 - 3x, identify the local extrema on the real line.",
+                    o: ["A. Local max at x = 1 only", "B. Local min at x = -1 and local max at x = 1", "C. No critical points", "D. Local max at x = -1 and local min at x = 1"],
+                    a: "B. Local min at x = -1 and local max at x = 1"
+                },
+                {
+                    q: "[" + label + " · " + course + "] If the integral of f from a to b equals -3, which interpretation is best?",
+                    o: ["A. f is always negative", "B. Net signed area is negative; area below the axis dominates", "C. f has no zeros on [a, b]", "D. The integral must be positive"],
+                    a: "B. Net signed area is negative; area below the axis dominates"
+                },
+                {
+                    q: "[" + label + " · " + course + "] By the Mean Value Theorem, for f continuous on [a, b] and differentiable on (a, b), there exists c such that:",
+                    o: ["A. f(c) = 0", "B. f'(c) = (f(b) - f(a)) / (b - a)", "C. f'(c) = 0 always", "D. f(c) = f(a) + f(b)"],
+                    a: "B. f'(c) = (f(b) - f(a)) / (b - a)"
+                },
+                {
+                    q: "[" + label + " · " + course + "] Let g(x) = integral from 0 to x of f(t) dt. If f is positive and increasing, then g is:",
+                    o: ["A. Decreasing and concave down", "B. Increasing and concave up", "C. Constant", "D. Increasing and concave down"],
+                    a: "B. Increasing and concave up"
+                }
+            ],
+            sa: [
+                { q: "Justify the existence of a local minimum for a function tied to " + focus + " using both the first and second derivative tests.", a: "Find critical points where f' = 0; first-derivative test: sign change - to + implies a min; second-derivative test: f'' > 0 implies a min; confirm with function values." },
+                { q: "Given the graph of f', describe the concavity and locate inflection points for a problem connected to " + focus + ".", a: "f is concave up where f' is increasing (f'' > 0) and concave down where f' is decreasing; inflection points occur where f'' changes sign." },
+                { q: "Use the Fundamental Theorem of Calculus to explain how an accumulation function relates to " + focus + ".", a: "If F(x) = integral from a to x of f(t) dt, then F'(x) = f(x); the accumulation's rate of change equals the integrand." },
+                { q: "Set up and justify (do not evaluate) a definite integral modeling total change for " + focus + ".", a: "Identify the rate function, integrate the rate over the interval, and interpret the result as net accumulated change with correct units." }
+            ]
+        },
+        bio: {
+            mcq: [
+                {
+                    q: "[" + label + " · " + course + "] A recessive allele's frequency drops over generations under selection. The best explanation is:",
+                    o: ["A. Genetic drift only", "B. Recessive homozygotes have lower fitness while heterozygotes are unaffected", "C. The mutation rate increased", "D. Gene flow stopped"],
+                    a: "B. Recessive homozygotes have lower fitness while heterozygotes are unaffected"
+                },
+                {
+                    q: "[" + label + " · " + course + "] Two genes show a 12% recombination frequency. This indicates they are:",
+                    o: ["A. On different chromosomes", "B. Linked, about 12 map units apart", "C. The same gene", "D. Unlinked and assorting independently"],
+                    a: "B. Linked, about 12 map units apart"
+                },
+                {
+                    q: "[" + label + " · " + course + "] In an enzyme experiment where temperature is the independent variable, a proper control holds constant:",
+                    o: ["A. Temperature", "B. pH, substrate concentration, and enzyme concentration", "C. Reaction rate", "D. Time only"],
+                    a: "B. pH, substrate concentration, and enzyme concentration"
+                },
+                {
+                    q: "[" + label + " · " + course + "] End-product inhibition of a metabolic pathway is an example of:",
+                    o: ["A. Positive feedback", "B. Negative feedback via allosteric regulation", "C. Competitive substrate binding only", "D. Denaturation"],
+                    a: "B. Negative feedback via allosteric regulation"
+                }
+            ],
+            sa: [
+                { q: "Explain how natural selection could act on a trait you studied in " + focus + ", from variation to allele-frequency change.", a: "Heritable variation exists; differential survival/reproduction favors some variants; over generations the advantageous allele's frequency rises." },
+                { q: "Contrast DNA and RNA structure and function in the flow of genetic information for " + focus + ".", a: "DNA is double-stranded long-term storage; RNA is single-stranded; mRNA carries the code, tRNA brings amino acids, rRNA builds ribosomes; transcription then translation." },
+                { q: "Design an experiment to test how an environmental factor affects enzyme reaction rate for a pathway related to " + focus + ".", a: "State a hypothesis, vary one factor (e.g., pH), control the others, measure rate (product per time), include replicates and a control, then analyze the trend." },
+                { q: "Explain how a beneficial mutation could spread through a population connected to " + focus + ".", a: "A mutation creates a new allele; if it raises fitness, carriers reproduce more; the allele's frequency increases over generations and may approach fixation." }
+            ]
+        }
+    };
+
+    const tier = ({ basic: "basic", medium: "medium", challenge: "challenge" })[difficulty] || "medium";
     const key = apSubjectId === "bio" || apSubjectId === "chem" || apSubjectId === "envsci" ? "bio" : "calc_ab";
-    const pack = bank[key] || bank.calc_ab;
+
+    // medium uses the bank above; basic/challenge use genuinely easier/harder banks.
+    const tieredBanks = { basic: basicBank, challenge: challengeBank };
+    const source = tier === "medium" ? bank : (tieredBanks[tier] || bank);
+    const pack = source[key] || source.calc_ab || bank.calc_ab;
 
     const out = [];
     let mi = notesSeed % pack.mcq.length;
@@ -718,17 +848,24 @@ function renderQuestions() {
             html += '<div class="actions"><button type="button" class="secondary check-mcq" data-qid="' + escapeHtml(item.id) + '">Check answer</button></div>';
             html += '<div class="feedback" data-feedback="' + escapeHtml(item.id) + '" hidden></div>';
         } else {
-            html += '<div class="short-actions">';
-            html += '<button type="button" class="outline self-correct" data-qid="' + escapeHtml(item.id) + '" data-correct="1">Mark correct</button>';
-            html += '<button type="button" class="outline self-wrong" data-qid="' + escapeHtml(item.id) + '" data-correct="0">Mark incorrect</button>';
+            html += '<div class="field">';
+            html += '<textarea class="sa-input" data-sa-input="' + escapeHtml(item.id) + '" placeholder="Type your answer here, then submit to reveal the model answer."></textarea>';
             html += "</div>";
+            html += '<div class="actions"><button type="button" class="secondary submit-sa" data-qid="' + escapeHtml(item.id) + '">Submit answer</button></div>';
             html += '<div class="feedback" data-feedback="' + escapeHtml(item.id) + '" hidden></div>';
+            // Self-grade buttons appear only AFTER the student submits their answer.
+            html += '<div class="short-actions" data-selfgrade="' + escapeHtml(item.id) + '" hidden>';
+            html += '<span class="selfgrade-q">Compare with the model answer below. Did you get it right?</span>';
+            html += '<button type="button" class="outline self-correct" data-qid="' + escapeHtml(item.id) + '" data-correct="1">I was right</button>';
+            html += '<button type="button" class="outline self-wrong" data-qid="' + escapeHtml(item.id) + '" data-correct="0">I was wrong</button>';
+            html += "</div>";
         }
 
-        html += "<details class=\"answer-box\">";
-        html += "<summary>Suggested answer (after you try)</summary>";
+        // Khan-style: the answer stays hidden until the student checks/submits.
+        html += '<div class="answer-box" data-answer="' + escapeHtml(item.id) + '" hidden>';
+        html += "<h4>Answer &amp; explanation</h4>";
         html += "<p>" + escapeHtml(item.answer) + "</p>";
-        html += "</details>";
+        html += "</div>";
 
         html += '<div class="actions" style="margin-top:10px">';
         html += '<button type="button" data-action="save-error" data-id="' + escapeHtml(item.id) + '">Add to Mistake Log</button>';
@@ -744,6 +881,13 @@ function findQuestionCard(qid) {
     if (typeof qid !== "string") return null;
     const esc = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(qid) : qid;
     return quizOutput.querySelector("[data-qid=\"" + esc + "\"]");
+}
+
+// Reveal the model answer for a question (only called after check/submit).
+function revealAnswer(card, qid) {
+    if (!card) return;
+    const ab = card.querySelector('[data-answer="' + cssEscape(qid) + '"]');
+    if (ab) ab.hidden = false;
 }
 
 function handleQuizClick(ev) {
@@ -784,9 +928,46 @@ function handleQuizClick(ev) {
         quizResults[qid] = { done: true, correct: ok };
         fb.hidden = false;
         fb.className = ok ? "feedback ok" : "feedback bad";
-        fb.textContent = ok ? "Correct." : "Incorrect. Compare with the suggested answer below.";
+        fb.textContent = ok ? "Correct." : "Incorrect. Compare with the answer below.";
+        revealAnswer(card, qid);
         updateScoreBanner();
         recordAttempt(item, ok);
+        return;
+    }
+
+    if (t.classList.contains("submit-sa")) {
+        const qid = t.getAttribute("data-qid");
+        const card = findQuestionCard(qid);
+        if (!card) return;
+        const ta = card.querySelector('[data-sa-input="' + cssEscape(qid) + '"]');
+        const fb = card.querySelector('[data-feedback="' + cssEscape(qid) + '"]');
+        const item = generatedQuestions.find(function (x) { return x.id === qid; });
+        if (!item || !fb || !ta) return;
+
+        if (quizResults[qid] && quizResults[qid].submitted) return;
+
+        const answerText = sanitizeText(ta.value);
+        if (!answerText) {
+            fb.hidden = false;
+            fb.className = "feedback bad";
+            fb.textContent = "Type your answer first.";
+            return;
+        }
+
+        // Lock the input and remember what the student wrote.
+        ta.setAttribute("readonly", "readonly");
+        ta.classList.add("locked");
+        item.userAnswer = ta.value.trim();
+        quizResults[qid] = Object.assign({}, quizResults[qid], { submitted: true });
+        t.disabled = true;
+
+        revealAnswer(card, qid);
+        const sg = card.querySelector('[data-selfgrade="' + cssEscape(qid) + '"]');
+        if (sg) sg.hidden = false;
+
+        fb.hidden = false;
+        fb.className = "feedback";
+        fb.textContent = "Answer submitted. Compare with the model answer, then self-grade.";
         return;
     }
 
@@ -1120,6 +1301,7 @@ function addErrorRecord(questionId) {
         type: found.type,
         question: found.question,
         answer: found.answer,
+        userAnswer: found.userAnswer || "",
         status: "not_understood",
         subject: subj,
         createdAt: new Date().toISOString()
@@ -1191,6 +1373,9 @@ function renderErrorRecords() {
                 '<span class="tag ' + statusClass + '">' + statusLabel + "</span>" +
                 "<strong>Mistake " + (index + 1) + "</strong></div>" +
                 "<p>" + escapeHtml(item.question) + "</p>" +
+                (item.userAnswer
+                    ? '<p class="your-answer"><strong>Your answer:</strong> ' + escapeHtml(item.userAnswer) + "</p>"
+                    : "") +
                 '<details class="answer-box"><summary>Suggested answer</summary><p>' + escapeHtml(item.answer) + "</p></details>" +
                 '<div class="actions">' +
                 '<button type="button" class="secondary" data-action="toggle-status" data-id="' + escapeHtml(item.id) + '">' +

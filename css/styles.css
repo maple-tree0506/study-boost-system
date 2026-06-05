@@ -179,9 +179,9 @@ button.outline {
 
 .short-actions { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
 
-details.answer-box {
+.answer-box {
     margin-top: 10px;
-    padding: 8px;
+    padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: #fafafa;
@@ -191,6 +191,34 @@ details.answer-box > summary {
     cursor: pointer;
     font-weight: 600;
     color: var(--primary);
+}
+
+.answer-box h4 {
+    margin: 0 0 6px;
+    font-size: 14px;
+    color: var(--primary);
+}
+
+.sa-input.locked {
+    background: #f3f4f6;
+    color: #374151;
+    cursor: not-allowed;
+}
+
+.selfgrade-q {
+    display: block;
+    width: 100%;
+    font-size: 13px;
+    color: var(--muted, #6b7280);
+    margin-bottom: 2px;
+}
+
+.your-answer {
+    margin: 6px 0;
+    padding: 6px 10px;
+    border-left: 3px solid var(--primary);
+    background: #f8fafc;
+    white-space: pre-wrap;
 }
 
 .tag {

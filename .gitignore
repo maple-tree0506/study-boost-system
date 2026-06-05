@@ -4,3 +4,4 @@ __pycache__/
 .idea/
 studyboost.db
 .pytest_cache/
+.claude/
