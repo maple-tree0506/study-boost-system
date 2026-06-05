@@ -13,7 +13,17 @@
 
 ## Notes
 - This project uses a local proxy (`server.py`). The key stays on the server side.
-- If the API key is missing, the UI falls back to offline demo questions.
+- If the API key is missing or an AI call fails, the UI falls back to an offline
+  question bank that covers **all 14 AP subjects** (basic / medium / challenge
+  tiers). Subjects without a bank degrade honestly instead of showing
+  wrong-subject questions.
+
+## Practice & answers
+- **Answers are gated (Khan-style):** the model answer stays hidden until you
+  act — multiple-choice reveals after "Check answer"; short-answer/FRQ reveals
+  after you type an answer and click "Submit answer", then you self-grade.
+- Short-answer questions include a text box so you write your own response; your
+  answer is saved alongside the question in the mistake log.
 
 ## Progress tracking (SQLite)
 - Every graded question (MCQ "Check answer" or short-answer "Mark correct/incorrect")
@@ -38,5 +48,8 @@
 - `index.html`: page markup
 - `css/styles.css`: styling
 - `js/app.js`: application logic
+- `js/question-bank.js`: offline question bank (all 14 AP subjects, 3 tiers)
 - `server.py`: API proxy + SQLite persistence
 - `studyboost.db`: local progress database (auto-created, git-ignored)
+- `tests/`: pytest suite (run with `pytest -q`; also runs in CI)
+- `DEVLOG.md`: dated development log (decisions, bugs, fixes)
