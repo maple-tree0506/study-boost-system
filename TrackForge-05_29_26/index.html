@@ -14,20 +14,11 @@
         <details class="panel panel-details" id="connectionPanel">
             <summary>Connection &amp; model</summary>
             <div class="details-body">
-                <p class="hint">API keys are read from the server environment only (<code>OPENAI_API_KEY</code> / <code>GEMINI_API_KEY</code>). Open this page via the local proxy (e.g. <code>http://127.0.0.1:8765/</code>), not as a raw <code>file://</code> page.</p>
+                <p class="hint">API key: edit the project file <code>.env</code> (fill in <code>OPENAI_API_KEY</code>), save, then restart <code>server.py</code>. The key stays on the server — never in this page. Open via <code>http://127.0.0.1:8765/</code>, not <code>file://</code>.</p>
                 <div class="status" id="healthStatus" aria-live="polite"></div>
-                <div class="grid-2">
-                    <div class="field">
-                        <label for="providerInput">Provider</label>
-                        <select id="providerInput">
-                            <option value="openai">OpenAI</option>
-                            <option value="gemini">Google Gemini</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="modelInput">Model</label>
-                        <input id="modelInput" type="text" placeholder="e.g. gpt-4o-mini or gemini-2.0-flash" />
-                    </div>
+                <div class="field">
+                    <label for="modelInput">Model</label>
+                    <input id="modelInput" type="text" placeholder="e.g. llama-3.3-70b-versatile" />
                 </div>
                 <div class="actions">
                     <button id="saveUIPrefsBtn" type="button" class="secondary">Save preferences</button>
@@ -85,10 +76,10 @@
             </div>
             <div class="field">
                 <label for="useNotesContextInput" style="display:flex;align-items:center;gap:10px;font-weight:600;margin:0;">
-                    <input id="useNotesContextInput" type="checkbox" checked disabled />
-                    Use last generated summary notes as extra context for questions
+                    <input id="useNotesContextInput" type="checkbox" checked />
+                    Use notes from the box above for practice questions (re-paste new notes before generating)
                 </label>
-                <p class="hint" id="notesContextHint">Generate a summary above first to enable this.</p>
+                <p class="hint" id="notesContextHint">Paste notes above, then generate questions. Different notes should produce different questions.</p>
             </div>
             <div class="actions">
                 <button id="quizBtn" type="button">Generate Practice Questions</button>
@@ -117,6 +108,18 @@
             <div class="status" id="errorStatus" aria-live="polite"></div>
             <div class="output" id="errorOutput">
                 <p class="empty">No mistake records yet.</p>
+            </div>
+        </section>
+
+        <section class="panel" aria-labelledby="progress-title">
+            <h2 id="progress-title">4) Progress</h2>
+            <p class="hint">Accuracy and volume from every question you grade. Stored on the server (SQLite); queued locally and synced if the server is offline.</p>
+            <div class="actions">
+                <button id="refreshStatsBtn" type="button" class="secondary">Refresh</button>
+            </div>
+            <div class="status" id="statsStatus" aria-live="polite"></div>
+            <div class="output" id="statsOutput">
+                <p class="empty">No progress yet.</p>
             </div>
         </section>
     </main>

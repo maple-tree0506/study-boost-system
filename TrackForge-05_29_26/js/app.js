@@ -1,6 +1,7 @@
 
 const STORAGE_KEY_ERRORS = "studyBoostMistakesV2";
 const STORAGE_UI = "studyBoostUIPrefsV1";
+const STORAGE_ATTEMPT_QUEUE = "studyBoostAttemptQueueV1";
 
 const AP_SUBJECTS = [
     { id: "calc_ab", label: "AP Calculus AB" },
@@ -26,7 +27,7 @@ let mistakeSubjectFilter = "";
 let lastNotesContext = "";
 let serverHealthy = false;
 let healthReady = false;
-let healthConfig = { openai_configured: false, gemini_configured: false };
+let healthConfig = { openai_configured: false };
 
 let quizResults = {};
 
@@ -35,7 +36,6 @@ const summaryBtn = document.getElementById("summaryBtn");
 const summaryStatus = document.getElementById("summaryStatus");
 const summaryOutput = document.getElementById("summaryOutput");
 
-const providerInput = document.getElementById("providerInput");
 const modelInput = document.getElementById("modelInput");
 const saveUIPrefsBtn = document.getElementById("saveUIPrefsBtn");
 const uiPrefsStatus = document.getElementById("uiPrefsStatus");
@@ -51,6 +51,10 @@ const difficultyInput = document.getElementById("difficultyInput");
 const quizBtn = document.getElementById("quizBtn");
 const quizStatus = document.getElementById("quizStatus");
 const quizOutput = document.getElementById("quizOutput");
+
+const refreshStatsBtn = document.getElementById("refreshStatsBtn");
+const statsStatus = document.getElementById("statsStatus");
+const statsOutput = document.getElementById("statsOutput");
 
 const mistakeSubjectFilterEl = document.getElementById("mistakeSubjectFilter");
 const showAllBtn = document.getElementById("showAllBtn");
@@ -80,17 +84,11 @@ function cssEscape(value) {
 }
 
 function isProviderConfigured() {
-    const provider = providerInput.value || "openai";
-    return provider === "gemini"
-        ? healthConfig.gemini_configured
-        : healthConfig.openai_configured;
+    return healthConfig.openai_configured;
 }
 
 function providerKeyHint() {
-    const provider = providerInput.value || "openai";
-    return provider === "gemini"
-        ? "Set GEMINI_API_KEY in the environment and restart server.py."
-        : "Set OPENAI_API_KEY in the environment and restart server.py.";
+    return "Add OPENAI_API_KEY to the .env file and restart server.py.";
 }
 
 function setAIControlsBusy(busy) {
@@ -128,47 +126,28 @@ function getSentences(text) {
 function readUIPrefs() {
     try {
         const raw = localStorage.getItem(STORAGE_UI);
-        if (!raw) return { provider: "openai", model: "" };
+        if (!raw) return { model: "" };
         const p = JSON.parse(raw);
-        return {
-            provider: p.provider === "gemini" ? "gemini" : "openai",
-            model: typeof p.model === "string" ? p.model : ""
-        };
+        return { model: typeof p.model === "string" ? p.model : "" };
     } catch (e) {
-        return { provider: "openai", model: "" };
+        return { model: "" };
     }
 }
 
 function saveUIPrefs() {
-    const prefs = {
-        provider: providerInput.value,
-        model: sanitizeText(modelInput.value)
-    };
+    const prefs = { model: sanitizeText(modelInput.value) };
     localStorage.setItem(STORAGE_UI, JSON.stringify(prefs));
     uiPrefsStatus.textContent = "Preferences saved.";
 }
 
 function applyUIPrefs() {
     const p = readUIPrefs();
-    providerInput.value = p.provider;
     modelInput.value = p.model || defaultModelPlaceholder();
 }
 
 function defaultModelPlaceholder() {
-    return providerInput.value === "gemini" ? "gemini-2.0-flash" : "gpt-4o-mini";
+    return "llama-3.3-70b-versatile";
 }
-
-providerInput.addEventListener("change", function () {
-    if (!sanitizeText(modelInput.value)) {
-        modelInput.placeholder = defaultModelPlaceholder();
-    }
-    if (healthReady && serverHealthy) {
-        const base = healthStatus.textContent.split(" Selected provider")[0];
-        healthStatus.textContent = isProviderConfigured()
-            ? base + "."
-            : base + " Selected provider has no key — offline/demo mode until configured.";
-    }
-});
 
 function readErrorRecords() {
     try {
@@ -211,17 +190,44 @@ function populateSubjectSelects() {
     });
 }
 
-function updateNotesContextUI() {
-    const hasNotes = !!sanitizeText(lastNotesContext);
-    useNotesContextInput.disabled = !hasNotes;
-    if (!hasNotes) {
-        useNotesContextInput.checked = false;
-    } else {
-        useNotesContextInput.checked = true;
+function getQuizNotesContext() {
+    if (!useNotesContextInput.checked) {
+        return { text: "", source: "none" };
     }
-    notesContextHint.textContent = hasNotes
-        ? "Questions can use your summarized notes for tighter alignment."
-        : "Generate a summary above first to enable this.";
+    const fromBox = sanitizeText(noteInput.value);
+    if (fromBox) {
+        return { text: fromBox, source: "textarea" };
+    }
+    const fromSummary = sanitizeText(lastNotesContext);
+    if (fromSummary) {
+        return { text: fromSummary, source: "summary" };
+    }
+    return { text: "", source: "none" };
+}
+
+function notesContextSeed(text) {
+    const s = String(text || "default");
+    let h = 0;
+    for (let i = 0; i < s.length; i++) {
+        h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    }
+    return Math.abs(h);
+}
+
+function updateNotesContextUI() {
+    const fromBox = !!sanitizeText(noteInput.value);
+    const fromSummary = !!sanitizeText(lastNotesContext);
+    const hasAny = fromBox || fromSummary;
+    useNotesContextInput.disabled = false;
+    if (!hasAny && useNotesContextInput.checked) {
+        notesContextHint.textContent = "Paste notes in the box above (or generate a summary) before using note-based questions.";
+    } else if (fromBox) {
+        notesContextHint.textContent = "Will use the notes currently in the box (" + sanitizeText(noteInput.value).length + " chars). Change notes, then click Generate again.";
+    } else if (fromSummary) {
+        notesContextHint.textContent = "Box is empty — will use your last AI summary. Paste new notes in the box for different questions.";
+    } else {
+        notesContextHint.textContent = "Optional: paste notes to tailor questions to your material.";
+    }
 }
 
 function refreshMistakeFilterOptions() {
@@ -370,26 +376,27 @@ async function fetchHealth() {
     healthStatus.textContent = "Checking proxy connection...";
     try {
         const res = await fetch("/api/health", { method: "GET" });
-        if (!res.ok) throw new Error("bad");
+        if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
         serverHealthy = !!data.ok;
         healthConfig.openai_configured = !!data.openai_configured;
-        healthConfig.gemini_configured = !!data.gemini_configured;
-        const o = healthConfig.openai_configured ? "OpenAI key OK" : "OpenAI key missing";
-        const g = healthConfig.gemini_configured ? "Gemini key OK" : "Gemini key missing";
-        healthStatus.textContent = "Proxy: connected · " + o + " · " + g + ".";
+        const o = healthConfig.openai_configured ? "API key OK" : "API key missing";
+        healthStatus.textContent = "Proxy: connected · " + o + ".";
         if (!isProviderConfigured()) {
-            healthStatus.textContent += " Selected provider has no key — offline/demo mode until configured.";
+            healthStatus.textContent += " No API key — offline/demo mode until configured.";
         }
     } catch (e) {
         serverHealthy = false;
         healthConfig.openai_configured = false;
-        healthConfig.gemini_configured = false;
         healthStatus.textContent = "Proxy not reachable. Run server.py and open http://127.0.0.1:8765/ — do not use file://.";
     } finally {
         healthReady = true;
         setAIControlsBusy(false);
     }
+    if (serverHealthy) {
+        await flushAttemptQueue();
+    }
+    loadStats();
 }
 
 function canUseLiveAI() {
@@ -397,10 +404,9 @@ function canUseLiveAI() {
 }
 
 async function proxyChat(messages) {
-    const provider = providerInput.value || "openai";
     const model = sanitizeText(modelInput.value);
     if (!model) {
-        throw new Error("Set a model in Connection & model (e.g. gpt-4o-mini).");
+        throw new Error("Set a model in Connection & model (e.g. llama-3.3-70b-versatile).");
     }
     if (!isProviderConfigured()) {
         throw new Error(providerKeyHint());
@@ -408,7 +414,7 @@ async function proxyChat(messages) {
     const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: provider, model: model, messages: messages })
+        body: JSON.stringify({ model: model, messages: messages })
     });
     let data = {};
     try {
@@ -467,7 +473,8 @@ async function generateQuizWithAI(topic, difficulty, expected, apSubjectId, note
         user += "Topic focus: " + topic + "\n";
     }
     if (sanitizeText(notesContext)) {
-        user += "\nContext from student notes (use for alignment, do not quote verbatim):\n" + notesContext.slice(0, 8000) + "\n";
+        user += "\nContext from student notes — REQUIRED: base every question on specific concepts from these notes. Do not reuse generic templates. Vary topics across questions.\n";
+        user += notesContext.slice(0, 8000) + "\n";
     }
     user += "\nGenerate exactly " + (expected.mcq + expected.sa) + " questions as specified.";
 
@@ -496,10 +503,15 @@ function summarizeNotesDemo(raw) {
     return { simplifiedSummary: summaryText || normalized, keyPointsHtml: listHtml };
 }
 
-function createMockQuestions(topic, apSubjectId, difficulty, expected) {
+function createMockQuestions(topic, apSubjectId, difficulty, expected, notesContext) {
     const label = { basic: "Basic", medium: "Medium", challenge: "Challenge" }[difficulty] || "Medium";
     const course = subjectLabelFromId(apSubjectId);
     const focus = sanitizeText(topic) || course;
+    const notesSeed = notesContextSeed(notesContext || topic || course);
+    const notesLead = sanitizeText(notesContext).slice(0, 120);
+    const notesPrefix = notesLead
+        ? "[From your notes: \"" + notesLead + (notesLead.length >= 120 ? "…" : "") + "\"] "
+        : "";
 
     const bank = {
         calc_ab: {
@@ -610,26 +622,24 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected) {
     const pack = bank[key] || bank.calc_ab;
 
     const out = [];
-    let mi = 0;
-    let si = 0;
+    let mi = notesSeed % pack.mcq.length;
+    let si = (notesSeed >> 4) % pack.sa.length;
     for (let i = 0; i < expected.mcq; i++) {
-        const item = pack.mcq[mi % pack.mcq.length];
-        mi++;
+        const item = pack.mcq[(mi + i) % pack.mcq.length];
         out.push({
-            id: "mcq-demo-" + Date.now() + "-" + i,
+            id: "mcq-demo-" + Date.now() + "-" + i + "-" + notesSeed,
             type: "Multiple Choice",
-            question: item.q,
+            question: notesPrefix + item.q,
             options: item.o.slice(),
             answer: item.a
         });
     }
     for (let j = 0; j < expected.sa; j++) {
-        const item = pack.sa[si % pack.sa.length];
-        si++;
+        const item = pack.sa[(si + j) % pack.sa.length];
         out.push({
-            id: "sa-demo-" + Date.now() + "-" + j,
+            id: "sa-demo-" + Date.now() + "-" + j + "-" + notesSeed,
             type: "Short Answer",
-            question: item.q,
+            question: notesPrefix + item.q,
             answer: item.a
         });
     }
@@ -764,6 +774,7 @@ function handleQuizClick(ev) {
         fb.className = ok ? "feedback ok" : "feedback bad";
         fb.textContent = ok ? "Correct." : "Incorrect. Compare with the suggested answer below.";
         updateScoreBanner();
+        recordAttempt(item, ok);
         return;
     }
 
@@ -787,10 +798,224 @@ function handleQuizClick(ev) {
             fb.textContent = isCorrect ? "Counted as correct." : "Counted as incorrect.";
         }
         updateScoreBanner();
+        const item = generatedQuestions.find(function (x) { return x.id === qid; });
+        recordAttempt(item, isCorrect);
     }
 }
 
 quizOutput.addEventListener("click", handleQuizClick);
+
+function tagQuizSubject(subjectLabel) {
+    generatedQuestions.forEach(function (q) {
+        q.subject = subjectLabel || "Uncategorized";
+    });
+}
+
+function readAttemptQueue() {
+    try {
+        const raw = localStorage.getItem(STORAGE_ATTEMPT_QUEUE);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function writeAttemptQueue(list) {
+    try {
+        localStorage.setItem(STORAGE_ATTEMPT_QUEUE, JSON.stringify(list.slice(-500)));
+    } catch (e) {
+        // storage full or unavailable — nothing else we can do offline
+    }
+}
+
+function queueAttempt(payload) {
+    const list = readAttemptQueue();
+    list.push(payload);
+    writeAttemptQueue(list);
+}
+
+// FR1/FR2/FR5: record a graded result. Always succeeds locally; syncs when possible.
+function recordAttempt(item, correct) {
+    if (!item) return;
+    const payload = {
+        subject: item.subject || subjectLabelFromId(apSubjectInput.value) || "Uncategorized",
+        type: item.type || "Unknown",
+        correct: !!correct,
+        ts: new Date().toISOString()
+    };
+    sendAttempt(payload);
+}
+
+async function postAttempt(payload) {
+    const res = await fetch("/api/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.json();
+}
+
+async function sendAttempt(payload) {
+    if (window.location.protocol === "file:" || !serverHealthy) {
+        queueAttempt(payload);
+        return;
+    }
+    try {
+        await postAttempt(payload);
+        flushAttemptQueue();
+    } catch (e) {
+        queueAttempt(payload);
+    }
+}
+
+async function flushAttemptQueue() {
+    if (window.location.protocol === "file:" || !serverHealthy) return;
+    let list = readAttemptQueue();
+    if (!list.length) return;
+
+    const remaining = [];
+    for (let i = 0; i < list.length; i++) {
+        try {
+            await postAttempt(list[i]);
+        } catch (e) {
+            // stop on first failure; keep this item and the rest for next time
+            remaining.push.apply(remaining, list.slice(i));
+            break;
+        }
+    }
+    writeAttemptQueue(remaining);
+}
+
+function computeLocalStats(queue) {
+    const total = queue.length;
+    const correctTotal = queue.reduce(function (n, a) { return n + (a.correct ? 1 : 0); }, 0);
+
+    const subjMap = {};
+    const dayMap = {};
+    queue.forEach(function (a) {
+        const subj = a.subject || "Uncategorized";
+        if (!subjMap[subj]) subjMap[subj] = { answered: 0, correct: 0 };
+        subjMap[subj].answered++;
+        subjMap[subj].correct += a.correct ? 1 : 0;
+
+        const day = (a.ts || "").slice(0, 10);
+        if (day) {
+            if (!dayMap[day]) dayMap[day] = { answered: 0, correct: 0 };
+            dayMap[day].answered++;
+            dayMap[day].correct += a.correct ? 1 : 0;
+        }
+    });
+
+    const bySubject = Object.keys(subjMap).map(function (name) {
+        const v = subjMap[name];
+        return { subject: name, answered: v.answered, correct: v.correct, accuracy: v.answered ? v.correct / v.answered : 0 };
+    }).sort(function (a, b) { return b.answered - a.answered; });
+
+    const daily = [];
+    const today = new Date();
+    for (let i = 13; i >= 0; i--) {
+        const d = new Date(today.getTime() - i * 86400000);
+        const key = d.toISOString().slice(0, 10);
+        const e = dayMap[key] || { answered: 0, correct: 0 };
+        daily.push({ date: key, answered: e.answered, correct: e.correct, accuracy: e.answered ? e.correct / e.answered : 0 });
+    }
+
+    return {
+        overall: { answered: total, correct: correctTotal, accuracy: total ? correctTotal / total : 0 },
+        bySubject: bySubject,
+        daily: daily
+    };
+}
+
+function pct(x) {
+    return Math.round((x || 0) * 100);
+}
+
+function accuracyClass(accuracy, answered) {
+    if (!answered) return "acc-none";
+    if (accuracy >= 0.8) return "acc-high";
+    if (accuracy >= 0.5) return "acc-mid";
+    return "acc-low";
+}
+
+function renderStats(data, localOnly) {
+    const overall = data.overall || { answered: 0, correct: 0, accuracy: 0 };
+    let html = "";
+
+    if (localOnly) {
+        html += '<p class="stats-notice">Showing local-only data (server unreachable). ' +
+            'These are unsynced results queued on this device and will merge once the server is back.</p>';
+    }
+
+    html += '<div class="stat-cards">';
+    html += '<div class="stat-card"><span class="stat-num">' + pct(overall.accuracy) + '%</span><span class="stat-label">Overall accuracy</span></div>';
+    html += '<div class="stat-card"><span class="stat-num">' + overall.answered + '</span><span class="stat-label">Questions answered</span></div>';
+    html += '<div class="stat-card"><span class="stat-num">' + overall.correct + '</span><span class="stat-label">Correct</span></div>';
+    html += "</div>";
+
+    const bySubject = data.bySubject || [];
+    html += "<h3>By subject</h3>";
+    if (!bySubject.length) {
+        html += '<p class="empty">No graded questions yet. Answer a quiz question to start tracking.</p>';
+    } else {
+        html += '<div class="subject-bars">';
+        bySubject.forEach(function (s) {
+            html += '<div class="subject-row">';
+            html += '<span class="subject-name">' + escapeHtml(s.subject) + "</span>";
+            html += '<span class="bar-track"><span class="bar-fill ' + accuracyClass(s.accuracy, s.answered) + '" style="width:' + pct(s.accuracy) + '%"></span></span>';
+            html += '<span class="subject-meta">' + pct(s.accuracy) + "% (" + s.correct + "/" + s.answered + ")</span>";
+            html += "</div>";
+        });
+        html += "</div>";
+    }
+
+    const daily = data.daily || [];
+    const maxVol = daily.reduce(function (m, d) { return Math.max(m, d.answered); }, 0);
+    html += "<h3>Last 14 days</h3>";
+    html += '<p class="hint">Bar height = questions answered · color = accuracy (red &lt;50%, amber 50–79%, green ≥80%).</p>';
+    html += '<div class="trend">';
+    daily.forEach(function (d) {
+        const heightPct = maxVol ? Math.max(6, Math.round((d.answered / maxVol) * 100)) : 0;
+        const title = d.date + ": " + d.answered + " answered" + (d.answered ? ", " + pct(d.accuracy) + "% correct" : "");
+        const label = d.date.slice(5);
+        html += '<div class="trend-col" title="' + escapeHtml(title) + '">';
+        html += '<span class="trend-bar-wrap">';
+        if (d.answered) {
+            html += '<span class="trend-bar ' + accuracyClass(d.accuracy, d.answered) + '" style="height:' + heightPct + '%"></span>';
+        }
+        html += "</span>";
+        html += '<span class="trend-label">' + escapeHtml(label) + "</span>";
+        html += "</div>";
+    });
+    html += "</div>";
+
+    statsOutput.innerHTML = html;
+}
+
+// FR3/FR4: load and render stats; FR5 fallback to local queue when offline.
+async function loadStats() {
+    statsStatus.textContent = "Loading progress...";
+    await flushAttemptQueue();
+
+    if (window.location.protocol === "file:" || !serverHealthy) {
+        renderStats(computeLocalStats(readAttemptQueue()), true);
+        statsStatus.textContent = "Local-only mode (server unreachable).";
+        return;
+    }
+
+    try {
+        const res = await fetch("/api/stats");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        renderStats(data, false);
+        statsStatus.textContent = "Progress updated from server.";
+    } catch (e) {
+        renderStats(computeLocalStats(readAttemptQueue()), true);
+        statsStatus.textContent = "Server unreachable — showing local-only data.";
+    }
+}
 
 async function generateQuiz() {
     const topic = sanitizeText(topicInput.value);
@@ -798,19 +1023,25 @@ async function generateQuiz() {
     const expected = parseFormat(questionFormatInput.value);
     const apId = apSubjectInput.value;
     const subjectLabel = subjectLabelFromId(apId);
-    const notesCtx = useNotesContextInput.checked ? lastNotesContext : "";
+    const ctx = getQuizNotesContext();
+    const notesCtx = ctx.text;
 
     if (expected.mcq + expected.sa < 1) {
         quizStatus.textContent = "Choose a format with at least one question.";
         return;
     }
 
-    quizStatus.textContent = "Generating questions...";
+    const ctxLabel =
+        ctx.source === "textarea" ? "notes in box (" + notesCtx.length + " chars)" :
+        ctx.source === "summary" ? "last AI summary (" + notesCtx.length + " chars)" :
+        "no notes (course/topic only)";
+    quizStatus.textContent = "Generating questions using " + ctxLabel + "...";
     quizResults = {};
 
     const tryDemo = function (reason) {
-        quizStatus.textContent = reason + " Showing AP-style offline questions.";
-        generatedQuestions = createMockQuestions(topic, apId, difficulty, expected);
+        quizStatus.textContent = reason + " Offline questions (seeded from your notes). " + ctxLabel + ".";
+        generatedQuestions = createMockQuestions(topic, apId, difficulty, expected, notesCtx);
+        tagQuizSubject(subjectLabel);
         renderQuestions();
     };
 
@@ -822,7 +1053,7 @@ async function generateQuiz() {
     if (!canUseLiveAI()) {
         const reason = !serverHealthy
             ? "Proxy unavailable."
-            : "API key missing for selected provider.";
+            : "API key missing.";
         tryDemo(reason);
         return;
     }
@@ -845,8 +1076,9 @@ async function generateQuiz() {
             }
         }
 
+        tagQuizSubject(subjectLabel);
         renderQuestions();
-        quizStatus.textContent = "Questions generated (AI).";
+        quizStatus.textContent = "Questions generated (AI) from " + ctxLabel + ".";
     } catch (err) {
         tryDemo("AI quiz failed: " + err.message);
     } finally {
@@ -1048,12 +1280,18 @@ saveUIPrefsBtn.addEventListener("click", saveUIPrefs);
 
 retryHealthBtn.addEventListener("click", fetchHealth);
 
+if (refreshStatsBtn) {
+    refreshStatsBtn.addEventListener("click", loadStats);
+}
+
 if (window.location.protocol === "file:") {
     healthStatus.textContent =
         "Opened as a local file — styles may work, but AI needs the server. Run: py server.py, then open http://127.0.0.1:8765/";
     healthReady = true;
     serverHealthy = false;
 }
+
+noteInput.addEventListener("input", updateNotesContextUI);
 
 populateSubjectSelects();
 applyUIPrefs();
@@ -1064,4 +1302,7 @@ if (window.location.protocol !== "file:") {
 updateNotesContextUI();
 renderErrorRecords();
 refreshMistakeFilterOptions();
+if (window.location.protocol === "file:") {
+    loadStats();
+}
     
