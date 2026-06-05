@@ -388,5 +388,146 @@ window.OFFLINE_BANK = {
                 { q: "Design a management plan to protect biodiversity in {focus}.", a: "Combine habitat protection, reduction of pollution and invasive species, sustainable use, and monitoring, justified with ecological principles." }
             ]
         }
+    },
+
+    psych: {
+        basic: {
+            mcq: [
+                { q: "The part of a neuron that receives signals from other neurons is the:", o: ["A. axon", "B. dendrite", "C. myelin sheath", "D. synapse"], a: "B. dendrite" },
+                { q: "Which part of the brain regulates balance and coordinated movement?", o: ["A. Cerebellum", "B. Hippocampus", "C. Amygdala", "D. Hypothalamus"], a: "A. Cerebellum" },
+                { q: "Classical conditioning was first described by:", o: ["A. B.F. Skinner", "B. Sigmund Freud", "C. Ivan Pavlov", "D. Jean Piaget"], a: "C. Ivan Pavlov" },
+                { q: "The tendency to best recall the first and last items in a list is the:", o: ["A. serial position effect", "B. framing effect", "C. placebo effect", "D. halo effect"], a: "A. serial position effect" }
+            ],
+            sa: [
+                { q: "Define a neuron.", a: "A nerve cell that transmits electrical and chemical signals throughout the nervous system." },
+                { q: "What is the difference between sensation and perception?", a: "Sensation is detecting stimuli with sense organs; perception is the brain's organization and interpretation of that input." },
+                { q: "State the difference between classical and operant conditioning.", a: "Classical conditioning associates two stimuli (involuntary responses); operant conditioning links behavior to consequences (reinforcement or punishment)." },
+                { q: "Name the four lobes of the cerebral cortex.", a: "Frontal, parietal, temporal, and occipital lobes." }
+            ]
+        },
+        medium: {
+            mcq: [
+                { q: "In Pavlov's experiment, the food is the:", o: ["A. conditioned stimulus", "B. unconditioned stimulus", "C. conditioned response", "D. neutral stimulus"], a: "B. unconditioned stimulus" },
+                { q: "Positive reinforcement involves:", o: ["A. removing a pleasant stimulus", "B. adding a pleasant stimulus to increase a behavior", "C. adding an unpleasant stimulus", "D. ignoring a behavior"], a: "B. adding a pleasant stimulus to increase a behavior" },
+                { q: "Which neurotransmitter is most associated with reward and movement?", o: ["A. Dopamine", "B. Insulin", "C. Melatonin", "D. Cortisol"], a: "A. Dopamine" },
+                { q: "The independent variable in an experiment is:", o: ["A. the measured outcome", "B. the factor the researcher manipulates", "C. a confounding variable", "D. the control group"], a: "B. the factor the researcher manipulates" },
+                { q: "According to Piaget, object permanence develops during the:", o: ["A. sensorimotor stage", "B. preoperational stage", "C. concrete operational stage", "D. formal operational stage"], a: "A. sensorimotor stage" }
+            ],
+            sa: [
+                { q: "Explain how operant conditioning could shape a behavior related to {focus}.", a: "Reinforce desired responses (add a reward or remove an aversive) and/or punish undesired ones; use shaping through successive approximations." },
+                { q: "Distinguish the roles of two brain regions relevant to {focus}.", a: "Name two regions (e.g., amygdala for emotion, hippocampus for memory) and contrast how each contributes to the behavior." },
+                { q: "Describe how a researcher would design an experiment to study {focus}.", a: "State a hypothesis, identify the independent and dependent variables, randomly assign to experimental vs control groups, control confounds, and measure the outcome." },
+                { q: "Explain a memory process (encoding, storage, retrieval) as it applies to {focus}.", a: "Encoding brings information in (e.g., elaborative rehearsal), storage maintains it, and retrieval brings it back via cues; relate each to the behavior." },
+                { q: "Apply a major psychological perspective (e.g., cognitive, behavioral) to {focus}.", a: "State the perspective's core idea and use it to explain the behavior (behavioral: learned via conditioning; cognitive: based on mental processing)." }
+            ]
+        },
+        challenge: {
+            mcq: [
+                { q: "A study finds a correlation of +0.8 between two variables. This means:", o: ["A. one causes the other", "B. they have a strong positive association", "C. there is no relationship", "D. the study is an experiment"], a: "B. they have a strong positive association" },
+                { q: "Which research method best establishes cause and effect?", o: ["A. case study", "B. naturalistic observation", "C. randomized experiment", "D. survey"], a: "C. randomized experiment" },
+                { q: "The misinformation effect is most relevant to:", o: ["A. sensory adaptation", "B. the reconstructive nature of memory", "C. operant conditioning", "D. color vision"], a: "B. the reconstructive nature of memory" },
+                { q: "A double-blind procedure controls for:", o: ["A. the placebo effect and experimenter bias", "B. random sampling", "C. confounding genes", "D. the dependent variable"], a: "A. the placebo effect and experimenter bias" }
+            ],
+            sa: [
+                { q: "Evaluate the ethics of a study investigating {focus}, naming two safeguards.", a: "Address informed consent, protection from harm, confidentiality, debriefing, and the right to withdraw." },
+                { q: "Compare two theories that explain {focus} and cite supporting evidence.", a: "State each theory's mechanism, contrast their predictions, and reference research that supports or challenges each." },
+                { q: "Explain how biological, cognitive, and social factors interact in {focus}.", a: "Describe a biological contributor, a cognitive/learning contributor, and a social/cultural contributor, and how they combine (biopsychosocial)." },
+                { q: "Interpret experimental results about {focus}, addressing validity and reliability.", a: "Discuss whether the independent variable caused the change (internal validity), how far results generalize (external validity), and consistency (reliability)." }
+            ]
+        }
+    },
+
+    ush: {
+        basic: {
+            mcq: [
+                { q: "The Declaration of Independence was adopted in:", o: ["A. 1607", "B. 1776", "C. 1812", "D. 1865"], a: "B. 1776" },
+                { q: "The U.S. Civil War was fought primarily over:", o: ["A. the taxation of tea", "B. slavery and states' rights", "C. westward railroads", "D. the Cold War"], a: "B. slavery and states' rights" },
+                { q: "The system of checks and balances divides power among:", o: ["A. three branches of government", "B. the states only", "C. political parties", "D. the military"], a: "A. three branches of government" },
+                { q: "The New Deal was a response to:", o: ["A. World War I", "B. the Great Depression", "C. the Cold War", "D. the Vietnam War"], a: "B. the Great Depression" }
+            ],
+            sa: [
+                { q: "What was the main purpose of the Declaration of Independence?", a: "To announce and justify the colonies' separation from Britain, asserting natural rights and government by the consent of the governed." },
+                { q: "Name two causes of the American Revolution.", a: "Examples: taxation without representation, restrictions on colonial self-government, the Coercive (Intolerable) Acts, and Enlightenment ideas." },
+                { q: "What did the Emancipation Proclamation do?", a: "It declared enslaved people in the Confederate states to be free (1863), reframing the Civil War around ending slavery." },
+                { q: "Define federalism.", a: "A system that divides power between a national government and state governments." }
+            ]
+        },
+        medium: {
+            mcq: [
+                { q: "The Louisiana Purchase (1803) under Jefferson:", o: ["A. ended slavery", "B. roughly doubled the size of the United States", "C. started the Civil War", "D. created the Federal Reserve"], a: "B. roughly doubled the size of the United States" },
+                { q: "Reconstruction (1865-1877) primarily addressed:", o: ["A. rebuilding the South and the rights of formerly enslaved people", "B. the Cold War", "C. westward railroads only", "D. women's suffrage"], a: "A. rebuilding the South and the rights of formerly enslaved people" },
+                { q: "The Progressive Era is best known for:", o: ["A. laissez-faire with no reform", "B. reforms against corruption, monopolies, and poor working conditions", "C. starting World War II", "D. the Louisiana Purchase"], a: "B. reforms against corruption, monopolies, and poor working conditions" },
+                { q: "The Monroe Doctrine (1823) warned:", o: ["A. European powers against further colonization in the Americas", "B. against any income tax", "C. the South against secession", "D. Japan against attacking Pearl Harbor"], a: "A. European powers against further colonization in the Americas" },
+                { q: "Manifest Destiny was the belief that:", o: ["A. the U.S. should avoid expansion", "B. the U.S. was destined to expand across the continent", "C. slavery should end immediately", "D. states could nullify federal laws"], a: "B. the U.S. was destined to expand across the continent" }
+            ],
+            sa: [
+                { q: "Identify a major cause and effect of an event connected to {focus}.", a: "State a clear cause, link it to a specific consequence, and explain the connection with evidence." },
+                { q: "Explain how an idea or document shaped developments related to {focus}.", a: "Name the idea or document, describe its principles, and trace its influence on later events or policy." },
+                { q: "Describe a continuity and a change over time relating to {focus}.", a: "Identify something that persisted and something that changed across the period, each with a specific example." },
+                { q: "Analyze the role of a key group or individual in {focus}.", a: "Explain who they were, what they did, and how it affected the broader historical development." },
+                { q: "Compare two perspectives on an issue tied to {focus}.", a: "Present each side's reasoning and interests, then explain where and why they conflicted." }
+            ]
+        },
+        challenge: {
+            mcq: [
+                { q: "The Federalist Papers were written to:", o: ["A. oppose the Constitution", "B. argue for ratification of the Constitution", "C. declare independence", "D. begin Reconstruction"], a: "B. argue for ratification of the Constitution" },
+                { q: "The Compromise of 1850 attempted to:", o: ["A. end the Revolution", "B. balance free and slave state interests, including a stronger Fugitive Slave Act", "C. create the New Deal", "D. purchase Alaska"], a: "B. balance free and slave state interests, including a stronger Fugitive Slave Act" },
+                { q: "A major long-term effect of the Cold War on U.S. society was:", o: ["A. isolation from world affairs", "B. military buildup, the containment policy, and domestic anticommunism", "C. the Louisiana Purchase", "D. the end of federalism"], a: "B. military buildup, the containment policy, and domestic anticommunism" },
+                { q: "The 14th Amendment is significant because it:", o: ["A. abolished slavery", "B. granted citizenship and equal protection under the law", "C. gave women the vote", "D. created the income tax"], a: "B. granted citizenship and equal protection under the law" }
+            ],
+            sa: [
+                { q: "Construct an argument with evidence about a historical question related to {focus}.", a: "State a clear thesis, support it with at least two specific pieces of evidence, and explain how they prove the claim." },
+                { q: "Evaluate the most important cause of a development in {focus} and defend your choice.", a: "Rank the causes, argue why one is most significant, and address a reasonable counterargument." },
+                { q: "Analyze change and continuity over time for {focus}, including a turning point.", a: "Identify what changed and what stayed the same, name a turning point, and explain its significance." },
+                { q: "Assess the effects of a policy or movement in {focus} on different groups.", a: "Explain the impact on at least two groups (e.g., by region, race, or class), supported by specific evidence." }
+            ]
+        }
+    },
+
+    world: {
+        basic: {
+            mcq: [
+                { q: "The Silk Road primarily facilitated:", o: ["A. trade and cultural exchange across Eurasia", "B. naval warfare", "C. the Industrial Revolution", "D. the Cold War"], a: "A. trade and cultural exchange across Eurasia" },
+                { q: "Which river was central to ancient Egyptian civilization?", o: ["A. Amazon", "B. Nile", "C. Mississippi", "D. Thames"], a: "B. Nile" },
+                { q: "The Columbian Exchange refers to:", o: ["A. the transfer of plants, animals, and diseases between the Old and New Worlds", "B. a Cold War treaty", "C. a Chinese dynasty", "D. a Greek philosophy"], a: "A. the transfer of plants, animals, and diseases between the Old and New Worlds" },
+                { q: "Monotheism is the belief in:", o: ["A. many gods", "B. one god", "C. no gods", "D. nature spirits"], a: "B. one god" }
+            ],
+            sa: [
+                { q: "What was the significance of the Silk Road?", a: "It connected Asia, the Middle East, and Europe, enabling trade in goods and the spread of ideas, religions, and technologies." },
+                { q: "Define empire.", a: "A large political unit that controls diverse peoples and territories under a single ruling authority." },
+                { q: "Name one effect of the Columbian Exchange.", a: "Examples: new crops (potatoes, maize) reshaped diets and populations; diseases devastated Indigenous Americans; animals and silver were transferred." },
+                { q: "What is the difference between a nomadic and a settled (agrarian) society?", a: "Nomadic peoples move with herds and resources; agrarian societies farm fixed land, which enables cities and complex states." }
+            ]
+        },
+        medium: {
+            mcq: [
+                { q: "The Mongol Empire is best known for:", o: ["A. building the pyramids", "B. creating the largest contiguous land empire and promoting Eurasian trade", "C. starting the Renaissance", "D. colonizing the Americas"], a: "B. creating the largest contiguous land empire and promoting Eurasian trade" },
+                { q: "The Renaissance was characterized by:", o: ["A. a revival of classical learning, art, and humanism", "B. the fall of Rome", "C. the Cold War", "D. the Bronze Age"], a: "A. a revival of classical learning, art, and humanism" },
+                { q: "A major effect of the Industrial Revolution was:", o: ["A. de-urbanization", "B. factory production, urbanization, and new social classes", "C. the end of all trade", "D. the Silk Road"], a: "B. factory production, urbanization, and new social classes" },
+                { q: "The spread of Islam after the 7th century occurred largely through:", o: ["A. trade, conquest, and missionary activity", "B. the printing press", "C. the Columbian Exchange", "D. the Cold War"], a: "A. trade, conquest, and missionary activity" },
+                { q: "Mercantilism held that a nation's power depended on:", o: ["A. free trade with no tariffs", "B. accumulating wealth (e.g., gold and silver) and a favorable balance of trade", "C. abolishing colonies", "D. communism"], a: "B. accumulating wealth (e.g., gold and silver) and a favorable balance of trade" }
+            ],
+            sa: [
+                { q: "Explain how trade networks connected regions in relation to {focus}.", a: "Name the network, the goods and ideas exchanged, and the regions linked, with one specific effect." },
+                { q: "Describe a cause and an effect of an event tied to {focus}.", a: "State a cause, connect it to a specific consequence, and explain the link with evidence." },
+                { q: "Analyze how a belief system or ideology spread in {focus}.", a: "Name the mechanism (trade, conquest, migration, missionaries) and the cultural changes that resulted." },
+                { q: "Compare two societies or empires related to {focus}.", a: "Contrast political, economic, or social features, noting at least one similarity and one difference." },
+                { q: "Explain a continuity and a change over time for {focus}.", a: "Identify what persisted and what changed across the period, each with a specific example." }
+            ]
+        },
+        challenge: {
+            mcq: [
+                { q: "A major consequence of European maritime empires (1450-1750) was:", o: ["A. global exchange of goods, people (including enslaved Africans), and silver", "B. the fall of Rome", "C. the Neolithic Revolution", "D. the Cold War"], a: "A. global exchange of goods, people (including enslaved Africans), and silver" },
+                { q: "The 18th-century revolutions (e.g., French) were strongly influenced by:", o: ["A. Enlightenment ideas about rights and government", "B. the Bronze Age", "C. the Silk Road", "D. feudal manorialism"], a: "A. Enlightenment ideas about rights and government" },
+                { q: "Decolonization after World War II led to:", o: ["A. the creation of many new independent nations in Asia and Africa", "B. the rise of the Roman Empire", "C. the Columbian Exchange", "D. the Industrial Revolution"], a: "A. the creation of many new independent nations in Asia and Africa" },
+                { q: "A key economic effect of the Atlantic slave trade was:", o: ["A. no impact on the Americas", "B. plantation economies built on forced labor that generated colonial wealth", "C. the end of mercantilism", "D. the start of the Renaissance"], a: "B. plantation economies built on forced labor that generated colonial wealth" }
+            ],
+            sa: [
+                { q: "Construct a thesis-driven argument about a global historical question on {focus}.", a: "State a clear thesis and defend it with at least two specific cross-regional examples." },
+                { q: "Analyze the multiple causes of a major development in {focus}.", a: "Identify several causes, weigh their relative importance, and explain how they interconnect." },
+                { q: "Compare developments in two regions for {focus}, explaining similarities and differences.", a: "Use specific evidence from each region and explain why the patterns were alike or different." },
+                { q: "Evaluate continuity and change over time across {focus}, including turning points.", a: "Identify persistent patterns and key changes, naming a turning point and explaining its significance." }
+            ]
+        }
     }
 };
