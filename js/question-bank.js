@@ -78,9 +78,9 @@ window.OFFLINE_BANK = {
         },
         medium: {
             mcq: [
-                { q: "During glycolysis, the net ATP yield per glucose is typically:", o: ["A. 0", "B. 1", "C. 2", "D. 4"], a: "C. 2" },
-                { q: "Which organelle is the primary site of cellular respiration (Krebs & ETC)?", o: ["A. Chloroplast", "B. Mitochondrion", "C. Golgi", "D. Nucleus"], a: "B. Mitochondrion" },
-                { q: "Photosynthesis produces O2 from splitting which molecule?", o: ["A. CO2", "B. Glucose", "C. H2O", "D. ATP"], a: "C. H2O" },
+                { q: "A poison blocks the mitochondrial electron transport chain. The most direct consequence is that:", o: ["A. Glycolysis stops immediately", "B. ATP production by oxidative phosphorylation halts", "C. The cell makes more O2", "D. DNA replication speeds up"], a: "B. ATP production by oxidative phosphorylation halts" },
+                { q: "A muscle cell running low on oxygen keeps making ATP mainly by:", o: ["A. The Krebs cycle", "B. Lactic acid fermentation", "C. The electron transport chain", "D. Photosynthesis"], a: "B. Lactic acid fermentation" },
+                { q: "Which stage of cellular respiration produces the largest share of ATP per glucose?", o: ["A. Glycolysis", "B. The Krebs cycle", "C. Oxidative phosphorylation (ETC + chemiosmosis)", "D. Fermentation"], a: "C. Oxidative phosphorylation (ETC + chemiosmosis)" },
                 { q: "DNA replication is semiconservative because:", o: ["A. Both strands are destroyed", "B. Each daughter duplex has one parental strand", "C. RNA primes both ends only", "D. Telomeres prevent replication"], a: "B. Each daughter duplex has one parental strand" },
                 { q: "Which change most directly increases genetic variation in meiosis?", o: ["A. Mitosis", "B. Crossing over", "C. Binary fission", "D. Photosynthesis"], a: "B. Crossing over" }
             ],
