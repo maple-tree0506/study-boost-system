@@ -1,5 +1,7 @@
 # TrackForge (StudyBoost AI)
 
+[![CI](https://github.com/maple-tree0506/study-boost-system/actions/workflows/ci.yml/badge.svg)](https://github.com/maple-tree0506/study-boost-system/actions/workflows/ci.yml)
+
 ## Run locally
 1. Install deps: `py -m pip install -r requirements.txt`
 2. Open `.env` in the project folder and fill in your key:
@@ -25,6 +27,12 @@
 ### API
 - `POST /api/attempt` — body `{ subject, type, correct, ts }`; stores one graded result.
 - `GET /api/stats` — returns `{ overall, bySubject, daily }` for the dashboard.
+
+## Testing
+- Install dev deps: `py -m pip install -r requirements-dev.txt`
+- Run the suite: `pytest -q`
+- Tests use a temporary database (via the `STUDYBOOST_DB` env var) and never touch
+  your real `studyboost.db`. CI runs them on every push (see the badge above).
 
 ## Project structure
 - `index.html`: page markup
