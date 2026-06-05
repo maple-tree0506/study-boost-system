@@ -106,5 +106,146 @@ window.OFFLINE_BANK = {
                 { q: "Explain how a beneficial mutation could spread through a population connected to {focus}.", a: "A mutation creates a new allele; if it raises fitness, carriers reproduce more; the allele's frequency increases over generations and may approach fixation." }
             ]
         }
+    },
+
+    calc_bc: {
+        basic: {
+            mcq: [
+                { q: "The sum of the geometric series 1 + 1/2 + 1/4 + 1/8 + ... is:", o: ["A. 1", "B. 3/2", "C. 2", "D. infinite"], a: "C. 2" },
+                { q: "What is the derivative of e^(2x)?", o: ["A. e^(2x)", "B. 2e^(2x)", "C. 2x e^(2x)", "D. e^(2x)/2"], a: "B. 2e^(2x)" },
+                { q: "A geometric series with common ratio r converges when:", o: ["A. |r| > 1", "B. |r| < 1", "C. r = 1", "D. r > 0"], a: "B. |r| < 1" },
+                { q: "The integration-by-parts formula is the integral of u dv =", o: ["A. uv - integral of v du", "B. uv + integral of v du", "C. u/v - integral of v du", "D. integral of u du - v"], a: "A. uv - integral of v du" }
+            ],
+            sa: [
+                { q: "State the formula for the sum of a convergent geometric series with first term a and ratio r.", a: "S = a / (1 - r), valid for |r| < 1." },
+                { q: "Write the general term of the Taylor series of f about x = a.", a: "f^(n)(a)/n! times (x - a)^n, summed for n from 0 to infinity." },
+                { q: "What does the ratio test determine?", a: "Whether a series converges absolutely, using the limit of |a_(n+1)/a_n|: <1 converges, >1 diverges, =1 inconclusive." },
+                { q: "Define an improper integral.", a: "An integral with an infinite limit or an infinite discontinuity in the integrand, evaluated as a limit." }
+            ]
+        },
+        medium: {
+            mcq: [
+                { q: "The Maclaurin series for e^x is:", o: ["A. sum of x^n", "B. sum of x^n / n!", "C. sum of (-1)^n x^n", "D. sum of n! x^n"], a: "B. sum of x^n / n!" },
+                { q: "Which test best shows that the sum of 1/n^2 converges?", o: ["A. nth-term test", "B. p-series test (p = 2 > 1)", "C. ratio test", "D. it diverges"], a: "B. p-series test (p = 2 > 1)" },
+                { q: "The arc length of a parametric curve uses the integral of:", o: ["A. sqrt((dx/dt)^2 + (dy/dt)^2) dt", "B. (dx/dt)(dy/dt) dt", "C. sqrt(dx^2 - dy^2)", "D. (dy/dx) dt"], a: "A. sqrt((dx/dt)^2 + (dy/dt)^2) dt" },
+                { q: "Evaluate the improper integral from 1 to infinity of 1/x^2 dx.", o: ["A. diverges", "B. 1", "C. 2", "D. 0"], a: "B. 1" },
+                { q: "For the logistic model dP/dt = kP(1 - P/M), the population grows fastest when P =", o: ["A. 0", "B. M", "C. M/2", "D. 2M"], a: "C. M/2" }
+            ],
+            sa: [
+                { q: "Determine whether a series related to {focus} converges, and name the test you would use.", a: "Choose a test (ratio, comparison, integral, p-series, alternating) from the term's form; state the condition and conclude." },
+                { q: "Set up the arc length integral for a parametric curve connected to {focus} (do not evaluate).", a: "L = integral of sqrt((dx/dt)^2 + (dy/dt)^2) dt over the parameter interval." },
+                { q: "Explain how a Taylor polynomial approximates a function from {focus} and what controls the error.", a: "It matches derivatives at the center; the Lagrange remainder bounds the error using the next derivative." },
+                { q: "For an improper integral arising in {focus}, describe how you evaluate it.", a: "Replace the infinite/undefined bound with a limit variable, integrate, then take the limit; it converges if that limit is finite." },
+                { q: "Describe the behavior of a logistic growth model relevant to {focus}.", a: "Near-exponential growth at low P, an inflection at P = M/2, then leveling off toward the carrying capacity M." }
+            ]
+        },
+        challenge: {
+            mcq: [
+                { q: "The interval of convergence of the sum of x^n / n is:", o: ["A. (-1, 1)", "B. [-1, 1)", "C. (-1, 1]", "D. [-1, 1]"], a: "B. [-1, 1)" },
+                { q: "By the integral test, the sum of 1/(n ln n) for n >= 2:", o: ["A. converges", "B. diverges", "C. equals e", "D. equals ln 2"], a: "B. diverges" },
+                { q: "The Taylor (Lagrange) remainder bounds the error using:", o: ["A. the (n+1)th derivative on the interval", "B. the first derivative only", "C. the function value at 0", "D. the ratio test"], a: "A. the (n+1)th derivative on the interval" },
+                { q: "For the cardioid r = 1 + cos(theta), the enclosed area is:", o: ["A. integral of (1+cos theta) d theta", "B. (1/2) integral of (1+cos theta)^2 d theta", "C. integral of (1+cos theta)^2 d theta", "D. (1/2) integral of (1+cos theta) d theta"], a: "B. (1/2) integral of (1+cos theta)^2 d theta" }
+            ],
+            sa: [
+                { q: "Find and justify the interval of convergence for a power series tied to {focus}.", a: "Use the ratio test for the radius, then test each endpoint separately with an appropriate convergence test." },
+                { q: "Set up the polar area integral for a curve from {focus}.", a: "A = (1/2) times the integral of r(theta)^2 d theta over the interval where the curve is traced." },
+                { q: "Explain how Euler's method approximates a solution to a differential equation in {focus}, and its error behavior.", a: "Step forward with y_(n+1) = y_n + h f(x_n, y_n); local error is about h^2 and accumulates about h, so smaller h improves accuracy." },
+                { q: "Use a Taylor series to approximate a quantity from {focus} and bound the error.", a: "Expand about a convenient center, truncate, and bound with the Lagrange remainder using a maximum of the next derivative." }
+            ]
+        }
+    },
+
+    stats: {
+        basic: {
+            mcq: [
+                { q: "Which measure of center is most resistant to outliers?", o: ["A. Mean", "B. Median", "C. Range", "D. Standard deviation"], a: "B. Median" },
+                { q: "A probability must be a number between:", o: ["A. -1 and 1", "B. 0 and 1", "C. 0 and 100", "D. 1 and 10"], a: "B. 0 and 1" },
+                { q: "In a normal distribution, about what percent of data lies within 1 standard deviation of the mean?", o: ["A. 50%", "B. 68%", "C. 95%", "D. 99.7%"], a: "B. 68%" },
+                { q: "A categorical variable is best displayed with a:", o: ["A. Histogram", "B. Bar chart", "C. Boxplot", "D. Scatterplot"], a: "B. Bar chart" }
+            ],
+            sa: [
+                { q: "Define the mean and the median.", a: "Mean = sum of values divided by the count; median = the middle value when data are ordered." },
+                { q: "What is the difference between a population and a sample?", a: "A population is the entire group of interest; a sample is a subset actually measured." },
+                { q: "State the empirical (68-95-99.7) rule.", a: "In a normal distribution, about 68%, 95%, and 99.7% of data fall within 1, 2, and 3 standard deviations of the mean." },
+                { q: "What does the standard deviation measure?", a: "The typical distance of values from the mean, i.e., the spread of the data." }
+            ]
+        },
+        medium: {
+            mcq: [
+                { q: "Which method gives every individual an equal chance of selection?", o: ["A. Convenience sample", "B. Voluntary response", "C. Simple random sample", "D. Quota sample"], a: "C. Simple random sample" },
+                { q: "A 95% confidence interval means:", o: ["A. 95% of the data is in the interval", "B. there is a 95% chance the parameter equals the sample mean", "C. 95% of such intervals capture the true parameter", "D. the sample is 95% accurate"], a: "C. 95% of such intervals capture the true parameter" },
+                { q: "Increasing the sample size n affects the margin of error by:", o: ["A. increasing it", "B. decreasing it", "C. no effect", "D. doubling it"], a: "B. decreasing it" },
+                { q: "A correlation of r = -0.9 indicates:", o: ["A. weak positive association", "B. strong negative linear association", "C. no association", "D. causation"], a: "B. strong negative linear association" },
+                { q: "A Type I error is:", o: ["A. failing to reject a true null", "B. rejecting a true null hypothesis", "C. correctly accepting the alternative", "D. a data-entry error"], a: "B. rejecting a true null hypothesis" }
+            ],
+            sa: [
+                { q: "Describe an appropriate sampling design for a study about {focus} and one source of bias to avoid.", a: "Select randomly from the population (SRS or stratified); avoid voluntary-response/convenience bias and undercoverage." },
+                { q: "Interpret a 95% confidence interval in the context of {focus}.", a: "We are 95% confident the true parameter lies in the interval; over repeated sampling, 95% of such intervals capture it." },
+                { q: "State the null and alternative hypotheses for a test related to {focus}.", a: "H0: no effect/difference (parameter equals a value); Ha: an effect/difference (not equal, greater, or less)." },
+                { q: "Explain what a p-value tells you in a study of {focus}.", a: "Assuming H0 is true, the probability of results at least as extreme as observed; small p-values are evidence against H0." },
+                { q: "Distinguish correlation and causation for variables in {focus}.", a: "Correlation is association; causation requires a randomized, controlled experiment to rule out confounding." }
+            ]
+        },
+        challenge: {
+            mcq: [
+                { q: "Which conditions are required for a two-sample t-test?", o: ["A. Random samples, independence, approximately normal or large n", "B. Only equal sample sizes", "C. Known population standard deviation", "D. p < 0.05"], a: "A. Random samples, independence, approximately normal or large n" },
+                { q: "If you decrease the significance level alpha, the probability of a Type II error:", o: ["A. decreases", "B. increases", "C. is unchanged", "D. becomes zero"], a: "B. increases" },
+                { q: "A chi-square test of independence compares:", o: ["A. two means", "B. observed versus expected counts across categories", "C. regression slopes", "D. variances only"], a: "B. observed versus expected counts across categories" },
+                { q: "In linear regression, a residual equals:", o: ["A. predicted minus observed", "B. observed minus predicted", "C. slope times x", "D. the correlation"], a: "B. observed minus predicted" }
+            ],
+            sa: [
+                { q: "Design a randomized experiment to test a claim about {focus}, naming treatment, control, and randomization.", a: "Randomly assign subjects to treatment vs control, control confounders, replicate, and compare outcomes; randomization balances lurking variables." },
+                { q: "Carry out the logic of a significance test for {focus} (hypotheses, conditions, conclusion).", a: "State H0/Ha, check random/independent/normal conditions, compute a test statistic and p-value, then reject or fail to reject H0 in context." },
+                { q: "Interpret the slope and r^2 for a regression model in {focus}.", a: "Slope = predicted change in y per unit increase in x; r^2 = the fraction of variation in y explained by the linear model." },
+                { q: "Explain Type I versus Type II error and their consequences for a decision about {focus}.", a: "Type I = rejecting a true H0 (false alarm); Type II = failing to reject a false H0 (missed effect); alpha controls Type I, power controls Type II." }
+            ]
+        }
+    },
+
+    chem: {
+        basic: {
+            mcq: [
+                { q: "The number of protons in an atom is its:", o: ["A. mass number", "B. atomic number", "C. neutron count", "D. charge"], a: "B. atomic number" },
+                { q: "Avogadro's number is approximately:", o: ["A. 3.14e10", "B. 6.022e23", "C. 1.6e-19", "D. 9.8"], a: "B. 6.022e23" },
+                { q: "In the Bronsted-Lowry sense, an acid is a substance that:", o: ["A. accepts a proton", "B. donates a proton", "C. donates electrons", "D. always has pH 7"], a: "B. donates a proton" },
+                { q: "Which is the correct chemical formula for water?", o: ["A. HO", "B. H2O", "C. H2O2", "D. OH"], a: "B. H2O" }
+            ],
+            sa: [
+                { q: "Define the mole.", a: "The amount of substance that contains Avogadro's number (6.022e23) of particles." },
+                { q: "What distinguishes an element from a compound?", a: "An element has one type of atom; a compound has two or more elements chemically bonded in fixed ratios." },
+                { q: "State the difference between an ionic and a covalent bond.", a: "Ionic bonds transfer electrons (metal + nonmetal); covalent bonds share electrons (nonmetal + nonmetal)." },
+                { q: "What does pH measure?", a: "The acidity of a solution; pH = -log[H+], where a lower pH is more acidic." }
+            ]
+        },
+        medium: {
+            mcq: [
+                { q: "How many moles are in 36 g of water (molar mass about 18 g/mol)?", o: ["A. 1", "B. 2", "C. 18", "D. 36"], a: "B. 2" },
+                { q: "In 2H2 + O2 -> 2H2O, the limiting reactant idea means the reaction stops when:", o: ["A. water runs out", "B. one reactant is fully consumed", "C. temperature drops", "D. pressure rises"], a: "B. one reactant is fully consumed" },
+                { q: "By PV = nRT, at constant T and n, increasing P will:", o: ["A. increase V", "B. decrease V", "C. not change V", "D. increase n"], a: "B. decrease V" },
+                { q: "A solution with pH = 3 has [H+] equal to:", o: ["A. 3 M", "B. 1e-3 M", "C. 1e-11 M", "D. 10 M"], a: "B. 1e-3 M" },
+                { q: "AgNO3 + NaCl -> AgCl + NaNO3 is best classified as:", o: ["A. Combustion", "B. Precipitation (double replacement)", "C. Single replacement", "D. Decomposition"], a: "B. Precipitation (double replacement)" }
+            ],
+            sa: [
+                { q: "Outline the steps to find the limiting reactant for a reaction in {focus}.", a: "Convert masses to moles, divide by coefficients; the smallest ratio is limiting; use it to find theoretical yield." },
+                { q: "Explain how Le Chatelier's principle applies to an equilibrium related to {focus}.", a: "A stress (concentration, pressure, or temperature) shifts the equilibrium to partially counteract it; predict the direction." },
+                { q: "Describe the relationship between [H+], [OH-], and pH for a solution in {focus}.", a: "pH = -log[H+]; [H+][OH-] = 1e-14 at 25 C; pH + pOH = 14." },
+                { q: "Use the ideal gas law to relate variables for a gas problem in {focus}.", a: "PV = nRT; solve for the unknown holding the others constant, with consistent units and R = 0.0821 L atm/mol K." },
+                { q: "Explain how bond type affects the properties of a substance in {focus}.", a: "Ionic solids are high-melting and conduct when molten/dissolved; molecular covalent substances melt lower; metals conduct and are malleable." }
+            ]
+        },
+        challenge: {
+            mcq: [
+                { q: "For an endothermic reaction at equilibrium, increasing temperature:", o: ["A. shifts it left", "B. shifts it right toward products", "C. causes no shift", "D. stops the reaction"], a: "B. shifts it right toward products" },
+                { q: "A buffer resists pH change because it contains:", o: ["A. a strong acid and strong base", "B. a weak acid and its conjugate base", "C. only water", "D. a salt of a strong acid"], a: "B. a weak acid and its conjugate base" },
+                { q: "Which sample has the greatest entropy?", o: ["A. ice", "B. liquid water", "C. water vapor", "D. all equal"], a: "C. water vapor" },
+                { q: "A reaction is spontaneous when:", o: ["A. delta G > 0", "B. delta G < 0", "C. delta H < 0 only", "D. delta S < 0 only"], a: "B. delta G < 0" }
+            ],
+            sa: [
+                { q: "Describe how to find delta H for a reaction in {focus} using Hess's law or bond energies.", a: "Add the enthalpies of steps (Hess's law) or compute (bonds broken minus bonds formed), tracking signs carefully." },
+                { q: "Explain how a buffer related to {focus} maintains pH, using equilibrium.", a: "The weak acid neutralizes added base and its conjugate base neutralizes added acid; pH = pKa + log([A-]/[HA])." },
+                { q: "Relate delta G, delta H, delta S, and temperature for a process in {focus}.", a: "delta G = delta H - T delta S; the signs and temperature decide spontaneity; identify the temperature where it becomes spontaneous." },
+                { q: "Interpret a reaction-rate experiment for {focus} using collision theory.", a: "Rate rises with concentration, temperature, and catalysts because the number of effective collisions (right orientation and enough energy) increases." }
+            ]
+        }
     }
 };
