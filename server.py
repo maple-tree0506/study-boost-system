@@ -13,6 +13,7 @@ import sqlite3
 import sys
 import time
 from collections import defaultdict
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -21,7 +22,8 @@ from flask_cors import CORS
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE = os.path.join(APP_DIR, ".env")
-DB_PATH = os.path.join(APP_DIR, "studyboost.db")
+# Allow tests (or alternate deployments) to point at a different DB file.
+DB_PATH = os.environ.get("STUDYBOOST_DB") or os.path.join(APP_DIR, "studyboost.db")
 
 
 def _load_local_env() -> None:
@@ -55,7 +57,7 @@ def _db() -> sqlite3.Connection:
 
 
 def _init_db() -> None:
-    with _db() as conn:
+    with closing(_db()) as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS attempts (
@@ -165,7 +167,7 @@ def record_attempt():
         ts = datetime.now(timezone.utc).isoformat()
 
     try:
-        with _db() as conn:
+        with closing(_db()) as conn:
             conn.execute(
                 "INSERT INTO attempts (subject, qtype, correct, created_at) VALUES (?, ?, ?, ?)",
                 (subject, qtype, correct, ts),
@@ -181,7 +183,7 @@ def record_attempt():
 @app.route("/api/stats")
 def stats():
     try:
-        with _db() as conn:
+        with closing(_db()) as conn:
             rows = conn.execute(
                 "SELECT subject, qtype, correct, created_at FROM attempts"
             ).fetchall()
