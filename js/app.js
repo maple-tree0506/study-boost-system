@@ -455,8 +455,16 @@ function subjectLabelFromId(id) {
 }
 
 async function generateQuizWithAI(topic, difficulty, expected, apSubjectId, notesContext) {
-    const diffMap = { basic: "basic", medium: "medium", challenge: "challenge" };
-    const diffLabel = diffMap[difficulty] || "medium";
+    const diffGuide = {
+        basic: "BASIC — test recall and definitions. One concept per question, single step, "
+            + "straightforward terminology. MCQ distractors are obviously wrong.",
+        medium: "MEDIUM — test application and multi-step reasoning. Combine two related concepts, "
+            + "require a short calculation or explanation. MCQ distractors are plausible.",
+        challenge: "CHALLENGE — AP free-response rigor. Synthesize multiple concepts, include edge "
+            + "cases or multi-part reasoning, require justification. MCQ distractors reflect common misconceptions."
+    };
+    const diffLabel = diffGuide[difficulty] ? difficulty : "medium";
+    const diffSpec = diffGuide[diffLabel];
     const courseName = subjectLabelFromId(apSubjectId);
 
     const system =
@@ -464,11 +472,12 @@ async function generateQuizWithAI(topic, difficulty, expected, apSubjectId, note
         "You MUST output exactly " + expected.mcq + " multiple_choice and " + expected.sa + " short_answer questions, in that total order preference: list MCQs first, then short answers. " +
         "multiple_choice: type 'multiple_choice', question string, options array of exactly 4 strings starting with 'A. '..'D. ', answer equals the full correct option string. " +
         "short_answer: type 'short_answer', question string, answer is a concise model answer (2-5 sentences). " +
-        "Questions must match the AP course style and difficulty; use authentic terminology and structures for that exam. " +
+        "Questions must match the AP course style and use authentic terminology and structures for that exam. " +
+        "Calibrate the complexity STRICTLY to the requested difficulty level described below. " +
         "Avoid generic study-skills questions. No markdown fences.";
 
     let user = "AP course: " + courseName + "\n";
-    user += "Difficulty: " + diffLabel + "\n";
+    user += "Difficulty level: " + diffSpec + "\n";
     if (sanitizeText(topic)) {
         user += "Topic focus: " + topic + "\n";
     }
@@ -507,7 +516,10 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected, notesCont
     const label = { basic: "Basic", medium: "Medium", challenge: "Challenge" }[difficulty] || "Medium";
     const course = subjectLabelFromId(apSubjectId);
     const focus = sanitizeText(topic) || course;
-    const notesSeed = notesContextSeed(notesContext || topic || course);
+    // Include difficulty in the seed so each difficulty rotates to a different
+    // set of questions (the offline bank is not difficulty-tiered, but this
+    // prevents the three levels from returning identical questions).
+    const notesSeed = notesContextSeed((difficulty || "medium") + "|" + (notesContext || topic || course));
     const notesLead = sanitizeText(notesContext).slice(0, 120);
     const notesPrefix = notesLead
         ? "[From your notes: \"" + notesLead + (notesLead.length >= 120 ? "…" : "") + "\"] "
