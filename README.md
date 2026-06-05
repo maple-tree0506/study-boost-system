@@ -2,7 +2,30 @@
 
 [![CI](https://github.com/maple-tree0506/study-boost-system/actions/workflows/ci.yml/badge.svg)](https://github.com/maple-tree0506/study-boost-system/actions/workflows/ci.yml)
 
-## Run locally
+> **This is a client + server app — it is not a static page.** Opening
+> `index.html` directly (`file://`) only runs the offline mode; AI features and
+> progress tracking need the local server below. Always use the
+> `http://127.0.0.1:8765/` URL.
+
+## Quick start (Windows, easiest)
+1. **Double-click `start.bat`.** It installs dependencies, starts the server, and
+   opens the app in your browser. Keep the black window open while you use it;
+   close it to stop the server.
+2. (For AI features) add your API key first — see "Run locally (manual)" step 2
+   below. Without a key,
+   the app still works in **offline mode** (built-in question bank for all 14 AP
+   subjects), so you can try the full workflow with no setup.
+
+## For other people running this
+- They need [Python 3](https://www.python.org/) installed, then double-click
+  `start.bat` (or follow "Run locally" below).
+- **AI features use a key, and the key is never shared in this repo.** Each person
+  adds their **own** API key to a local `.env` (OpenAI, or any OpenAI-compatible
+  provider such as Groq via `OPENAI_BASE_URL`). With no key, offline mode works.
+- A non-technical reviewer who cannot run a server can still see everything via a
+  short demo video / a deployed link (planned).
+
+## Run locally (manual)
 1. Install deps: `py -m pip install -r requirements.txt`
 2. Open `.env` in the project folder and fill in your key:
    - `OPENAI_API_KEY=...` — your OpenAI-compatible API key
