@@ -247,5 +247,146 @@ window.OFFLINE_BANK = {
                 { q: "Interpret a reaction-rate experiment for {focus} using collision theory.", a: "Rate rises with concentration, temperature, and catalysts because the number of effective collisions (right orientation and enough energy) increases." }
             ]
         }
+    },
+
+    phys1: {
+        basic: {
+            mcq: [
+                { q: "What is the SI unit of force?", o: ["A. Joule", "B. Newton", "C. Watt", "D. Pascal"], a: "B. Newton" },
+                { q: "An object's acceleration is zero. This means:", o: ["A. it must be at rest", "B. its velocity is constant", "C. no forces act on it", "D. it is speeding up"], a: "B. its velocity is constant" },
+                { q: "Newton's second law is written as:", o: ["A. F = ma", "B. F = mv", "C. F = m/a", "D. a = Fm"], a: "A. F = ma" },
+                { q: "Which of these quantities is a vector?", o: ["A. Speed", "B. Mass", "C. Velocity", "D. Time"], a: "C. Velocity" }
+            ],
+            sa: [
+                { q: "State Newton's first law.", a: "An object at rest stays at rest, and an object in motion keeps constant velocity, unless acted on by a net external force." },
+                { q: "Define acceleration.", a: "The rate of change of velocity with time (a = change in v divided by change in t)." },
+                { q: "What is the difference between mass and weight?", a: "Mass is the amount of matter (kg); weight is the gravitational force on it (W = mg, in newtons)." },
+                { q: "Write the kinematic equation relating displacement, initial velocity, time, and acceleration.", a: "x = v0 t + (1/2) a t^2." }
+            ]
+        },
+        medium: {
+            mcq: [
+                { q: "A 2 kg cart experiences a net force of 10 N. Its acceleration is:", o: ["A. 2 m/s^2", "B. 5 m/s^2", "C. 10 m/s^2", "D. 20 m/s^2"], a: "B. 5 m/s^2" },
+                { q: "An object in free fall near Earth's surface has an acceleration of about:", o: ["A. 0", "B. 9.8 m/s^2 downward", "C. 9.8 m/s^2 upward", "D. a value that depends on its mass"], a: "B. 9.8 m/s^2 downward" },
+                { q: "The momentum of a 3 kg object moving at 4 m/s is:", o: ["A. 0.75 kg m/s", "B. 7 kg m/s", "C. 12 kg m/s", "D. 12 N"], a: "C. 12 kg m/s" },
+                { q: "The work done by a force is zero when:", o: ["A. the force is large", "B. the displacement is perpendicular to the force", "C. the object accelerates", "D. the force is constant"], a: "B. the displacement is perpendicular to the force" },
+                { q: "In a collision within an isolated system, total momentum is:", o: ["A. always zero", "B. conserved", "C. doubled", "D. fully converted to heat"], a: "B. conserved" }
+            ],
+            sa: [
+                { q: "Draw and describe a free-body diagram for an object in {focus}.", a: "Show every force as an arrow from the object (gravity, normal, friction, tension, applied), labeled with direction; the net force gives the acceleration." },
+                { q: "Apply Newton's second law to a problem related to {focus}.", a: "Sum the forces in each direction, set net F = ma, and solve for the unknown force, mass, or acceleration." },
+                { q: "Use conservation of energy to analyze a situation in {focus}.", a: "Set initial KE + PE equal to final KE + PE (plus losses if any); KE = (1/2)mv^2, gravitational PE = mgh." },
+                { q: "Explain how momentum conservation applies to a collision in {focus}.", a: "For an isolated system, total momentum before equals after: m1v1 + m2v2 = m1v1' + m2v2'." },
+                { q: "Describe the forces and acceleration for uniform circular motion in {focus}.", a: "The net (centripetal) force points toward the center; a = v^2/r, supplied by tension, gravity, friction, or the normal force." }
+            ]
+        },
+        challenge: {
+            mcq: [
+                { q: "A ball is thrown straight up. At its highest point, its velocity and acceleration are:", o: ["A. both zero", "B. velocity zero, acceleration 9.8 m/s^2 downward", "C. both 9.8 m/s^2", "D. velocity maximum, acceleration zero"], a: "B. velocity zero, acceleration 9.8 m/s^2 downward" },
+                { q: "Two carts collide and stick together (perfectly inelastic). Which is conserved?", o: ["A. kinetic energy only", "B. momentum only", "C. both momentum and kinetic energy", "D. neither"], a: "B. momentum only" },
+                { q: "A box slides at constant velocity across a rough floor. The net force on it is:", o: ["A. equal to friction", "B. zero", "C. equal to its weight", "D. twice the applied force"], a: "B. zero" },
+                { q: "For uniform circular motion, the centripetal acceleration is:", o: ["A. v/r", "B. v^2/r directed toward the center", "C. v^2 r", "D. zero"], a: "B. v^2/r directed toward the center" }
+            ],
+            sa: [
+                { q: "Analyze an inclined-plane problem from {focus} using components of gravity.", a: "Resolve weight into mg sin(theta) along and mg cos(theta) perpendicular; normal = mg cos(theta); net along incline = mg sin(theta) - friction = ma." },
+                { q: "Use the work-energy theorem to solve a problem in {focus}.", a: "Net work equals the change in kinetic energy: W_net = (1/2)m v_f^2 - (1/2)m v_i^2; solve for the unknown." },
+                { q: "Compare elastic and inelastic collisions for a scenario in {focus}.", a: "Both conserve momentum; elastic also conserves kinetic energy while inelastic does not (some KE becomes heat/deformation); perfectly inelastic objects stick together." },
+                { q: "Explain how a free-body diagram leads to the equations of motion for {focus}.", a: "Identify all forces, choose axes, sum forces along each axis, set each sum equal to ma, and solve the system for the accelerations or forces." }
+            ]
+        }
+    },
+
+    phys_c_mech: {
+        basic: {
+            mcq: [
+                { q: "In calculus terms, velocity is:", o: ["A. the integral of position", "B. the derivative of position with respect to time", "C. mass times acceleration", "D. the derivative of force"], a: "B. the derivative of position with respect to time" },
+                { q: "Acceleration is the time derivative of:", o: ["A. position", "B. velocity", "C. force", "D. momentum"], a: "B. velocity" },
+                { q: "The work done by a variable force is:", o: ["A. F times d in all cases", "B. the integral of F dot dx", "C. mass times velocity", "D. F divided by d"], a: "B. the integral of F dot dx" },
+                { q: "Impulse equals:", o: ["A. the integral of force over time", "B. force times distance", "C. mass divided by acceleration", "D. the derivative of position"], a: "A. the integral of force over time" }
+            ],
+            sa: [
+                { q: "Express velocity and acceleration as derivatives of position x(t).", a: "v = dx/dt; a = dv/dt = d^2x/dt^2." },
+                { q: "Write work as an integral for a variable force.", a: "W = the integral of F(x) dx over the displacement." },
+                { q: "State the impulse-momentum theorem.", a: "Impulse = the integral of F dt = the change in momentum (J = delta p)." },
+                { q: "Define the center of mass for a system of particles.", a: "x_cm = (the sum of m_i x_i) divided by (the sum of m_i)." }
+            ]
+        },
+        medium: {
+            mcq: [
+                { q: "If x(t) = 3t^2 (meters), the acceleration is:", o: ["A. 3", "B. 6t", "C. 6", "D. 3t"], a: "C. 6" },
+                { q: "A net torque on a rigid body produces:", o: ["A. linear acceleration only", "B. angular acceleration (tau = I alpha)", "C. constant angular velocity", "D. zero rotation"], a: "B. angular acceleration (tau = I alpha)" },
+                { q: "The rotational kinetic energy of a spinning body is:", o: ["A. (1/2) m v^2", "B. (1/2) I omega^2", "C. I omega", "D. m g h"], a: "B. (1/2) I omega^2" },
+                { q: "For a conservative force, F relates to potential energy U by:", o: ["A. F = dU/dx", "B. F = -dU/dx", "C. F = the integral of U", "D. F = U/x"], a: "B. F = -dU/dx" },
+                { q: "The angular momentum of a particle is:", o: ["A. I divided by omega", "B. r cross p", "C. m v only", "D. tau times t^2"], a: "B. r cross p" }
+            ],
+            sa: [
+                { q: "Use integration to find velocity and position from an acceleration function in {focus}.", a: "Integrate a(t) to get v(t) (plus v0), then integrate v(t) to get x(t) (plus x0), using the initial conditions." },
+                { q: "Apply the work-energy theorem with a variable force for a problem in {focus}.", a: "W_net = the integral of F dx = the change in KE; evaluate the integral and solve." },
+                { q: "Relate torque, moment of inertia, and angular acceleration for {focus}.", a: "Net torque = I alpha; find I for the body, sum the torques, and solve for alpha or the unknown." },
+                { q: "Explain conservation of angular momentum in a scenario from {focus}.", a: "With no net external torque, L = I omega stays constant; if I decreases, omega increases (e.g., a spinning skater pulling arms in)." },
+                { q: "Derive potential energy from a conservative force in {focus}.", a: "U(x) = - the integral of F dx; for example a spring gives U = (1/2)k x^2 and gravity gives U = mgh." }
+            ]
+        },
+        challenge: {
+            mcq: [
+                { q: "A solid disk and a hoop of equal mass and radius roll without slipping down the same incline. Which reaches the bottom first?", o: ["A. the hoop", "B. the disk", "C. they tie", "D. it depends on the mass"], a: "B. the disk" },
+                { q: "For simple harmonic motion x(t) = A cos(omega t), the maximum speed is:", o: ["A. A", "B. omega A", "C. omega^2 A", "D. A divided by omega"], a: "B. omega A" },
+                { q: "The moment of inertia of a solid cylinder about its central axis is:", o: ["A. m r^2", "B. (1/2) m r^2", "C. (2/5) m r^2", "D. (1/12) m L^2"], a: "B. (1/2) m r^2" },
+                { q: "With no external torque, if a rotating object's moment of inertia decreases, its angular velocity:", o: ["A. decreases", "B. increases", "C. stays the same", "D. becomes zero"], a: "B. increases" }
+            ],
+            sa: [
+                { q: "Set up the integral for the moment of inertia of a continuous body relevant to {focus}.", a: "I = the integral of r^2 dm, expressing dm through a linear, area, or volume density and integrating over the geometry." },
+                { q: "Analyze simple harmonic motion for a system in {focus} and derive omega.", a: "Show the net force is -kx (or torque -k theta); then omega = sqrt(k/m) and the period T = 2 pi sqrt(m/k)." },
+                { q: "Use energy methods (translational plus rotational) for a rolling-body problem in {focus}.", a: "Set mgh = (1/2)m v^2 + (1/2) I omega^2 with v = omega r, then solve for the speed at the bottom." },
+                { q: "Apply conservation of angular momentum to an interaction in {focus}.", a: "With no external torque, L_initial = L_final; sum r cross p (or I omega) before and after and solve." }
+            ]
+        }
+    },
+
+    envsci: {
+        basic: {
+            mcq: [
+                { q: "Which of these is a renewable energy source?", o: ["A. Coal", "B. Natural gas", "C. Solar", "D. Oil"], a: "C. Solar" },
+                { q: "The main greenhouse gas released by human activity is:", o: ["A. Oxygen", "B. Carbon dioxide", "C. Nitrogen", "D. Argon"], a: "B. Carbon dioxide" },
+                { q: "Biodiversity refers to:", o: ["A. the number of people", "B. the variety of life in an ecosystem", "C. the amount of rainfall", "D. the depth of soil"], a: "B. the variety of life in an ecosystem" },
+                { q: "Which trophic level has the most available energy?", o: ["A. Producers", "B. Primary consumers", "C. Secondary consumers", "D. Top predators"], a: "A. Producers" }
+            ],
+            sa: [
+                { q: "Define an ecosystem.", a: "A community of living organisms interacting with one another and with their nonliving (abiotic) environment." },
+                { q: "What is the difference between renewable and nonrenewable resources?", a: "Renewable resources replenish on a human timescale (sun, wind); nonrenewable resources do not (fossil fuels, minerals)." },
+                { q: "State one cause and one effect of climate change.", a: "Cause: greenhouse-gas emissions from burning fossil fuels; effect: rising global temperatures, sea-level rise, or more extreme weather." },
+                { q: "What does the 10% rule describe in energy flow?", a: "Only about 10% of energy passes from one trophic level to the next; the rest is lost mostly as heat." }
+            ]
+        },
+        medium: {
+            mcq: [
+                { q: "Eutrophication is most directly caused by:", o: ["A. excess nutrients (nitrogen and phosphorus) in water", "B. acid rain", "C. ozone depletion", "D. desertification"], a: "A. excess nutrients (nitrogen and phosphorus) in water" },
+                { q: "Thinning of the stratospheric ozone layer is primarily caused by:", o: ["A. carbon dioxide", "B. CFCs", "C. methane", "D. sulfur dioxide"], a: "B. CFCs" },
+                { q: "Carrying capacity is best described as:", o: ["A. the maximum population an environment can sustain", "B. the total land area", "C. the birth rate", "D. the number of species"], a: "A. the maximum population an environment can sustain" },
+                { q: "Primary succession begins on:", o: ["A. an abandoned farm field", "B. bare rock with no soil", "C. a forest after a fire", "D. a flooded wetland"], a: "B. bare rock with no soil" },
+                { q: "Acid rain is produced mainly by emissions of:", o: ["A. CO2 and O2", "B. SO2 and NOx", "C. CFCs", "D. methane"], a: "B. SO2 and NOx" }
+            ],
+            sa: [
+                { q: "Explain how human activity affects a biogeochemical cycle related to {focus}.", a: "Name the cycle (carbon, nitrogen, phosphorus), the human input (combustion, fertilizer), and its consequence (warming, eutrophication)." },
+                { q: "Describe a cause, an effect, and a solution for an environmental problem in {focus}.", a: "State the driver (e.g., emissions), the impact (e.g., warming or pollution), and a mitigation (regulation, renewables, conservation)." },
+                { q: "Explain ecological succession in the context of {focus}.", a: "Pioneer species colonize, alter conditions, and are replaced by later species until a relatively stable climax community forms." },
+                { q: "Discuss how population growth pressures resources in {focus}.", a: "Growth increases demand for food, water, energy, and land, risking overshoot of carrying capacity and resource depletion." },
+                { q: "Compare two energy sources relevant to {focus} by sustainability and impact.", a: "Weigh renewability, emissions, land and water use, and reliability (e.g., solar/wind: low emissions but intermittent; fossil fuels: reliable but high emissions)." }
+            ]
+        },
+        challenge: {
+            mcq: [
+                { q: "A keystone species is one that:", o: ["A. is the most abundant", "B. has a disproportionately large effect on its ecosystem", "C. is always a top predator", "D. is always invasive"], a: "B. has a disproportionately large effect on its ecosystem" },
+                { q: "Which choice most reduces a community's per-capita ecological footprint?", o: ["A. increased fossil-fuel use", "B. energy efficiency and renewables", "C. more landfills", "D. higher meat consumption"], a: "B. energy efficiency and renewables" },
+                { q: "Ocean acidification results primarily from:", o: ["A. plastic waste", "B. dissolved atmospheric CO2 forming carbonic acid", "C. oil spills", "D. thermal pollution"], a: "B. dissolved atmospheric CO2 forming carbonic acid" },
+                { q: "In a logistic growth model, population growth slows as the population approaches:", o: ["A. zero", "B. the carrying capacity", "C. the biotic potential", "D. half the birth rate"], a: "B. the carrying capacity" }
+            ],
+            sa: [
+                { q: "Evaluate the trade-offs of a proposed solution to an environmental issue in {focus}.", a: "Weigh environmental benefit against economic cost, feasibility, and unintended effects, then support a recommendation with reasoning." },
+                { q: "Interpret a data trend related to {focus}.", a: "Describe the trend, identify the likely cause, and project the consequences, referencing units and the rate of change." },
+                { q: "Analyze how a feedback loop amplifies or dampens a change in {focus}.", a: "Positive feedback amplifies (e.g., ice-albedo: melting lowers reflectivity, causing more warming); negative feedback stabilizes the system." },
+                { q: "Design a management plan to protect biodiversity in {focus}.", a: "Combine habitat protection, reduction of pollution and invasive species, sustainable use, and monitoring, justified with ecological principles." }
+            ]
+        }
     }
 };
