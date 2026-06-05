@@ -529,5 +529,146 @@ window.OFFLINE_BANK = {
                 { q: "Evaluate continuity and change over time across {focus}, including turning points.", a: "Identify persistent patterns and key changes, naming a turning point and explaining its significance." }
             ]
         }
+    },
+
+    lang: {
+        basic: {
+            mcq: [
+                { q: "In rhetoric, ethos appeals to:", o: ["A. emotion", "B. credibility and character", "C. logic and evidence", "D. timing"], a: "B. credibility and character" },
+                { q: "Pathos is an appeal to:", o: ["A. logic", "B. emotion", "C. authority", "D. grammar"], a: "B. emotion" },
+                { q: "A thesis statement primarily:", o: ["A. summarizes a story", "B. states the main argument or claim", "C. lists vocabulary", "D. cites sources"], a: "B. states the main argument or claim" },
+                { q: "The intended audience of a text is:", o: ["A. the author", "B. the readers the writer aims to address", "C. the publisher", "D. the narrator"], a: "B. the readers the writer aims to address" }
+            ],
+            sa: [
+                { q: "Define the three rhetorical appeals.", a: "Ethos (credibility/character), pathos (emotion), and logos (logic and evidence)." },
+                { q: "What is a thesis statement?", a: "A sentence that states the central, arguable claim the writer will support." },
+                { q: "What does 'tone' mean in writing?", a: "The writer's attitude toward the subject or audience, conveyed through word choice and style." },
+                { q: "What is the purpose of a topic sentence?", a: "To state the main idea of a paragraph and connect it back to the thesis." }
+            ]
+        },
+        medium: {
+            mcq: [
+                { q: "Logos is an appeal based on:", o: ["A. the speaker's character", "B. logic, reasoning, and evidence", "C. emotional language", "D. humor"], a: "B. logic, reasoning, and evidence" },
+                { q: "In rhetorical analysis, 'diction' refers to:", o: ["A. sentence length", "B. word choice", "C. paragraph order", "D. the thesis"], a: "B. word choice" },
+                { q: "A counterargument in an essay serves to:", o: ["A. weaken the thesis", "B. acknowledge and respond to opposing views, strengthening the argument", "C. summarize sources", "D. replace the conclusion"], a: "B. acknowledge and respond to opposing views, strengthening the argument" },
+                { q: "Syntax refers to:", o: ["A. word meaning", "B. the arrangement of words and sentence structure", "C. spelling", "D. the author's credibility"], a: "B. the arrangement of words and sentence structure" },
+                { q: "A rhetorical question is used to:", o: ["A. obtain factual information", "B. make a point or provoke thought rather than get an answer", "C. cite a source", "D. define a term"], a: "B. make a point or provoke thought rather than get an answer" }
+            ],
+            sa: [
+                { q: "Identify a rhetorical strategy a writer might use in a text about {focus} and explain its effect.", a: "Name a device (e.g., an appeal, analogy, or repetition) and explain how it shapes the audience's response." },
+                { q: "Write a defensible thesis for an argument about {focus}.", a: "State a clear, arguable claim that takes a position and could be supported with evidence." },
+                { q: "Explain how a writer establishes credibility (ethos) on {focus}.", a: "Cite expertise, a fair tone, acknowledgment of other views, and accurate evidence." },
+                { q: "Describe how diction and tone shape a passage about {focus}.", a: "Identify specific word choices and the attitude they convey, then connect them to the intended effect on readers." },
+                { q: "Construct a topic sentence and one piece of supporting evidence for {focus}.", a: "Give a clear claim sentence, then provide a specific fact, example, or quotation that supports it." }
+            ]
+        },
+        challenge: {
+            mcq: [
+                { q: "The most effective use of evidence in an argument is to:", o: ["A. list facts without comment", "B. select relevant evidence and explain how it supports the claim", "C. quote at length without analysis", "D. rely only on emotion"], a: "B. select relevant evidence and explain how it supports the claim" },
+                { q: "A concession in an argument is when the writer:", o: ["A. abandons the thesis", "B. admits a valid point of the opposing side before refuting or qualifying it", "C. repeats the introduction", "D. avoids evidence"], a: "B. admits a valid point of the opposing side before refuting or qualifying it" },
+                { q: "Juxtaposition is a rhetorical technique that:", o: ["A. places contrasting ideas close together for effect", "B. defines vocabulary", "C. cites sources", "D. summarizes a plot"], a: "A. places contrasting ideas close together for effect" },
+                { q: "An effective synthesis essay primarily:", o: ["A. summarizes each source separately", "B. integrates multiple sources to support the writer's own argument", "C. ignores sources", "D. quotes only one source"], a: "B. integrates multiple sources to support the writer's own argument" }
+            ],
+            sa: [
+                { q: "Write a thesis and outline a line of reasoning for an argument about {focus}.", a: "State an arguable thesis, then list two or three supporting claims that logically build the case." },
+                { q: "Analyze how a writer uses rhetorical choices to achieve a purpose in a text on {focus}.", a: "Identify specific choices (appeals, diction, syntax, structure) and explain how each advances the purpose for the audience." },
+                { q: "Develop a counterargument and rebuttal for a claim about {focus}.", a: "State the opposing view fairly, then refute or qualify it with reasoning and evidence." },
+                { q: "Explain how to synthesize two differing sources on {focus} into one argument.", a: "State your position and use each source as support or as a view to address, citing them to advance your own claim rather than just summarizing." }
+            ]
+        }
+    },
+
+    csa: {
+        basic: {
+            mcq: [
+                { q: "Which Java keyword declares a constant whose value cannot change?", o: ["A. const", "B. final", "C. static", "D. var"], a: "B. final" },
+                { q: "What is the index of the first element in a Java array?", o: ["A. 1", "B. 0", "C. -1", "D. it varies"], a: "B. 0" },
+                { q: "Which data type stores a whole number in Java?", o: ["A. int", "B. double", "C. boolean", "D. String"], a: "A. int" },
+                { q: "A loop that repeats as long as a condition is true is a:", o: ["A. while loop", "B. class", "C. method", "D. constructor"], a: "A. while loop" }
+            ],
+            sa: [
+                { q: "What is the difference between int and double in Java?", a: "int stores whole numbers; double stores floating-point (decimal) numbers." },
+                { q: "What does a constructor do?", a: "It initializes a new object of a class, often setting its instance variables." },
+                { q: "Define a method in Java.", a: "A named block of code that performs a task and can take parameters and return a value." },
+                { q: "What does the boolean type represent?", a: "A value that is either true or false." }
+            ]
+        },
+        medium: {
+            mcq: [
+                { q: "What does this loop print: for(int i=0; i<3; i++) System.out.print(i);", o: ["A. 123", "B. 012", "C. 0123", "D. 111"], a: "B. 012" },
+                { q: "To compare two Strings by their contents in Java, you should use:", o: ["A. ==", "B. .equals()", "C. =", "D. >"], a: "B. .equals()" },
+                { q: "Which is the correct way to access the 3rd element of array a?", o: ["A. a[3]", "B. a(2)", "C. a[2]", "D. a.get(3)"], a: "C. a[2]" },
+                { q: "A method declared 'public int sum(int x, int y)' must:", o: ["A. return nothing", "B. return an int value", "C. only print a value", "D. be a constructor"], a: "B. return an int value" },
+                { q: "What is the result of 7 / 2 in Java (integer division)?", o: ["A. 3.5", "B. 3", "C. 4", "D. 2"], a: "B. 3" }
+            ],
+            sa: [
+                { q: "Describe how a for-loop would process a collection related to {focus}.", a: "Initialize an index, loop while it is less than the length, access each element, and update the index (or use an enhanced for-each loop)." },
+                { q: "Explain the difference between == and .equals() when comparing objects in {focus}.", a: "== compares references (whether they are the same object in memory); .equals() compares contents/values as defined by the class." },
+                { q: "Describe a method to solve a task in {focus}, including parameters and return type.", a: "Name the method, choose parameter types for the inputs, pick a return type for the output, and describe the steps and the value returned." },
+                { q: "Explain how an if-else structure would handle a decision in {focus}.", a: "Test a boolean condition; run one block if true and another if false; chain else-if for multiple cases." },
+                { q: "Describe an array or ArrayList you would use to store data for {focus}.", a: "Choose the element type; note that arrays are fixed-size while an ArrayList resizes; access elements by index starting at 0." }
+            ]
+        },
+        challenge: {
+            mcq: [
+                { q: "What is the time complexity of a linear search through an array of n elements?", o: ["A. O(1)", "B. O(log n)", "C. O(n)", "D. O(n^2)"], a: "C. O(n)" },
+                { q: "Which concept lets a subclass provide its own version of a parent method?", o: ["A. overloading", "B. overriding", "C. encapsulation", "D. casting"], a: "B. overriding" },
+                { q: "What does a recursive method with no base case risk, e.g. int f(int n){ return f(n-1); }?", o: ["A. returning 0", "B. infinite recursion / a StackOverflowError", "C. compiling into a loop", "D. returning n"], a: "B. infinite recursion / a StackOverflowError" },
+                { q: "Encapsulation in object-oriented programming is achieved mainly by:", o: ["A. making all fields public", "B. making fields private and using getters and setters", "C. avoiding classes", "D. using only static methods"], a: "B. making fields private and using getters and setters" }
+            ],
+            sa: [
+                { q: "Describe an algorithm (with steps) to solve a problem in {focus} and give its time complexity.", a: "State the inputs and outputs, list the steps, and analyze how the number of operations grows with input size (e.g., O(n) or O(n^2))." },
+                { q: "Explain how you would design a class for {focus}, listing fields and methods.", a: "Use private instance variables for state, a constructor to initialize them, and public methods (with parameters and return types) for behavior." },
+                { q: "Trace how a nested loop processes data in {focus} and state its complexity.", a: "Describe the outer and inner loop ranges and what each iteration does, then note the combined complexity (often O(n^2))." },
+                { q: "Explain how recursion could solve a task in {focus}, including the base case.", a: "Define the base case that stops the recursion and the recursive case that reduces the problem toward that base case." }
+            ]
+        }
+    },
+
+    other: {
+        basic: {
+            mcq: [
+                { q: "A study technique that strengthens long-term memory is:", o: ["A. cramming the night before", "B. spaced repetition over several days", "C. rereading once", "D. only highlighting"], a: "B. spaced repetition over several days" },
+                { q: "A primary source is:", o: ["A. a textbook summary", "B. an original, firsthand record or artifact", "C. an encyclopedia entry", "D. a review article"], a: "B. an original, firsthand record or artifact" },
+                { q: "Active recall means:", o: ["A. rereading notes", "B. testing yourself to retrieve information from memory", "C. listening passively", "D. copying text"], a: "B. testing yourself to retrieve information from memory" },
+                { q: "A reliable source is generally one that is:", o: ["A. anonymous", "B. credible, current, and supported by evidence", "C. the first search result", "D. purely opinion-based"], a: "B. credible, current, and supported by evidence" }
+            ],
+            sa: [
+                { q: "What is active recall and why does it help learning?", a: "Retrieving information from memory (e.g., self-testing); it strengthens memory far more than passive review." },
+                { q: "Explain the difference between a primary and a secondary source.", a: "A primary source is an original firsthand record; a secondary source analyzes or interprets primary sources." },
+                { q: "Why is spaced practice more effective than cramming?", a: "Spreading study over time builds durable long-term retention, whereas crammed material fades quickly." },
+                { q: "What makes a source credible?", a: "Author expertise, supporting evidence, currency, lack of bias, and a reputable publisher." }
+            ]
+        },
+        medium: {
+            mcq: [
+                { q: "The main idea of a passage is best described as:", o: ["A. a minor detail", "B. the central point the author conveys", "C. always the first sentence", "D. a vocabulary word"], a: "B. the central point the author conveys" },
+                { q: "An inference is:", o: ["A. a direct quotation", "B. a logical conclusion drawn from evidence", "C. a guess with no basis", "D. a definition"], a: "B. a logical conclusion drawn from evidence" },
+                { q: "A correlation between two variables means:", o: ["A. one definitely causes the other", "B. they tend to change together, but not necessarily causally", "C. they are unrelated", "D. an experiment was performed"], a: "B. they tend to change together, but not necessarily causally" },
+                { q: "A strong argument requires:", o: ["A. a claim with relevant supporting evidence and reasoning", "B. only opinions", "C. many quotations", "D. emotional appeals alone"], a: "A. a claim with relevant supporting evidence and reasoning" },
+                { q: "To evaluate a website's reliability, you should check:", o: ["A. only how it looks", "B. the author, date, sources, and possible bias", "C. its color scheme", "D. its number of ads"], a: "B. the author, date, sources, and possible bias" }
+            ],
+            sa: [
+                { q: "Summarize the key idea of a topic in {focus} in one or two sentences.", a: "State the central point clearly and concisely, leaving out minor details." },
+                { q: "Write a question that would test deep understanding of {focus}.", a: "Pose an application or analysis question (why or how), not just a recall question." },
+                { q: "Make an argument with a claim and evidence about {focus}.", a: "State a clear claim and back it with at least one specific, relevant piece of evidence plus reasoning." },
+                { q: "Explain how you would break a complex problem in {focus} into smaller steps.", a: "Identify the goal, list ordered sub-steps, solve each, and combine the results." },
+                { q: "Describe how to check whether a source on {focus} is trustworthy.", a: "Examine the author's expertise, evidence, date, possible bias, and whether other reliable sources agree." }
+            ]
+        },
+        challenge: {
+            mcq: [
+                { q: "Which provides the strongest evidence for a cause-and-effect claim?", o: ["A. an anecdote", "B. a controlled, randomized experiment", "C. a single correlation", "D. popular opinion"], a: "B. a controlled, randomized experiment" },
+                { q: "A logical fallacy is:", o: ["A. a valid argument", "B. a flaw in reasoning that weakens an argument", "C. a type of evidence", "D. a citation style"], a: "B. a flaw in reasoning that weakens an argument" },
+                { q: "Synthesizing information means:", o: ["A. memorizing one source", "B. combining ideas from multiple sources into a coherent understanding", "C. ignoring sources", "D. copying a summary"], a: "B. combining ideas from multiple sources into a coherent understanding" },
+                { q: "The best way to handle conflicting sources is to:", o: ["A. pick the first one", "B. evaluate the evidence and credibility of each before deciding", "C. ignore both", "D. average their conclusions"], a: "B. evaluate the evidence and credibility of each before deciding" }
+            ],
+            sa: [
+                { q: "Build a short evidence-based argument about a question in {focus}, addressing a counterpoint.", a: "State a thesis, give supporting evidence with reasoning, then acknowledge and respond to one objection." },
+                { q: "Evaluate two sources that disagree about {focus} and decide which is stronger.", a: "Compare their evidence, expertise, and bias, then justify which is more credible." },
+                { q: "Design a study plan to master {focus} using active recall and spaced repetition.", a: "Break the topic into chunks, schedule self-testing across multiple days, and prioritize weak areas based on results." },
+                { q: "Identify a possible logical fallacy in a claim about {focus} and explain why it is flawed.", a: "Name the fallacy (e.g., correlation-as-causation or hasty generalization) and explain how the reasoning breaks down." }
+            ]
+        }
     }
 };
