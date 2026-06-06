@@ -18,7 +18,6 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 from flask import Flask, jsonify, request, send_from_directory
-from flask_cors import CORS
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE = os.path.join(APP_DIR, ".env")
@@ -75,19 +74,25 @@ def _init_db() -> None:
 _init_db()
 
 app = Flask(__name__, static_folder=APP_DIR)
-CORS(app)
+# No CORS: the page and the API are served from the same origin, so cross-origin
+# headers are unnecessary. Not enabling CORS prevents arbitrary sites from calling
+# this local proxy while the server is running.
 
 OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 OPENAI_BASE = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
 
 # Basic abuse protection for local usage (prevents runaway costs).
 RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "10"))
+# The attempt endpoint is lightweight but high-frequency (one call per graded
+# question), so it gets its own, larger bucket than the AI chat endpoint.
+ATTEMPT_RATE_LIMIT_PER_MIN = int(os.environ.get("ATTEMPT_RATE_LIMIT_PER_MIN", "60"))
 RATE_WINDOW_SECONDS = 60
 MAX_TOTAL_CHARS = int(os.environ.get("MAX_TOTAL_CHARS", "12000"))
 MAX_MESSAGE_CHARS = int(os.environ.get("MAX_MESSAGE_CHARS", "6000"))
 MAX_MESSAGES = int(os.environ.get("MAX_MESSAGES", "30"))
 
 _rate_history: dict[str, list[float]] = {}
+_attempt_rate_history: dict[str, list[float]] = {}
 
 
 def _client_ip() -> str:
@@ -98,16 +103,16 @@ def _client_ip() -> str:
     return request.remote_addr or "unknown"
 
 
-def _rate_limited(ip: str) -> bool:
+def _rate_limited(ip: str, history: dict[str, list[float]], limit: int) -> bool:
     now = time.time()
-    stamps = _rate_history.get(ip, [])
+    stamps = history.get(ip, [])
     # Prune old timestamps
     stamps = [t for t in stamps if now - t < RATE_WINDOW_SECONDS]
-    if len(stamps) >= RATE_LIMIT_PER_MIN:
-        _rate_history[ip] = stamps
+    if len(stamps) >= limit:
+        history[ip] = stamps
         return True
     stamps.append(now)
-    _rate_history[ip] = stamps
+    history[ip] = stamps
     return False
 
 
@@ -157,6 +162,9 @@ def health():
 
 @app.route("/api/attempt", methods=["POST"])
 def record_attempt():
+    if _rate_limited(_client_ip(), _attempt_rate_history, ATTEMPT_RATE_LIMIT_PER_MIN):
+        return jsonify({"error": "Rate limit exceeded. Try again in about a minute."}), 429
+
     body = request.get_json(silent=True) or {}
     subject = (str(body.get("subject") or "Uncategorized")).strip()[:120] or "Uncategorized"
     qtype = (str(body.get("type") or "Unknown")).strip()[:60] or "Unknown"
@@ -268,7 +276,7 @@ def chat_proxy():
         return jsonify({"error": "Missing messages"}), 400
 
     ip = _client_ip()
-    if _rate_limited(ip):
+    if _rate_limited(ip, _rate_history, RATE_LIMIT_PER_MIN):
         return jsonify({"error": "Rate limit exceeded. Try again in about a minute."}), 429
 
     if len(messages) > MAX_MESSAGES:

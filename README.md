@@ -67,6 +67,18 @@
 - Tests use a temporary database (via the `STUDYBOOST_DB` env var) and never touch
   your real `studyboost.db`. CI runs them on every push (see the badge above).
 
+## Security model & limitations
+This is a **local, single-user** tool; the security model is scoped to that, and stated honestly:
+- **API keys stay on the server.** They are read from `.env` (gitignored) and never sent to the
+  browser. The frontend only talks to the local proxy.
+- **Same-origin only.** The page and the API are served from the same Flask app, so CORS is not
+  enabled — arbitrary websites cannot call the proxy.
+- **Per-IP rate limiting** on the AI (`/api/chat`) and attempt (`/api/attempt`) endpoints, plus
+  request size/count caps, to prevent runaway cost and database flooding.
+- **Known limitation:** rate limiting is **in-memory** — it resets when the server restarts and is
+  per-process, so it is suitable for local single-user use, not multi-instance production. A real
+  deployment would move it to a shared store (e.g. Redis) and add a hard usage cap.
+
 ## Project structure
 - `index.html`: page markup
 - `css/styles.css`: styling

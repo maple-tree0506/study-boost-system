@@ -2,6 +2,8 @@
 
 from datetime import datetime, timezone
 
+import server
+
 
 def _attempt(client, subject="AP Biology", qtype="Multiple Choice", correct=True, ts=None):
     body = {"subject": subject, "type": qtype, "correct": correct}
@@ -73,3 +75,19 @@ def test_attempt_defaults_for_missing_fields(client):
     data = client.get("/api/stats").get_json()
     assert data["overall"]["answered"] == 1
     assert data["bySubject"][0]["subject"] == "Uncategorized"
+
+
+def test_attempt_rate_limited(client, monkeypatch):
+    # With a small per-minute limit, the (limit+1)th attempt should be rejected.
+    monkeypatch.setattr(server, "ATTEMPT_RATE_LIMIT_PER_MIN", 3)
+    server._attempt_rate_history.clear()
+
+    for _ in range(3):
+        assert _attempt(client).status_code == 200
+
+    blocked = _attempt(client)
+    assert blocked.status_code == 429
+
+    # Stored attempts should be only the 3 that were accepted.
+    data = client.get("/api/stats").get_json()
+    assert data["overall"]["answered"] == 3
