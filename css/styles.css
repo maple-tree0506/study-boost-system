@@ -247,6 +247,9 @@ details.answer-box > summary {
 .due-info { font-size: 13px; color: var(--muted, #6b7280); margin: 6px 0; }
 .review-actions { align-items: center; }
 
+/* Let wide display equations scroll instead of overflowing the card */
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+
 .tag {
     display: inline-block;
     font-size: 12px;

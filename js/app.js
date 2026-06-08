@@ -84,6 +84,26 @@ function cssEscape(value) {
     return String(value || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
+// Render LaTeX math ($...$ / $$...$$) inside an element using KaTeX, if loaded.
+// Degrades gracefully: if KaTeX is unavailable or a snippet is malformed, the
+// raw text is left in place (no crash).
+function typesetMath(el) {
+    if (!el || typeof window.renderMathInElement !== "function") return;
+    try {
+        window.renderMathInElement(el, {
+            delimiters: [
+                { left: "$$", right: "$$", display: true },
+                { left: "$", right: "$", display: false },
+                { left: "\\(", right: "\\)", display: false },
+                { left: "\\[", right: "\\]", display: true }
+            ],
+            throwOnError: false
+        });
+    } catch (e) {
+        // leave raw text on failure
+    }
+}
+
 function isProviderConfigured() {
     return healthConfig.openai_configured;
 }
@@ -494,6 +514,8 @@ async function summarizeNotesWithAI(rawNotes) {
         "You are a helpful AP / high school tutor. Return ONLY valid JSON. " +
         "Keys: simplifiedSummary (string), keyPoints (array of strings). " +
         "simplifiedSummary is one short paragraph. keyPoints has 4-8 bullets. " +
+        "Write any mathematical expressions as LaTeX delimited with $...$ " +
+        "(e.g. $x^2$, $\\frac{dy}{dx}$, $\\int_0^1 x\\,dx$). " +
         "No markdown fences.";
     const user = "Summarize for study:\n\n" + rawNotes;
     const messages = [
@@ -545,6 +567,8 @@ async function generateQuizWithAI(topic, difficulty, expected, apSubjectId, note
         "short_answer: type 'short_answer', question string, answer is a concise model answer (2-5 sentences). " +
         "Questions must match the AP course style and use authentic terminology and structures for that exam. " +
         "Calibrate the complexity STRICTLY to the requested difficulty level described below. " +
+        "Write any mathematical expressions as LaTeX delimited with $...$ " +
+        "(e.g. $x^2$, $\\frac{dy}{dx}$, $\\int_0^1 x\\,dx$); do this inside question, options, and answer strings. " +
         "Avoid generic study-skills questions. No markdown fences.";
 
     let user = "AP course: " + courseName + "\n";
@@ -724,6 +748,7 @@ function renderQuestions() {
     });
 
     quizOutput.innerHTML = html;
+    typesetMath(quizOutput);
 }
 
 function findQuestionCard(qid) {
@@ -1283,6 +1308,7 @@ function renderErrorRecords() {
     }).join("");
 
     errorOutput.innerHTML = analytics + cards;
+    typesetMath(errorOutput);
 }
 
 summaryBtn.addEventListener("click", async function () {
@@ -1304,6 +1330,7 @@ summaryBtn.addEventListener("click", async function () {
         summaryOutput.innerHTML =
             "<h3>Simplified Summary</h3><p>" + escapeHtml(demo ? demo.simplifiedSummary : raw) + "</p>" +
             "<h3>Key Points</h3><ul>" + (demo ? demo.keyPointsHtml : "") + "</ul>";
+        typesetMath(summaryOutput);
         lastNotesContext = raw;
         summaryStatus.textContent = serverHealthy
             ? "Offline summary — " + providerKeyHint()
@@ -1321,6 +1348,7 @@ summaryBtn.addEventListener("click", async function () {
         summaryOutput.innerHTML =
             "<h3>Simplified Summary</h3><p>" + escapeHtml(json.simplifiedSummary) + "</p>" +
             "<h3>Key Points</h3><ul>" + listHtml + "</ul>";
+        typesetMath(summaryOutput);
         lastNotesContext = json.simplifiedSummary + "\n" + (json.keyPoints || []).join("\n");
         summaryStatus.textContent = "Summary ready — quiz can use this context.";
         updateNotesContextUI();
@@ -1330,6 +1358,7 @@ summaryBtn.addEventListener("click", async function () {
         summaryOutput.innerHTML =
             "<h3>Simplified Summary</h3><p>" + escapeHtml(demo ? demo.simplifiedSummary : raw) + "</p>" +
             "<h3>Key Points</h3><ul>" + (demo ? demo.keyPointsHtml : "") + "</ul>";
+        typesetMath(summaryOutput);
         lastNotesContext = raw;
         updateNotesContextUI();
     } finally {

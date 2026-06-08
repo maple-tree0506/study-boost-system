@@ -11,6 +11,19 @@ Newest entries first.
 
 ---
 
+## 2026-06 — Math rendering with KaTeX
+**Why:** AP Calculus/Physics/Chemistry questions were plain ASCII (`x^2`, `integral from a to b`),
+which read like a prototype. Added real LaTeX typesetting.
+**What I did:**
+- Load KaTeX (CDN) + auto-render; a `typesetMath(el)` helper renders `$...$` / `$$...$$` after
+  every dynamic DOM update (quiz, summary, mistake review). Guarded so it degrades to raw text if
+  KaTeX or the CDN is unavailable — never crashes.
+- Updated the AI prompts (summary + quiz) to emit math as LaTeX in `$...$`. Verified: the model
+  now returns e.g. `$\frac{1}{x^2+1}$` and it renders.
+**Honest notes:** the offline bank is still ASCII (LaTeX conversion is a follow-up); and because
+the topic quality-gate matches *words*, LaTeX-symbol questions sometimes fall back to the offline
+bank — a pre-existing gate interaction to tune later.
+
 ## 2026-06 — Adaptive Mistake Review System (spaced repetition)
 **Why:** The mistake log was a static list with a manual "mastered" toggle — it never told you
 *what to review or when*. Turned it into a system that schedules reviews and tracks mastery.

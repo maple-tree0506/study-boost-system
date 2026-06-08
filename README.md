@@ -41,6 +41,13 @@
   tiers). Subjects without a bank degrade honestly instead of showing
   wrong-subject questions.
 
+## Math rendering
+Mathematical expressions are written as LaTeX delimited with `$...$` and rendered with
+**KaTeX**. The AI is prompted to emit LaTeX, so equations in AP Calculus/Physics/Chemistry
+questions are typeset rather than shown as plain ASCII. If KaTeX (loaded from a CDN) is
+unavailable, the raw text is shown instead — it degrades gracefully, never crashes.
+(The built-in offline question bank is still plain text; converting it to LaTeX is a follow-up.)
+
 ## Practice & answers
 - **Answers are gated (Khan-style):** the model answer stays hidden until you
   act — multiple-choice reveals after "Check answer"; short-answer/FRQ reveals
