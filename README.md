@@ -62,10 +62,12 @@
 - `GET /api/stats` — returns `{ overall, bySubject, daily }` for the dashboard.
 
 ## Testing
-- Install dev deps: `py -m pip install -r requirements-dev.txt`
-- Run the suite: `pytest -q`
-- Tests use a temporary database (via the `STUDYBOOST_DB` env var) and never touch
-  your real `studyboost.db`. CI runs them on every push (see the badge above).
+- **Backend (Python):** `py -m pip install -r requirements-dev.txt` then `pytest -q`.
+  Tests use a temporary database (via the `STUDYBOOST_DB` env var) and never touch your
+  real `studyboost.db`.
+- **Frontend (JS):** `node --test tests/spaced-repetition.test.js` — unit tests for the
+  SM-2 scheduler, using Node's built-in test runner (no dependencies; Node 18+).
+- Both suites run in CI on every push (see the badge above).
 
 ## AI output reliability
 LLM responses are treated as an unreliable input that must be validated:

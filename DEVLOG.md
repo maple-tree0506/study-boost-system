@@ -26,8 +26,9 @@ Newest entries first.
   with items sorted soonest-due first.
 **Verified** (browser): SM-2 progression 1→6→16→45 days with EF climbing 2.5→2.9, auto-mastery at
 reps≥3 & interval≥21, and "Forgot" correctly resetting the interval to 1.
-**Honest gap:** this logic is pure and unit-testable, but the repo has no JS test runner (Node
-isn't installed), so it's browser-verified for now; adding Node-based tests is a clean follow-up.
+**Follow-up (done):** added Node `node:test` unit tests for the SM-2 scheduler
+(`tests/spaced-repetition.test.js`, zero dependencies) and a JS job in CI, so the algorithm is
+now automatically tested on every push — not just browser-verified.
 
 ## 2026-06 — AI reliability layer (treat the LLM as an unreliable input)
 **Why:** The AI is the one component I don't control. Previously I relied on a prompt saying

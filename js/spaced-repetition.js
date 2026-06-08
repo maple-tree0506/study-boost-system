@@ -106,5 +106,11 @@
         }
     };
 
-    window.ReviewSystem = ReviewSystem;
+    // Browser: attach to window. Node (tests): export the same object.
+    if (typeof window !== "undefined") {
+        window.ReviewSystem = ReviewSystem;
+    }
+    if (typeof module !== "undefined" && module.exports) {
+        module.exports = ReviewSystem;
+    }
 })();
