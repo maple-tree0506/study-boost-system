@@ -221,6 +221,32 @@ details.answer-box > summary {
     white-space: pre-wrap;
 }
 
+/* Adaptive review: analytics row + status tags + due info */
+.review-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.review-stat {
+    flex: 1 1 70px;
+    text-align: center;
+    padding: 8px 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fafafa;
+}
+.review-stat .rs-num { display: block; font-size: 20px; font-weight: 700; color: var(--primary); }
+.review-stat .rs-label { font-size: 12px; color: var(--muted, #6b7280); }
+
+.tag.status-new { background: #e5e7eb; }
+.tag.status-learning { background: #fef3c7; }
+.tag.status-mastered { background: #d1fae5; }
+.tag.due { background: #fee2e2; color: #991b1b; }
+
+.due-info { font-size: 13px; color: var(--muted, #6b7280); margin: 6px 0; }
+.review-actions { align-items: center; }
+
 .tag {
     display: inline-block;
     font-size: 12px;

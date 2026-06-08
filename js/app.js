@@ -23,7 +23,7 @@ const AP_SUBJECTS = [
 
 let generatedQuestions = [];
 let errorRecords = readErrorRecords();
-let showOnlyNotUnderstood = false;
+let showOnlyDue = false;
 let mistakeSubjectFilter = "";
 let lastNotesContext = "";
 let serverHealthy = false;
@@ -171,6 +171,8 @@ function migrateErrorRecord(item) {
     if (!item || typeof item !== "object") return item;
     const copy = Object.assign({}, item);
     if (!copy.subject) copy.subject = "Uncategorized";
+    // Initialize spaced-repetition state for records saved before this feature.
+    if (!copy.sr && window.ReviewSystem) copy.sr = window.ReviewSystem.initReview();
     return copy;
 }
 
@@ -1162,7 +1164,7 @@ function addErrorRecord(questionId) {
         question: found.question,
         answer: found.answer,
         userAnswer: found.userAnswer || "",
-        status: "not_understood",
+        sr: window.ReviewSystem ? window.ReviewSystem.initReview() : null,
         subject: subj,
         createdAt: new Date().toISOString()
     });
@@ -1172,15 +1174,21 @@ function addErrorRecord(questionId) {
     errorStatus.textContent = "Saved to mistake log.";
 }
 
-function toggleErrorStatus(errorId) {
+function reviewMistake(errorId, quality) {
+    let reviewed = null;
     errorRecords = errorRecords.map(function (item) {
         if (item.id !== errorId) return item;
-        return Object.assign({}, item, {
-            status: item.status === "not_understood" ? "mastered" : "not_understood"
-        });
+        const sr = window.ReviewSystem.review(item.sr, quality);
+        reviewed = Object.assign({}, item, { sr: sr });
+        return reviewed;
     });
+    if (!reviewed) return;
     saveErrorRecords();
     renderErrorRecords();
+    const days = window.ReviewSystem.daysUntilDue(reviewed.sr);
+    const when = days <= 0 ? "today" : days === 1 ? "in 1 day" : "in " + days + " days";
+    errorStatus.textContent = "Scheduled — next review " + when +
+        " (status: " + window.ReviewSystem.status(reviewed.sr) + ").";
 }
 
 function removeErrorRecord(errorId) {
@@ -1205,49 +1213,76 @@ function clearErrorRecords() {
 }
 
 function renderErrorRecords() {
+    const RS = window.ReviewSystem;
+
+    // Progress analytics over ALL records (independent of the current filter).
+    let analytics = "";
+    if (RS && errorRecords.length) {
+        const s = RS.summarize(errorRecords);
+        analytics =
+            '<div class="review-stats">' +
+            '<div class="review-stat"><span class="rs-num">' + s.due + '</span><span class="rs-label">Due now</span></div>' +
+            '<div class="review-stat"><span class="rs-num">' + s.learning + '</span><span class="rs-label">Learning</span></div>' +
+            '<div class="review-stat"><span class="rs-num">' + s.mastered + '</span><span class="rs-label">Mastered</span></div>' +
+            '<div class="review-stat"><span class="rs-num">' + s.masteryPct + '%</span><span class="rs-label">Mastery</span></div>' +
+            "</div>";
+    }
+
     let records = errorRecords.slice();
-    if (showOnlyNotUnderstood) {
-        records = records.filter(function (item) {
-            return item.status === "not_understood";
-        });
+    if (showOnlyDue && RS) {
+        records = records.filter(function (item) { return RS.isDue(item.sr); });
     }
     if (mistakeSubjectFilter) {
-        records = records.filter(function (item) {
-            return item.subject === mistakeSubjectFilter;
+        records = records.filter(function (item) { return item.subject === mistakeSubjectFilter; });
+    }
+    // Show the most urgent (soonest-due) items first.
+    if (RS) {
+        records.sort(function (a, b) {
+            const da = a.sr && a.sr.due ? new Date(a.sr.due).getTime() : 0;
+            const db = b.sr && b.sr.due ? new Date(b.sr.due).getTime() : 0;
+            return da - db;
         });
     }
 
     if (!records.length) {
-        errorOutput.innerHTML = "<p class='empty'>No records for this filter.</p>";
+        errorOutput.innerHTML = analytics + "<p class='empty'>No items for this filter.</p>";
         return;
     }
 
-    const html = records
-        .map(function (item, index) {
-            const statusLabel = item.status === "not_understood" ? "Not Understood" : "Mastered";
-            const statusClass = item.status === "not_understood" ? "not-understood" : "";
-            return (
-                '<article class="error-card">' +
-                '<div><span class="tag subject">' + escapeHtml(item.subject || "Uncategorized") + "</span>" +
-                '<span class="tag">' + escapeHtml(item.type) + "</span>" +
-                '<span class="tag ' + statusClass + '">' + statusLabel + "</span>" +
-                "<strong>Mistake " + (index + 1) + "</strong></div>" +
-                "<p>" + escapeHtml(item.question) + "</p>" +
-                (item.userAnswer
-                    ? '<p class="your-answer"><strong>Your answer:</strong> ' + escapeHtml(item.userAnswer) + "</p>"
-                    : "") +
-                '<details class="answer-box"><summary>Suggested answer</summary><p>' + escapeHtml(item.answer) + "</p></details>" +
-                '<div class="actions">' +
-                '<button type="button" class="secondary" data-action="toggle-status" data-id="' + escapeHtml(item.id) + '">' +
-                (item.status === "not_understood" ? "Mark as Mastered" : "Mark Not Understood") +
-                "</button>" +
-                '<button type="button" class="danger" data-action="remove-error" data-id="' + escapeHtml(item.id) + '">Delete</button>' +
-                "</div>" +
-                "</article>"
-            );
-        })
-        .join("");
-    errorOutput.innerHTML = html;
+    const STATUS_LABEL = { "new": "New", learning: "Learning", mastered: "Mastered" };
+
+    const cards = records.map(function (item, index) {
+        const sr = item.sr;
+        const status = RS ? RS.status(sr) : "new";
+        const due = RS ? RS.isDue(sr) : true;
+        const days = RS ? RS.daysUntilDue(sr) : 0;
+        const dueText = due ? "Due now" : (days === 1 ? "Next review in 1 day" : "Next review in " + days + " days");
+        const id = escapeHtml(item.id);
+        return (
+            '<article class="error-card">' +
+            '<div><span class="tag subject">' + escapeHtml(item.subject || "Uncategorized") + "</span>" +
+            '<span class="tag">' + escapeHtml(item.type) + "</span>" +
+            '<span class="tag status-' + status + '">' + (STATUS_LABEL[status] || status) + "</span>" +
+            (due ? '<span class="tag due">Due</span>' : "") +
+            "<strong>Item " + (index + 1) + "</strong></div>" +
+            "<p>" + escapeHtml(item.question) + "</p>" +
+            (item.userAnswer
+                ? '<p class="your-answer"><strong>Your answer:</strong> ' + escapeHtml(item.userAnswer) + "</p>"
+                : "") +
+            '<details class="answer-box"><summary>Suggested answer</summary><p>' + escapeHtml(item.answer) + "</p></details>" +
+            '<p class="due-info">' + escapeHtml(dueText) + (sr && sr.reviews ? " · reviewed " + sr.reviews + "x" : "") + "</p>" +
+            '<div class="actions review-actions">' +
+            '<span class="selfgrade-q">How well did you recall it?</span>' +
+            '<button type="button" class="outline" data-action="review" data-q="2" data-id="' + id + '">Forgot</button>' +
+            '<button type="button" class="outline" data-action="review" data-q="3" data-id="' + id + '">Hard</button>' +
+            '<button type="button" class="outline" data-action="review" data-q="5" data-id="' + id + '">Got it</button>' +
+            '<button type="button" class="danger" data-action="remove-error" data-id="' + id + '">Delete</button>' +
+            "</div>" +
+            "</article>"
+        );
+    }).join("");
+
+    errorOutput.innerHTML = analytics + cards;
 }
 
 summaryBtn.addEventListener("click", async function () {
@@ -1305,15 +1340,15 @@ summaryBtn.addEventListener("click", async function () {
 quizBtn.addEventListener("click", generateQuiz);
 
 showAllBtn.addEventListener("click", function () {
-    showOnlyNotUnderstood = false;
+    showOnlyDue = false;
     renderErrorRecords();
-    errorStatus.textContent = "Filter: all statuses.";
+    errorStatus.textContent = "Filter: all items.";
 });
 
 showUnknownBtn.addEventListener("click", function () {
-    showOnlyNotUnderstood = true;
+    showOnlyDue = true;
     renderErrorRecords();
-    errorStatus.textContent = 'Filter: only “Not Understood”.';
+    errorStatus.textContent = "Filter: due for review.";
 });
 
 clearErrorsBtn.addEventListener("click", clearErrorRecords);
@@ -1329,8 +1364,11 @@ errorOutput.addEventListener("click", function (event) {
     const action = target.getAttribute("data-action");
     const id = target.getAttribute("data-id");
     if (!id) return;
-    if (action === "toggle-status") toggleErrorStatus(id);
-    else if (action === "remove-error") removeErrorRecord(id);
+    if (action === "review") {
+        reviewMistake(id, parseInt(target.getAttribute("data-q"), 10));
+    } else if (action === "remove-error") {
+        removeErrorRecord(id);
+    }
 });
 
 saveUIPrefsBtn.addEventListener("click", saveUIPrefs);

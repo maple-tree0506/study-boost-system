@@ -91,7 +91,9 @@
         </section>
 
         <section class="panel" aria-labelledby="errors-title">
-            <h2 id="errors-title">3) Mistake Log</h2>
+            <h2 id="errors-title">3) Adaptive Mistake Review</h2>
+            <p class="hint">Rate your recall (Forgot / Hard / Got it) and the system schedules each
+                item with a spaced-repetition algorithm (SM-2), tracking mastery automatically.</p>
             <div class="grid-2">
                 <div class="field">
                     <label for="mistakeSubjectFilter">Filter by course</label>
@@ -102,7 +104,7 @@
             </div>
             <div class="actions">
                 <button id="showAllBtn" type="button" class="secondary">Show All</button>
-                <button id="showUnknownBtn" type="button" class="secondary">Show only &ldquo;Not Understood&rdquo;</button>
+                <button id="showUnknownBtn" type="button" class="secondary">Show Due for Review</button>
                 <button id="clearErrorsBtn" type="button" class="danger">Clear Mistake Log</button>
             </div>
             <div class="status" id="errorStatus" aria-live="polite"></div>
@@ -125,6 +127,7 @@
     </main>
 
     <script src="js/question-bank.js" defer></script>
+    <script src="js/spaced-repetition.js" defer></script>
     <script src="js/app.js" defer></script>
 </body>
 </html>

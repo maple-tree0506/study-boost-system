@@ -11,6 +11,24 @@ Newest entries first.
 
 ---
 
+## 2026-06 — Adaptive Mistake Review System (spaced repetition)
+**Why:** The mistake log was a static list with a manual "mastered" toggle — it never told you
+*what to review or when*. Turned it into a system that schedules reviews and tracks mastery.
+**What I did:**
+- New `js/spaced-repetition.js` implementing the **SM-2** algorithm as a *pure* function behind a
+  **pluggable scheduler registry** (`ReviewSystem.schedulers`), so another algorithm (e.g. Leitner)
+  can be added later without touching the app — designed as a system, not a hard-coded rule.
+- Each mistake carries a review state `{algo, reps, ef, intervalDays, due, reviews}`; old records
+  migrate automatically.
+- Ratings **Forgot / Hard / Got it** map to SM-2 quality (2 / 3 / 5); the next due date and a
+  derived **mastery status** (new / learning / mastered) are computed automatically.
+- Added review **analytics** (Due / Learning / Mastered / mastery %) and a "due for review" filter,
+  with items sorted soonest-due first.
+**Verified** (browser): SM-2 progression 1→6→16→45 days with EF climbing 2.5→2.9, auto-mastery at
+reps≥3 & interval≥21, and "Forgot" correctly resetting the interval to 1.
+**Honest gap:** this logic is pure and unit-testable, but the repo has no JS test runner (Node
+isn't installed), so it's browser-verified for now; adding Node-based tests is a clean follow-up.
+
 ## 2026-06 — AI reliability layer (treat the LLM as an unreliable input)
 **Why:** The AI is the one component I don't control. Previously I relied on a prompt saying
 "return JSON" plus regex brace-extraction — brittle, and I had no idea how often it failed.
