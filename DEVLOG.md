@@ -20,9 +20,13 @@ which read like a prototype. Added real LaTeX typesetting.
   KaTeX or the CDN is unavailable — never crashes.
 - Updated the AI prompts (summary + quiz) to emit math as LaTeX in `$...$`. Verified: the model
   now returns e.g. `$\frac{1}{x^2+1}$` and it renders.
-**Honest notes:** the offline bank is still ASCII (LaTeX conversion is a follow-up); and because
-the topic quality-gate matches *words*, LaTeX-symbol questions sometimes fall back to the offline
-bank — a pre-existing gate interaction to tune later.
+**Follow-ups (done):**
+- Converted the AP Calculus AB offline bank to LaTeX (all 3 tiers) so the no-API-key demo also
+  shows typeset math; verified offline rendering and that LaTeX options don't break MCQ
+  letter-matching. Other math-heavy subjects (Calc BC, Physics, Chemistry, Statistics) are queued.
+- Tuned the quiz quality gate: removed the topic-keyword check (it false-rejected valid
+  LaTeX/symbol questions, causing needless fallback). The gate now relies on the structural
+  count check plus the P2 shape validation.
 
 ## 2026-06 — Adaptive Mistake Review System (spaced repetition)
 **Why:** The mistake log was a static list with a manual "mastered" toggle — it never told you

@@ -412,36 +412,18 @@ function parseFormat(formatStr) {
     return { mcq: mcq, sa: sa };
 }
 
-function getTopicKeywords(topic) {
-    return String(topic || "")
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, " ")
-        .split(/\s+/)
-        .filter(function (word) { return word.length >= 4; })
-        .slice(0, 6);
-}
-
+// Structural quality gate: the result has at least the requested number of each
+// question type. Field shape (question/answer/options present) is validated
+// separately by the AI reliability layer (validateQuizShape / normalizeAIQuestions).
+//
+// An earlier topic-keyword check was removed here: it false-rejected valid
+// questions that express the topic with LaTeX/symbols (e.g. $f'(x)$, $\int$)
+// instead of the literal keyword, causing needless fallback to the offline bank.
 function isQuizQualityAcceptable(questions, topic, expected) {
     if (!Array.isArray(questions) || questions.length < 1) return false;
     const mcqCount = questions.filter(function (q) { return q && q.type === "Multiple Choice"; }).length;
     const shortCount = questions.filter(function (q) { return q && q.type === "Short Answer"; }).length;
-    if (mcqCount < expected.mcq || shortCount < expected.sa) return false;
-
-    const keywords = getTopicKeywords(topic);
-    if (!keywords.length) return true;
-
-    const joinedText = questions
-        .map(function (q) {
-            return ((q && q.question) ? q.question : "") + " " + ((q && q.answer) ? q.answer : "");
-        })
-        .join(" ")
-        .toLowerCase();
-
-    const matched = keywords.filter(function (kw) {
-        return joinedText.indexOf(kw) !== -1;
-    }).length;
-
-    return matched >= Math.min(1, keywords.length);
+    return mcqCount >= expected.mcq && shortCount >= expected.sa;
 }
 
 async function fetchHealth() {

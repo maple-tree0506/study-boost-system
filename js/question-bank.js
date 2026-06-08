@@ -17,46 +17,46 @@ window.OFFLINE_BANK = {
     calc_ab: {
         basic: {
             mcq: [
-                { q: "What is the derivative of x^5?", o: ["A. 5x^4", "B. x^4", "C. 5x^5", "D. 4x^5"], a: "A. 5x^4" },
-                { q: "Evaluate the indefinite integral of 2x dx.", o: ["A. x^2 + C", "B. 2 + C", "C. 2x^2 + C", "D. x + C"], a: "A. x^2 + C" },
-                { q: "What is the limit of sin(x)/x as x approaches 0?", o: ["A. 0", "B. 1", "C. infinity", "D. undefined"], a: "B. 1" },
-                { q: "The derivative of the constant function f(x) = 7 is:", o: ["A. 7", "B. 1", "C. 0", "D. x"], a: "C. 0" }
+                { q: "What is the derivative of $x^5$?", o: ["A. $5x^4$", "B. $x^4$", "C. $5x^5$", "D. $4x^5$"], a: "A. $5x^4$" },
+                { q: "Evaluate the indefinite integral $\\int 2x\\,dx$.", o: ["A. $x^2 + C$", "B. $2 + C$", "C. $2x^2 + C$", "D. $x + C$"], a: "A. $x^2 + C$" },
+                { q: "What is $\\lim_{x \\to 0} \\frac{\\sin x}{x}$?", o: ["A. $0$", "B. $1$", "C. $\\infty$", "D. undefined"], a: "B. $1$" },
+                { q: "The derivative of the constant function $f(x) = 7$ is:", o: ["A. $7$", "B. $1$", "C. $0$", "D. $x$"], a: "C. $0$" }
             ],
             sa: [
-                { q: "State the power rule for derivatives and give one example.", a: "d/dx[x^n] = n*x^(n-1); e.g., d/dx[x^3] = 3x^2." },
-                { q: "Define what a definite integral represents geometrically.", a: "The signed area between the curve and the x-axis over the interval [a, b]." },
-                { q: "What is the derivative of any constant, and why?", a: "Zero, because a constant never changes, so its rate of change is 0." },
-                { q: "Write the limit definition of the derivative of f at x.", a: "f'(x) = lim(h->0) [f(x+h) - f(x)] / h." }
+                { q: "State the power rule for derivatives and give one example.", a: "$\\frac{d}{dx}[x^n] = n x^{n-1}$; e.g. $\\frac{d}{dx}[x^3] = 3x^2$." },
+                { q: "Define what a definite integral represents geometrically.", a: "The signed area between the curve and the x-axis over the interval $[a, b]$." },
+                { q: "What is the derivative of any constant, and why?", a: "It is $0$, because a constant never changes, so its rate of change is zero." },
+                { q: "Write the limit definition of the derivative of $f$ at $x$.", a: "$f'(x) = \\lim_{h \\to 0} \\frac{f(x+h) - f(x)}{h}$." }
             ]
         },
         medium: {
             mcq: [
-                { q: "A particle moves along the x-axis with velocity v(t) = 3t^2 - 12t. At which t in [0,4] is the acceleration zero?", o: ["A. t = 0", "B. t = 1", "C. t = 2", "D. t = 4"], a: "C. t = 2" },
-                { q: "Which expression gives the derivative of ln(5x^2 + 1)?", o: ["A. 1/(5x^2+1)", "B. 10x/(5x^2+1)", "C. 5/(5x^2+1)", "D. 2x ln(5x^2+1)"], a: "B. 10x/(5x^2+1)" },
-                { q: "The integral from 1 to e of (1/x) dx equals", o: ["A. 0", "B. 1", "C. e", "D. e - 1"], a: "B. 1" },
-                { q: "For f(x) = x^3 - 3x, which statement about local extrema on the real line is correct?", o: ["A. Local max at x=1 only", "B. Local min at x=-1, local max at x=1", "C. No critical points", "D. Local max at x=-1 only"], a: "B. Local min at x=-1, local max at x=1" },
-                { q: "If the integral from a to b of f(x) dx = -3, what is a reasonable interpretation?", o: ["A. f is always negative", "B. area below the axis dominates", "C. f has no zeros", "D. integral is always positive"], a: "B. area below the axis dominates" }
+                { q: "A particle moves along the x-axis with velocity $v(t) = 3t^2 - 12t$. At which $t$ in $[0,4]$ is the acceleration zero?", o: ["A. $t = 0$", "B. $t = 1$", "C. $t = 2$", "D. $t = 4$"], a: "C. $t = 2$" },
+                { q: "Which expression gives the derivative of $\\ln(5x^2 + 1)$?", o: ["A. $\\frac{1}{5x^2+1}$", "B. $\\frac{10x}{5x^2+1}$", "C. $\\frac{5}{5x^2+1}$", "D. $2x\\ln(5x^2+1)$"], a: "B. $\\frac{10x}{5x^2+1}$" },
+                { q: "$\\int_1^e \\frac{1}{x}\\,dx$ equals", o: ["A. $0$", "B. $1$", "C. $e$", "D. $e - 1$"], a: "B. $1$" },
+                { q: "For $f(x) = x^3 - 3x$, which statement about local extrema on the real line is correct?", o: ["A. Local max at $x=1$ only", "B. Local min at $x=-1$, local max at $x=1$", "C. No critical points", "D. Local max at $x=-1$ only"], a: "B. Local min at $x=-1$, local max at $x=1$" },
+                { q: "If $\\int_a^b f(x)\\,dx = -3$, what is a reasonable interpretation?", o: ["A. $f$ is always negative", "B. area below the axis dominates", "C. $f$ has no zeros", "D. the integral is always positive"], a: "B. area below the axis dominates" }
             ],
             sa: [
-                { q: "Explain the relationship between position, velocity, and acceleration for {focus} using one sentence each.", a: "Velocity is the derivative of position; acceleration is the derivative of velocity (or second derivative of position). Connect to your topic by naming what is changing and what rate." },
-                { q: "Set up (do not evaluate) the integral for the volume of revolution for a representative problem related to {focus}.", a: "State disk/washer or shell, show radius/height in terms of the variable, and give correct bounds." },
-                { q: "For a related rates problem about {focus}, what quantities are typically held constant vs changing?", a: "State which geometric relation links variables, differentiate with respect to time, and substitute known rates." },
-                { q: "Describe how you would justify a local minimum using calculus tests for a function tied to {focus}.", a: "Find critical points, use first or second derivative test, conclude with function values." },
-                { q: "Compare Riemann sum estimates vs exact integral for a concept from {focus}.", a: "Explain rectangles/trapezoids vs limit of sums; mention refinement as n increases." }
+                { q: "Explain the relationship between position, velocity, and acceleration for {focus} using one sentence each.", a: "Velocity is the derivative of position; acceleration is the derivative of velocity (the second derivative of position). Connect to your topic by naming what is changing and at what rate." },
+                { q: "Set up (do not evaluate) the integral for the volume of revolution for a representative problem related to {focus}.", a: "State disk/washer or shell, show the radius/height in terms of the variable, and give the correct bounds." },
+                { q: "For a related rates problem about {focus}, what quantities are typically held constant vs changing?", a: "State the geometric relation linking the variables, differentiate with respect to time, and substitute the known rates." },
+                { q: "Describe how you would justify a local minimum using calculus tests for a function tied to {focus}.", a: "Find critical points where $f'(x) = 0$, apply the first or second derivative test, and conclude with function values." },
+                { q: "Compare Riemann sum estimates vs the exact integral for a concept from {focus}.", a: "Explain rectangles/trapezoids vs the limit of sums; mention refinement as $n$ increases." }
             ]
         },
         challenge: {
             mcq: [
-                { q: "For f(x) = x^3 - 3x, identify the local extrema on the real line.", o: ["A. Local max at x = 1 only", "B. Local min at x = -1 and local max at x = 1", "C. No critical points", "D. Local max at x = -1 and local min at x = 1"], a: "B. Local min at x = -1 and local max at x = 1" },
-                { q: "If the integral of f from a to b equals -3, which interpretation is best?", o: ["A. f is always negative", "B. Net signed area is negative; area below the axis dominates", "C. f has no zeros on [a, b]", "D. The integral must be positive"], a: "B. Net signed area is negative; area below the axis dominates" },
-                { q: "By the Mean Value Theorem, for f continuous on [a, b] and differentiable on (a, b), there exists c such that:", o: ["A. f(c) = 0", "B. f'(c) = (f(b) - f(a)) / (b - a)", "C. f'(c) = 0 always", "D. f(c) = f(a) + f(b)"], a: "B. f'(c) = (f(b) - f(a)) / (b - a)" },
-                { q: "Let g(x) = integral from 0 to x of f(t) dt. If f is positive and increasing, then g is:", o: ["A. Decreasing and concave down", "B. Increasing and concave up", "C. Constant", "D. Increasing and concave down"], a: "B. Increasing and concave up" }
+                { q: "For $f(x) = x^3 - 3x$, identify the local extrema on the real line.", o: ["A. Local max at $x = 1$ only", "B. Local min at $x = -1$ and local max at $x = 1$", "C. No critical points", "D. Local max at $x = -1$ and local min at $x = 1$"], a: "B. Local min at $x = -1$ and local max at $x = 1$" },
+                { q: "If $\\int_a^b f(x)\\,dx = -3$, which interpretation is best?", o: ["A. $f$ is always negative", "B. Net signed area is negative; area below the axis dominates", "C. $f$ has no zeros on $[a, b]$", "D. The integral must be positive"], a: "B. Net signed area is negative; area below the axis dominates" },
+                { q: "By the Mean Value Theorem, for $f$ continuous on $[a, b]$ and differentiable on $(a, b)$, there exists $c$ such that:", o: ["A. $f(c) = 0$", "B. $f'(c) = \\frac{f(b) - f(a)}{b - a}$", "C. $f'(c) = 0$ always", "D. $f(c) = f(a) + f(b)$"], a: "B. $f'(c) = \\frac{f(b) - f(a)}{b - a}$" },
+                { q: "Let $g(x) = \\int_0^x f(t)\\,dt$. If $f$ is positive and increasing, then $g$ is:", o: ["A. Decreasing and concave down", "B. Increasing and concave up", "C. Constant", "D. Increasing and concave down"], a: "B. Increasing and concave up" }
             ],
             sa: [
-                { q: "Justify the existence of a local minimum for a function tied to {focus} using both the first and second derivative tests.", a: "Find critical points where f' = 0; first-derivative test: sign change - to + implies a min; second-derivative test: f'' > 0 implies a min; confirm with function values." },
-                { q: "Given the graph of f', describe the concavity and locate inflection points for a problem connected to {focus}.", a: "f is concave up where f' is increasing (f'' > 0) and concave down where f' is decreasing; inflection points occur where f'' changes sign." },
-                { q: "Use the Fundamental Theorem of Calculus to explain how an accumulation function relates to {focus}.", a: "If F(x) = integral from a to x of f(t) dt, then F'(x) = f(x); the accumulation's rate of change equals the integrand." },
-                { q: "Set up and justify (do not evaluate) a definite integral modeling total change for {focus}.", a: "Identify the rate function, integrate the rate over the interval, and interpret the result as net accumulated change with correct units." }
+                { q: "Justify the existence of a local minimum for a function tied to {focus} using both the first and second derivative tests.", a: "Find critical points where $f'(x) = 0$; first-derivative test: a sign change from $-$ to $+$ implies a min; second-derivative test: $f''(x) > 0$ implies a min; confirm with function values." },
+                { q: "Given the graph of $f'$, describe the concavity and locate inflection points for a problem connected to {focus}.", a: "$f$ is concave up where $f'$ is increasing ($f'' > 0$) and concave down where $f'$ is decreasing; inflection points occur where $f''$ changes sign." },
+                { q: "Use the Fundamental Theorem of Calculus to explain how an accumulation function relates to {focus}.", a: "If $F(x) = \\int_a^x f(t)\\,dt$, then $F'(x) = f(x)$; the accumulation's rate of change equals the integrand." },
+                { q: "Set up and justify (do not evaluate) a definite integral modeling total change for {focus}.", a: "Identify the rate function, integrate the rate over the interval, and interpret the result as the net accumulated change with correct units." }
             ]
         }
     },
