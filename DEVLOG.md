@@ -21,9 +21,10 @@ which read like a prototype. Added real LaTeX typesetting.
 - Updated the AI prompts (summary + quiz) to emit math as LaTeX in `$...$`. Verified: the model
   now returns e.g. `$\frac{1}{x^2+1}$` and it renders.
 **Follow-ups (done):**
-- Converted the AP Calculus AB offline bank to LaTeX (all 3 tiers) so the no-API-key demo also
-  shows typeset math; verified offline rendering and that LaTeX options don't break MCQ
-  letter-matching. Other math-heavy subjects (Calc BC, Physics, Chemistry, Statistics) are queued.
+- Converted the math-heavy offline banks to LaTeX (all 3 tiers each): AP Calculus AB, Calculus BC,
+  Physics 1, and Physics C: Mechanics — so the no-API-key demo shows typeset math; verified offline
+  rendering and that LaTeX options don't break MCQ letter-matching. Chemistry and Statistics queued
+  next; the remaining subjects (bio, history, English, psych, CS) have little/no math.
 - Tuned the quiz quality gate: removed the topic-keyword check (it false-rejected valid
   LaTeX/symbol questions, causing needless fallback). The gate now relies on the structural
   count check plus the P2 shape validation.

@@ -111,45 +111,45 @@ window.OFFLINE_BANK = {
     calc_bc: {
         basic: {
             mcq: [
-                { q: "The sum of the geometric series 1 + 1/2 + 1/4 + 1/8 + ... is:", o: ["A. 1", "B. 3/2", "C. 2", "D. infinite"], a: "C. 2" },
-                { q: "What is the derivative of e^(2x)?", o: ["A. e^(2x)", "B. 2e^(2x)", "C. 2x e^(2x)", "D. e^(2x)/2"], a: "B. 2e^(2x)" },
-                { q: "A geometric series with common ratio r converges when:", o: ["A. |r| > 1", "B. |r| < 1", "C. r = 1", "D. r > 0"], a: "B. |r| < 1" },
-                { q: "The integration-by-parts formula is the integral of u dv =", o: ["A. uv - integral of v du", "B. uv + integral of v du", "C. u/v - integral of v du", "D. integral of u du - v"], a: "A. uv - integral of v du" }
+                { q: "The sum of the geometric series $1 + \\frac{1}{2} + \\frac{1}{4} + \\frac{1}{8} + \\cdots$ is:", o: ["A. $1$", "B. $\\frac{3}{2}$", "C. $2$", "D. infinite"], a: "C. $2$" },
+                { q: "What is the derivative of $e^{2x}$?", o: ["A. $e^{2x}$", "B. $2e^{2x}$", "C. $2x e^{2x}$", "D. $\\frac{e^{2x}}{2}$"], a: "B. $2e^{2x}$" },
+                { q: "A geometric series with common ratio $r$ converges when:", o: ["A. $|r| > 1$", "B. $|r| < 1$", "C. $r = 1$", "D. $r > 0$"], a: "B. $|r| < 1$" },
+                { q: "The integration-by-parts formula is $\\int u\\,dv =$", o: ["A. $uv - \\int v\\,du$", "B. $uv + \\int v\\,du$", "C. $\\frac{u}{v} - \\int v\\,du$", "D. $\\int u\\,du - v$"], a: "A. $uv - \\int v\\,du$" }
             ],
             sa: [
-                { q: "State the formula for the sum of a convergent geometric series with first term a and ratio r.", a: "S = a / (1 - r), valid for |r| < 1." },
-                { q: "Write the general term of the Taylor series of f about x = a.", a: "f^(n)(a)/n! times (x - a)^n, summed for n from 0 to infinity." },
-                { q: "What does the ratio test determine?", a: "Whether a series converges absolutely, using the limit of |a_(n+1)/a_n|: <1 converges, >1 diverges, =1 inconclusive." },
+                { q: "State the formula for the sum of a convergent geometric series with first term $a$ and ratio $r$.", a: "$S = \\frac{a}{1 - r}$, valid for $|r| < 1$." },
+                { q: "Write the general term of the Taylor series of $f$ about $x = a$.", a: "$\\frac{f^{(n)}(a)}{n!}(x - a)^n$, summed for $n$ from $0$ to $\\infty$." },
+                { q: "What does the ratio test determine?", a: "Whether a series converges absolutely, using $\\lim |a_{n+1}/a_n|$: $<1$ converges, $>1$ diverges, $=1$ inconclusive." },
                 { q: "Define an improper integral.", a: "An integral with an infinite limit or an infinite discontinuity in the integrand, evaluated as a limit." }
             ]
         },
         medium: {
             mcq: [
-                { q: "The Maclaurin series for e^x is:", o: ["A. sum of x^n", "B. sum of x^n / n!", "C. sum of (-1)^n x^n", "D. sum of n! x^n"], a: "B. sum of x^n / n!" },
-                { q: "Which test best shows that the sum of 1/n^2 converges?", o: ["A. nth-term test", "B. p-series test (p = 2 > 1)", "C. ratio test", "D. it diverges"], a: "B. p-series test (p = 2 > 1)" },
-                { q: "The arc length of a parametric curve uses the integral of:", o: ["A. sqrt((dx/dt)^2 + (dy/dt)^2) dt", "B. (dx/dt)(dy/dt) dt", "C. sqrt(dx^2 - dy^2)", "D. (dy/dx) dt"], a: "A. sqrt((dx/dt)^2 + (dy/dt)^2) dt" },
-                { q: "Evaluate the improper integral from 1 to infinity of 1/x^2 dx.", o: ["A. diverges", "B. 1", "C. 2", "D. 0"], a: "B. 1" },
-                { q: "For the logistic model dP/dt = kP(1 - P/M), the population grows fastest when P =", o: ["A. 0", "B. M", "C. M/2", "D. 2M"], a: "C. M/2" }
+                { q: "The Maclaurin series for $e^x$ is:", o: ["A. $\\sum x^n$", "B. $\\sum \\frac{x^n}{n!}$", "C. $\\sum (-1)^n x^n$", "D. $\\sum n! x^n$"], a: "B. $\\sum \\frac{x^n}{n!}$" },
+                { q: "Which test best shows that $\\sum \\frac{1}{n^2}$ converges?", o: ["A. nth-term test", "B. p-series test ($p = 2 > 1$)", "C. ratio test", "D. it diverges"], a: "B. p-series test ($p = 2 > 1$)" },
+                { q: "The arc length of a parametric curve uses the integral of:", o: ["A. $\\sqrt{(dx/dt)^2 + (dy/dt)^2}\\,dt$", "B. $(dx/dt)(dy/dt)\\,dt$", "C. $\\sqrt{dx^2 - dy^2}$", "D. $(dy/dx)\\,dt$"], a: "A. $\\sqrt{(dx/dt)^2 + (dy/dt)^2}\\,dt$" },
+                { q: "Evaluate $\\int_1^{\\infty} \\frac{1}{x^2}\\,dx$.", o: ["A. diverges", "B. $1$", "C. $2$", "D. $0$"], a: "B. $1$" },
+                { q: "For the logistic model $\\frac{dP}{dt} = kP(1 - P/M)$, the population grows fastest when $P =$", o: ["A. $0$", "B. $M$", "C. $\\frac{M}{2}$", "D. $2M$"], a: "C. $\\frac{M}{2}$" }
             ],
             sa: [
                 { q: "Determine whether a series related to {focus} converges, and name the test you would use.", a: "Choose a test (ratio, comparison, integral, p-series, alternating) from the term's form; state the condition and conclude." },
-                { q: "Set up the arc length integral for a parametric curve connected to {focus} (do not evaluate).", a: "L = integral of sqrt((dx/dt)^2 + (dy/dt)^2) dt over the parameter interval." },
+                { q: "Set up the arc length integral for a parametric curve connected to {focus} (do not evaluate).", a: "$L = \\int \\sqrt{(dx/dt)^2 + (dy/dt)^2}\\,dt$ over the parameter interval." },
                 { q: "Explain how a Taylor polynomial approximates a function from {focus} and what controls the error.", a: "It matches derivatives at the center; the Lagrange remainder bounds the error using the next derivative." },
                 { q: "For an improper integral arising in {focus}, describe how you evaluate it.", a: "Replace the infinite/undefined bound with a limit variable, integrate, then take the limit; it converges if that limit is finite." },
-                { q: "Describe the behavior of a logistic growth model relevant to {focus}.", a: "Near-exponential growth at low P, an inflection at P = M/2, then leveling off toward the carrying capacity M." }
+                { q: "Describe the behavior of a logistic growth model relevant to {focus}.", a: "Near-exponential growth at low $P$, an inflection at $P = M/2$, then leveling off toward the carrying capacity $M$." }
             ]
         },
         challenge: {
             mcq: [
-                { q: "The interval of convergence of the sum of x^n / n is:", o: ["A. (-1, 1)", "B. [-1, 1)", "C. (-1, 1]", "D. [-1, 1]"], a: "B. [-1, 1)" },
-                { q: "By the integral test, the sum of 1/(n ln n) for n >= 2:", o: ["A. converges", "B. diverges", "C. equals e", "D. equals ln 2"], a: "B. diverges" },
-                { q: "The Taylor (Lagrange) remainder bounds the error using:", o: ["A. the (n+1)th derivative on the interval", "B. the first derivative only", "C. the function value at 0", "D. the ratio test"], a: "A. the (n+1)th derivative on the interval" },
-                { q: "For the cardioid r = 1 + cos(theta), the enclosed area is:", o: ["A. integral of (1+cos theta) d theta", "B. (1/2) integral of (1+cos theta)^2 d theta", "C. integral of (1+cos theta)^2 d theta", "D. (1/2) integral of (1+cos theta) d theta"], a: "B. (1/2) integral of (1+cos theta)^2 d theta" }
+                { q: "The interval of convergence of $\\sum \\frac{x^n}{n}$ is:", o: ["A. $(-1, 1)$", "B. $[-1, 1)$", "C. $(-1, 1]$", "D. $[-1, 1]$"], a: "B. $[-1, 1)$" },
+                { q: "By the integral test, $\\sum_{n \\ge 2} \\frac{1}{n \\ln n}$:", o: ["A. converges", "B. diverges", "C. equals $e$", "D. equals $\\ln 2$"], a: "B. diverges" },
+                { q: "The Taylor (Lagrange) remainder bounds the error using:", o: ["A. the $(n+1)$th derivative on the interval", "B. the first derivative only", "C. the function value at $0$", "D. the ratio test"], a: "A. the $(n+1)$th derivative on the interval" },
+                { q: "For the cardioid $r = 1 + \\cos\\theta$, the enclosed area is:", o: ["A. $\\int (1+\\cos\\theta)\\,d\\theta$", "B. $\\frac{1}{2}\\int (1+\\cos\\theta)^2\\,d\\theta$", "C. $\\int (1+\\cos\\theta)^2\\,d\\theta$", "D. $\\frac{1}{2}\\int (1+\\cos\\theta)\\,d\\theta$"], a: "B. $\\frac{1}{2}\\int (1+\\cos\\theta)^2\\,d\\theta$" }
             ],
             sa: [
                 { q: "Find and justify the interval of convergence for a power series tied to {focus}.", a: "Use the ratio test for the radius, then test each endpoint separately with an appropriate convergence test." },
-                { q: "Set up the polar area integral for a curve from {focus}.", a: "A = (1/2) times the integral of r(theta)^2 d theta over the interval where the curve is traced." },
-                { q: "Explain how Euler's method approximates a solution to a differential equation in {focus}, and its error behavior.", a: "Step forward with y_(n+1) = y_n + h f(x_n, y_n); local error is about h^2 and accumulates about h, so smaller h improves accuracy." },
+                { q: "Set up the polar area integral for a curve from {focus}.", a: "$A = \\frac{1}{2}\\int r(\\theta)^2\\,d\\theta$ over the interval where the curve is traced." },
+                { q: "Explain how Euler's method approximates a solution to a differential equation in {focus}, and its error behavior.", a: "Step forward with $y_{n+1} = y_n + h f(x_n, y_n)$; local error is about $h^2$ and accumulates about $h$, so smaller $h$ improves accuracy." },
                 { q: "Use a Taylor series to approximate a quantity from {focus} and bound the error.", a: "Expand about a convenient center, truncate, and bound with the Lagrange remainder using a maximum of the next derivative." }
             ]
         }
@@ -254,44 +254,44 @@ window.OFFLINE_BANK = {
             mcq: [
                 { q: "What is the SI unit of force?", o: ["A. Joule", "B. Newton", "C. Watt", "D. Pascal"], a: "B. Newton" },
                 { q: "An object's acceleration is zero. This means:", o: ["A. it must be at rest", "B. its velocity is constant", "C. no forces act on it", "D. it is speeding up"], a: "B. its velocity is constant" },
-                { q: "Newton's second law is written as:", o: ["A. F = ma", "B. F = mv", "C. F = m/a", "D. a = Fm"], a: "A. F = ma" },
+                { q: "Newton's second law is written as:", o: ["A. $F = ma$", "B. $F = mv$", "C. $F = m/a$", "D. $a = Fm$"], a: "A. $F = ma$" },
                 { q: "Which of these quantities is a vector?", o: ["A. Speed", "B. Mass", "C. Velocity", "D. Time"], a: "C. Velocity" }
             ],
             sa: [
                 { q: "State Newton's first law.", a: "An object at rest stays at rest, and an object in motion keeps constant velocity, unless acted on by a net external force." },
-                { q: "Define acceleration.", a: "The rate of change of velocity with time (a = change in v divided by change in t)." },
-                { q: "What is the difference between mass and weight?", a: "Mass is the amount of matter (kg); weight is the gravitational force on it (W = mg, in newtons)." },
-                { q: "Write the kinematic equation relating displacement, initial velocity, time, and acceleration.", a: "x = v0 t + (1/2) a t^2." }
+                { q: "Define acceleration.", a: "The rate of change of velocity with time ($a = \\Delta v / \\Delta t$)." },
+                { q: "What is the difference between mass and weight?", a: "Mass is the amount of matter (kg); weight is the gravitational force on it ($W = mg$, in newtons)." },
+                { q: "Write the kinematic equation relating displacement, initial velocity, time, and acceleration.", a: "$x = v_0 t + \\frac{1}{2} a t^2$." }
             ]
         },
         medium: {
             mcq: [
-                { q: "A 2 kg cart experiences a net force of 10 N. Its acceleration is:", o: ["A. 2 m/s^2", "B. 5 m/s^2", "C. 10 m/s^2", "D. 20 m/s^2"], a: "B. 5 m/s^2" },
-                { q: "An object in free fall near Earth's surface has an acceleration of about:", o: ["A. 0", "B. 9.8 m/s^2 downward", "C. 9.8 m/s^2 upward", "D. a value that depends on its mass"], a: "B. 9.8 m/s^2 downward" },
-                { q: "The momentum of a 3 kg object moving at 4 m/s is:", o: ["A. 0.75 kg m/s", "B. 7 kg m/s", "C. 12 kg m/s", "D. 12 N"], a: "C. 12 kg m/s" },
+                { q: "A 2 kg cart experiences a net force of 10 N. Its acceleration is:", o: ["A. $2\\,\\text{m/s}^2$", "B. $5\\,\\text{m/s}^2$", "C. $10\\,\\text{m/s}^2$", "D. $20\\,\\text{m/s}^2$"], a: "B. $5\\,\\text{m/s}^2$" },
+                { q: "An object in free fall near Earth's surface has an acceleration of about:", o: ["A. $0$", "B. $9.8\\,\\text{m/s}^2$ downward", "C. $9.8\\,\\text{m/s}^2$ upward", "D. a value that depends on its mass"], a: "B. $9.8\\,\\text{m/s}^2$ downward" },
+                { q: "The momentum of a 3 kg object moving at 4 m/s is:", o: ["A. $0.75\\,\\text{kg·m/s}$", "B. $7\\,\\text{kg·m/s}$", "C. $12\\,\\text{kg·m/s}$", "D. $12\\,\\text{N}$"], a: "C. $12\\,\\text{kg·m/s}$" },
                 { q: "The work done by a force is zero when:", o: ["A. the force is large", "B. the displacement is perpendicular to the force", "C. the object accelerates", "D. the force is constant"], a: "B. the displacement is perpendicular to the force" },
                 { q: "In a collision within an isolated system, total momentum is:", o: ["A. always zero", "B. conserved", "C. doubled", "D. fully converted to heat"], a: "B. conserved" }
             ],
             sa: [
                 { q: "Draw and describe a free-body diagram for an object in {focus}.", a: "Show every force as an arrow from the object (gravity, normal, friction, tension, applied), labeled with direction; the net force gives the acceleration." },
-                { q: "Apply Newton's second law to a problem related to {focus}.", a: "Sum the forces in each direction, set net F = ma, and solve for the unknown force, mass, or acceleration." },
-                { q: "Use conservation of energy to analyze a situation in {focus}.", a: "Set initial KE + PE equal to final KE + PE (plus losses if any); KE = (1/2)mv^2, gravitational PE = mgh." },
-                { q: "Explain how momentum conservation applies to a collision in {focus}.", a: "For an isolated system, total momentum before equals after: m1v1 + m2v2 = m1v1' + m2v2'." },
-                { q: "Describe the forces and acceleration for uniform circular motion in {focus}.", a: "The net (centripetal) force points toward the center; a = v^2/r, supplied by tension, gravity, friction, or the normal force." }
+                { q: "Apply Newton's second law to a problem related to {focus}.", a: "Sum the forces in each direction, set net $F = ma$, and solve for the unknown force, mass, or acceleration." },
+                { q: "Use conservation of energy to analyze a situation in {focus}.", a: "Set initial KE + PE equal to final KE + PE (plus losses if any); $KE = \\frac{1}{2}mv^2$, gravitational $PE = mgh$." },
+                { q: "Explain how momentum conservation applies to a collision in {focus}.", a: "For an isolated system, total momentum before equals after: $m_1 v_1 + m_2 v_2 = m_1 v_1' + m_2 v_2'$." },
+                { q: "Describe the forces and acceleration for uniform circular motion in {focus}.", a: "The net (centripetal) force points toward the center; $a = v^2/r$, supplied by tension, gravity, friction, or the normal force." }
             ]
         },
         challenge: {
             mcq: [
-                { q: "A ball is thrown straight up. At its highest point, its velocity and acceleration are:", o: ["A. both zero", "B. velocity zero, acceleration 9.8 m/s^2 downward", "C. both 9.8 m/s^2", "D. velocity maximum, acceleration zero"], a: "B. velocity zero, acceleration 9.8 m/s^2 downward" },
+                { q: "A ball is thrown straight up. At its highest point, its velocity and acceleration are:", o: ["A. both zero", "B. velocity zero, acceleration $9.8\\,\\text{m/s}^2$ downward", "C. both $9.8\\,\\text{m/s}^2$", "D. velocity maximum, acceleration zero"], a: "B. velocity zero, acceleration $9.8\\,\\text{m/s}^2$ downward" },
                 { q: "Two carts collide and stick together (perfectly inelastic). Which is conserved?", o: ["A. kinetic energy only", "B. momentum only", "C. both momentum and kinetic energy", "D. neither"], a: "B. momentum only" },
                 { q: "A box slides at constant velocity across a rough floor. The net force on it is:", o: ["A. equal to friction", "B. zero", "C. equal to its weight", "D. twice the applied force"], a: "B. zero" },
-                { q: "For uniform circular motion, the centripetal acceleration is:", o: ["A. v/r", "B. v^2/r directed toward the center", "C. v^2 r", "D. zero"], a: "B. v^2/r directed toward the center" }
+                { q: "For uniform circular motion, the centripetal acceleration is:", o: ["A. $v/r$", "B. $v^2/r$ directed toward the center", "C. $v^2 r$", "D. zero"], a: "B. $v^2/r$ directed toward the center" }
             ],
             sa: [
-                { q: "Analyze an inclined-plane problem from {focus} using components of gravity.", a: "Resolve weight into mg sin(theta) along and mg cos(theta) perpendicular; normal = mg cos(theta); net along incline = mg sin(theta) - friction = ma." },
-                { q: "Use the work-energy theorem to solve a problem in {focus}.", a: "Net work equals the change in kinetic energy: W_net = (1/2)m v_f^2 - (1/2)m v_i^2; solve for the unknown." },
+                { q: "Analyze an inclined-plane problem from {focus} using components of gravity.", a: "Resolve weight into $mg\\sin\\theta$ along and $mg\\cos\\theta$ perpendicular; normal $= mg\\cos\\theta$; net along the incline $= mg\\sin\\theta - \\text{friction} = ma$." },
+                { q: "Use the work-energy theorem to solve a problem in {focus}.", a: "Net work equals the change in kinetic energy: $W_{net} = \\frac{1}{2}m v_f^2 - \\frac{1}{2}m v_i^2$; solve for the unknown." },
                 { q: "Compare elastic and inelastic collisions for a scenario in {focus}.", a: "Both conserve momentum; elastic also conserves kinetic energy while inelastic does not (some KE becomes heat/deformation); perfectly inelastic objects stick together." },
-                { q: "Explain how a free-body diagram leads to the equations of motion for {focus}.", a: "Identify all forces, choose axes, sum forces along each axis, set each sum equal to ma, and solve the system for the accelerations or forces." }
+                { q: "Explain how a free-body diagram leads to the equations of motion for {focus}.", a: "Identify all forces, choose axes, sum forces along each axis, set each sum equal to $ma$, and solve the system for the accelerations or forces." }
             ]
         }
     },
@@ -301,44 +301,44 @@ window.OFFLINE_BANK = {
             mcq: [
                 { q: "In calculus terms, velocity is:", o: ["A. the integral of position", "B. the derivative of position with respect to time", "C. mass times acceleration", "D. the derivative of force"], a: "B. the derivative of position with respect to time" },
                 { q: "Acceleration is the time derivative of:", o: ["A. position", "B. velocity", "C. force", "D. momentum"], a: "B. velocity" },
-                { q: "The work done by a variable force is:", o: ["A. F times d in all cases", "B. the integral of F dot dx", "C. mass times velocity", "D. F divided by d"], a: "B. the integral of F dot dx" },
-                { q: "Impulse equals:", o: ["A. the integral of force over time", "B. force times distance", "C. mass divided by acceleration", "D. the derivative of position"], a: "A. the integral of force over time" }
+                { q: "The work done by a variable force is:", o: ["A. $F \\cdot d$ in all cases", "B. $\\int \\vec{F}\\cdot d\\vec{x}$", "C. mass times velocity", "D. $F/d$"], a: "B. $\\int \\vec{F}\\cdot d\\vec{x}$" },
+                { q: "Impulse equals:", o: ["A. $\\int F\\,dt$", "B. force times distance", "C. mass divided by acceleration", "D. the derivative of position"], a: "A. $\\int F\\,dt$" }
             ],
             sa: [
-                { q: "Express velocity and acceleration as derivatives of position x(t).", a: "v = dx/dt; a = dv/dt = d^2x/dt^2." },
-                { q: "Write work as an integral for a variable force.", a: "W = the integral of F(x) dx over the displacement." },
-                { q: "State the impulse-momentum theorem.", a: "Impulse = the integral of F dt = the change in momentum (J = delta p)." },
-                { q: "Define the center of mass for a system of particles.", a: "x_cm = (the sum of m_i x_i) divided by (the sum of m_i)." }
+                { q: "Express velocity and acceleration as derivatives of position $x(t)$.", a: "$v = \\frac{dx}{dt}$; $a = \\frac{dv}{dt} = \\frac{d^2x}{dt^2}$." },
+                { q: "Write work as an integral for a variable force.", a: "$W = \\int F(x)\\,dx$ over the displacement." },
+                { q: "State the impulse-momentum theorem.", a: "Impulse $= \\int F\\,dt = \\Delta p$ (the change in momentum)." },
+                { q: "Define the center of mass for a system of particles.", a: "$x_{cm} = \\frac{\\sum m_i x_i}{\\sum m_i}$." }
             ]
         },
         medium: {
             mcq: [
-                { q: "If x(t) = 3t^2 (meters), the acceleration is:", o: ["A. 3", "B. 6t", "C. 6", "D. 3t"], a: "C. 6" },
-                { q: "A net torque on a rigid body produces:", o: ["A. linear acceleration only", "B. angular acceleration (tau = I alpha)", "C. constant angular velocity", "D. zero rotation"], a: "B. angular acceleration (tau = I alpha)" },
-                { q: "The rotational kinetic energy of a spinning body is:", o: ["A. (1/2) m v^2", "B. (1/2) I omega^2", "C. I omega", "D. m g h"], a: "B. (1/2) I omega^2" },
-                { q: "For a conservative force, F relates to potential energy U by:", o: ["A. F = dU/dx", "B. F = -dU/dx", "C. F = the integral of U", "D. F = U/x"], a: "B. F = -dU/dx" },
-                { q: "The angular momentum of a particle is:", o: ["A. I divided by omega", "B. r cross p", "C. m v only", "D. tau times t^2"], a: "B. r cross p" }
+                { q: "If $x(t) = 3t^2$ (meters), the acceleration is:", o: ["A. $3$", "B. $6t$", "C. $6$", "D. $3t$"], a: "C. $6$" },
+                { q: "A net torque on a rigid body produces:", o: ["A. linear acceleration only", "B. angular acceleration ($\\tau = I\\alpha$)", "C. constant angular velocity", "D. zero rotation"], a: "B. angular acceleration ($\\tau = I\\alpha$)" },
+                { q: "The rotational kinetic energy of a spinning body is:", o: ["A. $\\frac{1}{2} m v^2$", "B. $\\frac{1}{2} I \\omega^2$", "C. $I\\omega$", "D. $mgh$"], a: "B. $\\frac{1}{2} I \\omega^2$" },
+                { q: "For a conservative force, $F$ relates to potential energy $U$ by:", o: ["A. $F = dU/dx$", "B. $F = -dU/dx$", "C. $F = \\int U$", "D. $F = U/x$"], a: "B. $F = -dU/dx$" },
+                { q: "The angular momentum of a particle is:", o: ["A. $I/\\omega$", "B. $\\vec{r}\\times\\vec{p}$", "C. $mv$ only", "D. $\\tau t^2$"], a: "B. $\\vec{r}\\times\\vec{p}$" }
             ],
             sa: [
-                { q: "Use integration to find velocity and position from an acceleration function in {focus}.", a: "Integrate a(t) to get v(t) (plus v0), then integrate v(t) to get x(t) (plus x0), using the initial conditions." },
-                { q: "Apply the work-energy theorem with a variable force for a problem in {focus}.", a: "W_net = the integral of F dx = the change in KE; evaluate the integral and solve." },
-                { q: "Relate torque, moment of inertia, and angular acceleration for {focus}.", a: "Net torque = I alpha; find I for the body, sum the torques, and solve for alpha or the unknown." },
-                { q: "Explain conservation of angular momentum in a scenario from {focus}.", a: "With no net external torque, L = I omega stays constant; if I decreases, omega increases (e.g., a spinning skater pulling arms in)." },
-                { q: "Derive potential energy from a conservative force in {focus}.", a: "U(x) = - the integral of F dx; for example a spring gives U = (1/2)k x^2 and gravity gives U = mgh." }
+                { q: "Use integration to find velocity and position from an acceleration function in {focus}.", a: "Integrate $a(t)$ to get $v(t)$ (plus $v_0$), then integrate $v(t)$ to get $x(t)$ (plus $x_0$), using the initial conditions." },
+                { q: "Apply the work-energy theorem with a variable force for a problem in {focus}.", a: "$W_{net} = \\int F\\,dx = \\Delta KE$; evaluate the integral and solve." },
+                { q: "Relate torque, moment of inertia, and angular acceleration for {focus}.", a: "Net torque $= I\\alpha$; find $I$ for the body, sum the torques, and solve for $\\alpha$ or the unknown." },
+                { q: "Explain conservation of angular momentum in a scenario from {focus}.", a: "With no net external torque, $L = I\\omega$ stays constant; if $I$ decreases, $\\omega$ increases (e.g., a spinning skater pulling their arms in)." },
+                { q: "Derive potential energy from a conservative force in {focus}.", a: "$U(x) = -\\int F\\,dx$; for example a spring gives $U = \\frac{1}{2}k x^2$ and gravity gives $U = mgh$." }
             ]
         },
         challenge: {
             mcq: [
                 { q: "A solid disk and a hoop of equal mass and radius roll without slipping down the same incline. Which reaches the bottom first?", o: ["A. the hoop", "B. the disk", "C. they tie", "D. it depends on the mass"], a: "B. the disk" },
-                { q: "For simple harmonic motion x(t) = A cos(omega t), the maximum speed is:", o: ["A. A", "B. omega A", "C. omega^2 A", "D. A divided by omega"], a: "B. omega A" },
-                { q: "The moment of inertia of a solid cylinder about its central axis is:", o: ["A. m r^2", "B. (1/2) m r^2", "C. (2/5) m r^2", "D. (1/12) m L^2"], a: "B. (1/2) m r^2" },
+                { q: "For simple harmonic motion $x(t) = A\\cos(\\omega t)$, the maximum speed is:", o: ["A. $A$", "B. $\\omega A$", "C. $\\omega^2 A$", "D. $A/\\omega$"], a: "B. $\\omega A$" },
+                { q: "The moment of inertia of a solid cylinder about its central axis is:", o: ["A. $m r^2$", "B. $\\frac{1}{2} m r^2$", "C. $\\frac{2}{5} m r^2$", "D. $\\frac{1}{12} m L^2$"], a: "B. $\\frac{1}{2} m r^2$" },
                 { q: "With no external torque, if a rotating object's moment of inertia decreases, its angular velocity:", o: ["A. decreases", "B. increases", "C. stays the same", "D. becomes zero"], a: "B. increases" }
             ],
             sa: [
-                { q: "Set up the integral for the moment of inertia of a continuous body relevant to {focus}.", a: "I = the integral of r^2 dm, expressing dm through a linear, area, or volume density and integrating over the geometry." },
-                { q: "Analyze simple harmonic motion for a system in {focus} and derive omega.", a: "Show the net force is -kx (or torque -k theta); then omega = sqrt(k/m) and the period T = 2 pi sqrt(m/k)." },
-                { q: "Use energy methods (translational plus rotational) for a rolling-body problem in {focus}.", a: "Set mgh = (1/2)m v^2 + (1/2) I omega^2 with v = omega r, then solve for the speed at the bottom." },
-                { q: "Apply conservation of angular momentum to an interaction in {focus}.", a: "With no external torque, L_initial = L_final; sum r cross p (or I omega) before and after and solve." }
+                { q: "Set up the integral for the moment of inertia of a continuous body relevant to {focus}.", a: "$I = \\int r^2\\,dm$, expressing $dm$ through a linear, area, or volume density and integrating over the geometry." },
+                { q: "Analyze simple harmonic motion for a system in {focus} and derive $\\omega$.", a: "Show the net force is $-kx$ (or torque $-k\\theta$); then $\\omega = \\sqrt{k/m}$ and the period $T = 2\\pi\\sqrt{m/k}$." },
+                { q: "Use energy methods (translational plus rotational) for a rolling-body problem in {focus}.", a: "Set $mgh = \\frac{1}{2}m v^2 + \\frac{1}{2} I \\omega^2$ with $v = \\omega r$, then solve for the speed at the bottom." },
+                { q: "Apply conservation of angular momentum to an interaction in {focus}.", a: "With no external torque, $L_{initial} = L_{final}$; sum $\\vec{r}\\times\\vec{p}$ (or $I\\omega$) before and after and solve." }
             ]
         }
     },
