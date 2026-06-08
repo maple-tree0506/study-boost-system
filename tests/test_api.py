@@ -77,6 +77,45 @@ def test_attempt_defaults_for_missing_fields(client):
     assert data["bySubject"][0]["subject"] == "Uncategorized"
 
 
+def test_chat_forwards_json_mode(client, monkeypatch):
+    # When the client asks for json mode, chat_proxy must pass it to _openai_chat.
+    captured = {}
+
+    def fake_openai_chat(model, messages, json_mode=False):
+        captured["json_mode"] = json_mode
+        return '{"ok": true}'
+
+    monkeypatch.setattr(server, "_openai_chat", fake_openai_chat)
+    monkeypatch.setattr(server, "OPENAI_KEY", "test-key")
+    server._rate_history.clear()
+
+    resp = client.post(
+        "/api/chat",
+        json={"model": "m", "messages": [{"role": "user", "content": "hi"}], "json": True},
+    )
+    assert resp.status_code == 200
+    assert captured["json_mode"] is True
+
+
+def test_chat_no_json_mode_by_default(client, monkeypatch):
+    captured = {}
+
+    def fake_openai_chat(model, messages, json_mode=False):
+        captured["json_mode"] = json_mode
+        return "{}"
+
+    monkeypatch.setattr(server, "_openai_chat", fake_openai_chat)
+    monkeypatch.setattr(server, "OPENAI_KEY", "test-key")
+    server._rate_history.clear()
+
+    resp = client.post(
+        "/api/chat",
+        json={"model": "m", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert resp.status_code == 200
+    assert captured["json_mode"] is False
+
+
 def test_attempt_rate_limited(client, monkeypatch):
     # With a small per-minute limit, the (limit+1)th attempt should be rejected.
     monkeypatch.setattr(server, "ATTEMPT_RATE_LIMIT_PER_MIN", 3)

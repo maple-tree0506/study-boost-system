@@ -11,6 +11,24 @@ Newest entries first.
 
 ---
 
+## 2026-06 — AI reliability layer (treat the LLM as an unreliable input)
+**Why:** The AI is the one component I don't control. Previously I relied on a prompt saying
+"return JSON" plus regex brace-extraction — brittle, and I had no idea how often it failed.
+**What I did:**
+- **JSON mode**: the proxy now forwards `response_format: {"type":"json_object"}` so the model
+  returns syntactically valid JSON. Confirmed Groq's Llama model supports it.
+- **Shape validation**: JSON mode guarantees valid JSON but not the right *shape* — in testing,
+  the model returned `key_items` instead of the requested key. So the client validates the
+  structure (`validateSummaryShape` / `validateQuizShape`) and does exactly one repair retry
+  before falling back to the offline bank.
+- **A reliability metric**: every generation is recorded as ok / repaired / failed in
+  localStorage (`getAiReliability()`), so the malformed-output rate is now *measurable* instead
+  of a guess.
+**Lesson:** "valid JSON" and "correct JSON" are different guarantees — validate the contract at
+the boundary, and instrument it so reliability is a number, not a feeling.
+**Tests:** added pytest coverage that the proxy forwards JSON mode only when requested
+(monkeypatched, no network).
+
 ## 2026-06 — Difficulty levels were cosmetic only
 **Problem:** Basic / Medium / Challenge produced identical questions.
 **Cause:** Difficulty only changed a label prefix; the AI prompt never defined what

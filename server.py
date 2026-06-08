@@ -116,17 +116,22 @@ def _rate_limited(ip: str, history: dict[str, list[float]], limit: int) -> bool:
     return False
 
 
-def _openai_chat(model: str, messages: list) -> str:
+def _openai_chat(model: str, messages: list, json_mode: bool = False) -> str:
     if not OPENAI_KEY:
         raise RuntimeError("Server is missing OPENAI_API_KEY")
     url = f"{OPENAI_BASE}/chat/completions"
+    payload: dict = {"model": model, "messages": messages, "temperature": 0.4}
+    if json_mode:
+        # Ask the provider to return syntactically valid JSON. This eliminates most
+        # parse failures; the client still validates the JSON *shape* separately.
+        payload["response_format"] = {"type": "json_object"}
     res = requests.post(
         url,
         headers={
             "Authorization": f"Bearer {OPENAI_KEY}",
             "Content-Type": "application/json",
         },
-        json={"model": model, "messages": messages, "temperature": 0.4},
+        json=payload,
         timeout=120,
     )
     if not res.ok:
@@ -269,6 +274,7 @@ def chat_proxy():
     body = request.get_json(silent=True) or {}
     model = (body.get("model") or "").strip()
     messages = body.get("messages")
+    json_mode = bool(body.get("json"))
 
     if not model:
         return jsonify({"error": "Missing model"}), 400
@@ -299,7 +305,7 @@ def chat_proxy():
         return jsonify({"error": "Server is missing OPENAI_API_KEY"}), 503
 
     try:
-        content = _openai_chat(model, messages)
+        content = _openai_chat(model, messages, json_mode=json_mode)
         return jsonify({"content": content})
     except RuntimeError as e:
         print("[StudyBoost ERROR]", model, str(e), file=sys.stderr)

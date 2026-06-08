@@ -2,6 +2,7 @@
 const STORAGE_KEY_ERRORS = "studyBoostMistakesV2";
 const STORAGE_UI = "studyBoostUIPrefsV1";
 const STORAGE_ATTEMPT_QUEUE = "studyBoostAttemptQueueV1";
+const STORAGE_AI_RELIABILITY = "studyBoostAiReliabilityV1";
 
 const AP_SUBJECTS = [
     { id: "calc_ab", label: "AP Calculus AB" },
@@ -248,6 +249,57 @@ function refreshMistakeFilterOptions() {
     }
 }
 
+// --- AI reliability layer ------------------------------------------------
+// JSON mode (response_format) makes the model return *valid JSON*, but not
+// necessarily the right *shape*. These validators check the shape; the counter
+// records how often the AI got it right on the first try vs. needed a repair
+// retry vs. failed entirely — giving a measurable reliability number.
+
+function validateSummaryShape(obj) {
+    return !!obj &&
+        typeof obj.simplifiedSummary === "string" &&
+        obj.simplifiedSummary.trim().length > 0 &&
+        Array.isArray(obj.keyPoints) &&
+        obj.keyPoints.length >= 1 &&
+        obj.keyPoints.every(function (p) { return typeof p === "string" && p.trim().length > 0; });
+}
+
+function validateQuizShape(questions) {
+    if (!Array.isArray(questions) || !questions.length) return false;
+    return questions.every(function (q) {
+        if (!q || typeof q !== "object") return false;
+        const hasQuestion = typeof (q.question || q.prompt) === "string" &&
+            String(q.question || q.prompt).trim().length > 0;
+        const hasAnswer = !!(q.answer || q.correctAnswer || q.solution);
+        return hasQuestion && hasAnswer;
+    });
+}
+
+// outcome: "ok" (valid first try) | "repaired" (valid after one retry) | "failed"
+function recordAiResult(kind, outcome) {
+    try {
+        const data = getAiReliability();
+        const bucket = data[kind] || { ok: 0, repaired: 0, failed: 0, total: 0 };
+        if (outcome === "ok" || outcome === "repaired" || outcome === "failed") {
+            bucket[outcome] += 1;
+        }
+        bucket.total += 1;
+        data[kind] = bucket;
+        localStorage.setItem(STORAGE_AI_RELIABILITY, JSON.stringify(data));
+        console.log("[AI reliability]", kind, outcome, JSON.stringify(bucket));
+    } catch (e) {
+        // metric is best-effort; never break a generation because of it
+    }
+}
+
+function getAiReliability() {
+    try {
+        return JSON.parse(localStorage.getItem(STORAGE_AI_RELIABILITY) || "{}");
+    } catch (e) {
+        return {};
+    }
+}
+
 function extractJsonObject(text) {
     if (!text) return null;
     const trimmed = String(text).trim();
@@ -403,7 +455,7 @@ function canUseLiveAI() {
     return healthReady && serverHealthy && isProviderConfigured();
 }
 
-async function proxyChat(messages) {
+async function proxyChat(messages, opts) {
     const model = sanitizeText(modelInput.value);
     if (!model) {
         throw new Error("Set a model in Connection & model (e.g. llama-3.3-70b-versatile).");
@@ -411,10 +463,14 @@ async function proxyChat(messages) {
     if (!isProviderConfigured()) {
         throw new Error(providerKeyHint());
     }
+    const payload = { model: model, messages: messages };
+    if (opts && opts.json) {
+        payload.json = true;  // ask the proxy to enable provider JSON mode
+    }
     const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: model, messages: messages })
+        body: JSON.stringify(payload)
     });
     let data = {};
     try {
@@ -438,15 +494,28 @@ async function summarizeNotesWithAI(rawNotes) {
         "simplifiedSummary is one short paragraph. keyPoints has 4-8 bullets. " +
         "No markdown fences.";
     const user = "Summarize for study:\n\n" + rawNotes;
-    const content = await proxyChat([
+    const messages = [
         { role: "system", content: system },
         { role: "user", content: user }
-    ]);
-    const json = extractJsonObject(content);
-    if (!json || typeof json.simplifiedSummary !== "string" || !Array.isArray(json.keyPoints)) {
-        throw new Error("Could not parse summary JSON.");
+    ];
+
+    const attempt = async function () {
+        return extractJsonObject(await proxyChat(messages, { json: true }));
+    };
+
+    // First try; if the shape is wrong, repair with exactly one retry before failing.
+    let json = await attempt();
+    if (validateSummaryShape(json)) {
+        recordAiResult("summary", "ok");
+        return json;
     }
-    return json;
+    json = await attempt();
+    if (validateSummaryShape(json)) {
+        recordAiResult("summary", "repaired");
+        return json;
+    }
+    recordAiResult("summary", "failed");
+    throw new Error("Could not get a valid summary from the AI.");
 }
 
 function subjectLabelFromId(id) {
@@ -490,7 +559,7 @@ async function generateQuizWithAI(topic, difficulty, expected, apSubjectId, note
     const content = await proxyChat([
         { role: "system", content: system },
         { role: "user", content: user }
-    ]);
+    ], { json: true });
 
     const json = extractJsonObject(content);
     if (json && Array.isArray(json.questions)) return json.questions;
@@ -1047,19 +1116,23 @@ async function generateQuiz() {
             throw new Error("Empty AI result.");
         }
 
-        if (!isQuizQualityAcceptable(generatedQuestions, topic || subjectLabel, expected)) {
+        if (isQuizQualityAcceptable(generatedQuestions, topic || subjectLabel, expected)) {
+            recordAiResult("quiz", "ok");
+        } else {
             quizStatus.textContent = "First result was too generic. Regenerating once...";
             aiQuestions = await generateQuizWithAI(topic, difficulty, expected, apId, notesCtx);
             generatedQuestions = normalizeAIQuestions(aiQuestions);
             if (!generatedQuestions.length || !isQuizQualityAcceptable(generatedQuestions, topic || subjectLabel, expected)) {
                 throw new Error("Quality check failed.");
             }
+            recordAiResult("quiz", "repaired");
         }
 
         tagQuizSubject(subjectLabel);
         renderQuestions();
         quizStatus.textContent = "Questions generated (AI) from " + ctxLabel + ".";
     } catch (err) {
+        recordAiResult("quiz", "failed");
         tryDemo("AI quiz failed: " + err.message);
     } finally {
         setAIControlsBusy(false);

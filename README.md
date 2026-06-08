@@ -67,6 +67,18 @@
 - Tests use a temporary database (via the `STUDYBOOST_DB` env var) and never touch
   your real `studyboost.db`. CI runs them on every push (see the badge above).
 
+## AI output reliability
+LLM responses are treated as an unreliable input that must be validated:
+- **JSON mode**: the proxy forwards `response_format: {"type":"json_object"}` so the model
+  returns syntactically valid JSON.
+- **Shape validation**: JSON mode guarantees valid JSON but *not the right shape* (e.g. the
+  model may return `key_items` instead of `keyPoints`), so the client validates the structure
+  (`validateSummaryShape`, `validateQuizShape`) and **repairs with one retry** before falling
+  back to the offline bank.
+- **Reliability metric**: each generation is recorded as `ok` (valid first try), `repaired`
+  (valid after one retry), or `failed`. Open the browser console and run `getAiReliability()`
+  to see the running counts — this is how the malformed-output rate is measured.
+
 ## Security model & limitations
 This is a **local, single-user** tool; the security model is scoped to that, and stated honestly:
 - **API keys stay on the server.** They are read from `.env` (gitignored) and never sent to the
