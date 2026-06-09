@@ -746,6 +746,24 @@ function revealAnswer(card, qid) {
     if (ab) ab.hidden = false;
 }
 
+// R1: map a grade to an SM-2 quality (coarse: correct=got, incorrect=forgot).
+function gradeToQuality(correct) {
+    const Q = (window.ReviewSystem && window.ReviewSystem.QUALITY) || { got: 5, forgot: 2 };
+    return correct ? Q.got : Q.forgot;
+}
+
+// R1: close the adaptive loop after a grade.
+//  - a resurfaced REVIEW item feeds its result back into SM-2 (reschedule);
+//  - an incorrect GENERATED item is auto-captured into the review pipeline.
+function applyGradeOutcome(item, correct) {
+    if (!item) return;
+    if (item.source === "review" && item.errId && window.ReviewSystem) {
+        reviewMistake(item.errId, gradeToQuality(correct));
+    } else if (!correct && item.source !== "review") {
+        addErrorRecord(item.id);
+    }
+}
+
 function handleQuizClick(ev) {
     const t = ev.target;
     if (!(t instanceof HTMLElement)) return;
@@ -788,6 +806,7 @@ function handleQuizClick(ev) {
         revealAnswer(card, qid);
         updateScoreBanner();
         recordAttempt(item, ok);
+        applyGradeOutcome(item, ok);
         return;
     }
 
@@ -849,16 +868,11 @@ function handleQuizClick(ev) {
         updateScoreBanner();
         const item = generatedQuestions.find(function (x) { return x.id === qid; });
         recordAttempt(item, isCorrect);
+        applyGradeOutcome(item, isCorrect);
     }
 }
 
 quizOutput.addEventListener("click", handleQuizClick);
-
-function tagQuizSubject(subjectLabel) {
-    generatedQuestions.forEach(function (q) {
-        q.subject = subjectLabel || "Uncategorized";
-    });
-}
 
 function readAttemptQueue() {
     try {
@@ -1075,6 +1089,20 @@ async function generateQuiz() {
     const ctx = getQuizNotesContext();
     const notesCtx = ctx.text;
 
+    // R1: lead the set with due review items (additive, cap 3), then fill with new.
+    const reviewPlan = window.PracticeSelection
+        ? window.PracticeSelection.planPracticeSelection({ reviews: errorRecords, subject: subjectLabel })
+        : { selected: [] };
+    const reviewItems = reviewPlan.selected;
+    const finalizeSet = function (newItems) {
+        (newItems || []).forEach(function (q) {
+            q.subject = subjectLabel || "Uncategorized";
+            q.source = "generated";
+            q.reason = "generator:new";
+        });
+        return reviewItems.concat(newItems || []);
+    };
+
     if (expected.mcq + expected.sa < 1) {
         quizStatus.textContent = "Choose a format with at least one question.";
         return;
@@ -1090,17 +1118,24 @@ async function generateQuiz() {
     const tryDemo = function (reason) {
         const demo = createMockQuestions(topic, apId, difficulty, expected, notesCtx);
         if (!demo || !demo.length) {
-            generatedQuestions = [];
-            renderQuestions();
-            quizStatus.textContent = reason + " No offline question bank for " + subjectLabel +
-                " yet — connect an API key for AI questions, or try a subject with an offline bank " +
-                "(e.g. AP Calculus AB or AP Biology).";
+            if (reviewItems.length) {
+                generatedQuestions = reviewItems.slice();
+                renderQuestions();
+                quizStatus.textContent = reason + " No offline bank for " + subjectLabel +
+                    "; showing " + reviewItems.length + " due review item(s).";
+            } else {
+                generatedQuestions = [];
+                renderQuestions();
+                quizStatus.textContent = reason + " No offline question bank for " + subjectLabel +
+                    " yet — connect an API key for AI questions, or try a subject with an offline bank " +
+                    "(e.g. AP Calculus AB or AP Biology).";
+            }
             return;
         }
-        generatedQuestions = demo;
-        tagQuizSubject(subjectLabel);
+        generatedQuestions = finalizeSet(demo);
         renderQuestions();
-        quizStatus.textContent = reason + " Offline questions (seeded from your notes). " + ctxLabel + ".";
+        quizStatus.textContent = reason + " Offline questions. " + ctxLabel +
+            (reviewItems.length ? " · " + reviewItems.length + " due review(s) added." : ".");
     };
 
     if (!healthReady) {
@@ -1137,9 +1172,10 @@ async function generateQuiz() {
             recordAiResult("quiz", "repaired");
         }
 
-        tagQuizSubject(subjectLabel);
+        generatedQuestions = finalizeSet(generatedQuestions);
         renderQuestions();
-        quizStatus.textContent = "Questions generated (AI) from " + ctxLabel + ".";
+        quizStatus.textContent = "Questions generated (AI) from " + ctxLabel +
+            (reviewItems.length ? " · " + reviewItems.length + " due review(s) added." : ".");
     } catch (err) {
         recordAiResult("quiz", "failed");
         tryDemo("AI quiz failed: " + err.message);
