@@ -159,7 +159,7 @@ window.OFFLINE_BANK = {
         basic: {
             mcq: [
                 { q: "Which measure of center is most resistant to outliers?", o: ["A. Mean", "B. Median", "C. Range", "D. Standard deviation"], a: "B. Median" },
-                { q: "A probability must be a number between:", o: ["A. -1 and 1", "B. 0 and 1", "C. 0 and 100", "D. 1 and 10"], a: "B. 0 and 1" },
+                { q: "A probability must be a number between:", o: ["A. $-1$ and $1$", "B. $0$ and $1$", "C. $0$ and $100$", "D. $1$ and $10$"], a: "B. $0$ and $1$" },
                 { q: "In a normal distribution, about what percent of data lies within 1 standard deviation of the mean?", o: ["A. 50%", "B. 68%", "C. 95%", "D. 99.7%"], a: "B. 68%" },
                 { q: "A categorical variable is best displayed with a:", o: ["A. Histogram", "B. Bar chart", "C. Boxplot", "D. Scatterplot"], a: "B. Bar chart" }
             ],
@@ -175,7 +175,7 @@ window.OFFLINE_BANK = {
                 { q: "Which method gives every individual an equal chance of selection?", o: ["A. Convenience sample", "B. Voluntary response", "C. Simple random sample", "D. Quota sample"], a: "C. Simple random sample" },
                 { q: "A 95% confidence interval means:", o: ["A. 95% of the data is in the interval", "B. there is a 95% chance the parameter equals the sample mean", "C. 95% of such intervals capture the true parameter", "D. the sample is 95% accurate"], a: "C. 95% of such intervals capture the true parameter" },
                 { q: "Increasing the sample size n affects the margin of error by:", o: ["A. increasing it", "B. decreasing it", "C. no effect", "D. doubling it"], a: "B. decreasing it" },
-                { q: "A correlation of r = -0.9 indicates:", o: ["A. weak positive association", "B. strong negative linear association", "C. no association", "D. causation"], a: "B. strong negative linear association" },
+                { q: "A correlation of $r = -0.9$ indicates:", o: ["A. weak positive association", "B. strong negative linear association", "C. no association", "D. causation"], a: "B. strong negative linear association" },
                 { q: "A Type I error is:", o: ["A. failing to reject a true null", "B. rejecting a true null hypothesis", "C. correctly accepting the alternative", "D. a data-entry error"], a: "B. rejecting a true null hypothesis" }
             ],
             sa: [
@@ -188,7 +188,7 @@ window.OFFLINE_BANK = {
         },
         challenge: {
             mcq: [
-                { q: "Which conditions are required for a two-sample t-test?", o: ["A. Random samples, independence, approximately normal or large n", "B. Only equal sample sizes", "C. Known population standard deviation", "D. p < 0.05"], a: "A. Random samples, independence, approximately normal or large n" },
+                { q: "Which conditions are required for a two-sample t-test?", o: ["A. Random samples, independence, approximately normal or large $n$", "B. Only equal sample sizes", "C. Known population standard deviation", "D. $p < 0.05$"], a: "A. Random samples, independence, approximately normal or large $n$" },
                 { q: "If you decrease the significance level alpha, the probability of a Type II error:", o: ["A. decreases", "B. increases", "C. is unchanged", "D. becomes zero"], a: "B. increases" },
                 { q: "A chi-square test of independence compares:", o: ["A. two means", "B. observed versus expected counts across categories", "C. regression slopes", "D. variances only"], a: "B. observed versus expected counts across categories" },
                 { q: "In linear regression, a residual equals:", o: ["A. predicted minus observed", "B. observed minus predicted", "C. slope times x", "D. the correlation"], a: "B. observed minus predicted" }
@@ -196,7 +196,7 @@ window.OFFLINE_BANK = {
             sa: [
                 { q: "Design a randomized experiment to test a claim about {focus}, naming treatment, control, and randomization.", a: "Randomly assign subjects to treatment vs control, control confounders, replicate, and compare outcomes; randomization balances lurking variables." },
                 { q: "Carry out the logic of a significance test for {focus} (hypotheses, conditions, conclusion).", a: "State H0/Ha, check random/independent/normal conditions, compute a test statistic and p-value, then reject or fail to reject H0 in context." },
-                { q: "Interpret the slope and r^2 for a regression model in {focus}.", a: "Slope = predicted change in y per unit increase in x; r^2 = the fraction of variation in y explained by the linear model." },
+                { q: "Interpret the slope and $r^2$ for a regression model in {focus}.", a: "Slope = predicted change in $y$ per unit increase in $x$; $r^2$ = the fraction of variation in $y$ explained by the linear model." },
                 { q: "Explain Type I versus Type II error and their consequences for a decision about {focus}.", a: "Type I = rejecting a true H0 (false alarm); Type II = failing to reject a false H0 (missed effect); alpha controls Type I, power controls Type II." }
             ]
         }
@@ -206,30 +206,30 @@ window.OFFLINE_BANK = {
         basic: {
             mcq: [
                 { q: "The number of protons in an atom is its:", o: ["A. mass number", "B. atomic number", "C. neutron count", "D. charge"], a: "B. atomic number" },
-                { q: "Avogadro's number is approximately:", o: ["A. 3.14e10", "B. 6.022e23", "C. 1.6e-19", "D. 9.8"], a: "B. 6.022e23" },
-                { q: "In the Bronsted-Lowry sense, an acid is a substance that:", o: ["A. accepts a proton", "B. donates a proton", "C. donates electrons", "D. always has pH 7"], a: "B. donates a proton" },
-                { q: "Which is the correct chemical formula for water?", o: ["A. HO", "B. H2O", "C. H2O2", "D. OH"], a: "B. H2O" }
+                { q: "Avogadro's number is approximately:", o: ["A. $3.14\\times10^{10}$", "B. $6.022\\times10^{23}$", "C. $1.6\\times10^{-19}$", "D. $9.8$"], a: "B. $6.022\\times10^{23}$" },
+                { q: "In the Bronsted-Lowry sense, an acid is a substance that:", o: ["A. accepts a proton", "B. donates a proton", "C. donates electrons", "D. always has $\\text{pH}\\,7$"], a: "B. donates a proton" },
+                { q: "Which is the correct chemical formula for water?", o: ["A. $\\text{HO}$", "B. $\\text{H}_2\\text{O}$", "C. $\\text{H}_2\\text{O}_2$", "D. $\\text{OH}$"], a: "B. $\\text{H}_2\\text{O}$" }
             ],
             sa: [
-                { q: "Define the mole.", a: "The amount of substance that contains Avogadro's number (6.022e23) of particles." },
+                { q: "Define the mole.", a: "The amount of substance that contains Avogadro's number ($6.022\\times10^{23}$) of particles." },
                 { q: "What distinguishes an element from a compound?", a: "An element has one type of atom; a compound has two or more elements chemically bonded in fixed ratios." },
                 { q: "State the difference between an ionic and a covalent bond.", a: "Ionic bonds transfer electrons (metal + nonmetal); covalent bonds share electrons (nonmetal + nonmetal)." },
-                { q: "What does pH measure?", a: "The acidity of a solution; pH = -log[H+], where a lower pH is more acidic." }
+                { q: "What does pH measure?", a: "The acidity of a solution; $\\text{pH} = -\\log[\\text{H}^+]$, where a lower pH is more acidic." }
             ]
         },
         medium: {
             mcq: [
-                { q: "How many moles are in 36 g of water (molar mass about 18 g/mol)?", o: ["A. 1", "B. 2", "C. 18", "D. 36"], a: "B. 2" },
-                { q: "In 2H2 + O2 -> 2H2O, the limiting reactant idea means the reaction stops when:", o: ["A. water runs out", "B. one reactant is fully consumed", "C. temperature drops", "D. pressure rises"], a: "B. one reactant is fully consumed" },
-                { q: "By PV = nRT, at constant T and n, increasing P will:", o: ["A. increase V", "B. decrease V", "C. not change V", "D. increase n"], a: "B. decrease V" },
-                { q: "A solution with pH = 3 has [H+] equal to:", o: ["A. 3 M", "B. 1e-3 M", "C. 1e-11 M", "D. 10 M"], a: "B. 1e-3 M" },
-                { q: "AgNO3 + NaCl -> AgCl + NaNO3 is best classified as:", o: ["A. Combustion", "B. Precipitation (double replacement)", "C. Single replacement", "D. Decomposition"], a: "B. Precipitation (double replacement)" }
+                { q: "How many moles are in 36 g of water (molar mass about 18 g/mol)?", o: ["A. $1$", "B. $2$", "C. $18$", "D. $36$"], a: "B. $2$" },
+                { q: "In $2\\text{H}_2 + \\text{O}_2 \\to 2\\text{H}_2\\text{O}$, the limiting reactant idea means the reaction stops when:", o: ["A. water runs out", "B. one reactant is fully consumed", "C. temperature drops", "D. pressure rises"], a: "B. one reactant is fully consumed" },
+                { q: "By $PV = nRT$, at constant $T$ and $n$, increasing $P$ will:", o: ["A. increase $V$", "B. decrease $V$", "C. not change $V$", "D. increase $n$"], a: "B. decrease $V$" },
+                { q: "A solution with $\\text{pH} = 3$ has $[\\text{H}^+]$ equal to:", o: ["A. $3\\,\\text{M}$", "B. $10^{-3}\\,\\text{M}$", "C. $10^{-11}\\,\\text{M}$", "D. $10\\,\\text{M}$"], a: "B. $10^{-3}\\,\\text{M}$" },
+                { q: "$\\text{AgNO}_3 + \\text{NaCl} \\to \\text{AgCl} + \\text{NaNO}_3$ is best classified as:", o: ["A. Combustion", "B. Precipitation (double replacement)", "C. Single replacement", "D. Decomposition"], a: "B. Precipitation (double replacement)" }
             ],
             sa: [
                 { q: "Outline the steps to find the limiting reactant for a reaction in {focus}.", a: "Convert masses to moles, divide by coefficients; the smallest ratio is limiting; use it to find theoretical yield." },
                 { q: "Explain how Le Chatelier's principle applies to an equilibrium related to {focus}.", a: "A stress (concentration, pressure, or temperature) shifts the equilibrium to partially counteract it; predict the direction." },
-                { q: "Describe the relationship between [H+], [OH-], and pH for a solution in {focus}.", a: "pH = -log[H+]; [H+][OH-] = 1e-14 at 25 C; pH + pOH = 14." },
-                { q: "Use the ideal gas law to relate variables for a gas problem in {focus}.", a: "PV = nRT; solve for the unknown holding the others constant, with consistent units and R = 0.0821 L atm/mol K." },
+                { q: "Describe the relationship between $[\\text{H}^+]$, $[\\text{OH}^-]$, and pH for a solution in {focus}.", a: "$\\text{pH} = -\\log[\\text{H}^+]$; $[\\text{H}^+][\\text{OH}^-] = 10^{-14}$ at $25^\\circ\\text{C}$; $\\text{pH} + \\text{pOH} = 14$." },
+                { q: "Use the ideal gas law to relate variables for a gas problem in {focus}.", a: "$PV = nRT$; solve for the unknown holding the others constant, with consistent units and $R = 0.0821\\,\\text{L·atm/mol·K}$." },
                 { q: "Explain how bond type affects the properties of a substance in {focus}.", a: "Ionic solids are high-melting and conduct when molten/dissolved; molecular covalent substances melt lower; metals conduct and are malleable." }
             ]
         },
@@ -238,12 +238,12 @@ window.OFFLINE_BANK = {
                 { q: "For an endothermic reaction at equilibrium, increasing temperature:", o: ["A. shifts it left", "B. shifts it right toward products", "C. causes no shift", "D. stops the reaction"], a: "B. shifts it right toward products" },
                 { q: "A buffer resists pH change because it contains:", o: ["A. a strong acid and strong base", "B. a weak acid and its conjugate base", "C. only water", "D. a salt of a strong acid"], a: "B. a weak acid and its conjugate base" },
                 { q: "Which sample has the greatest entropy?", o: ["A. ice", "B. liquid water", "C. water vapor", "D. all equal"], a: "C. water vapor" },
-                { q: "A reaction is spontaneous when:", o: ["A. delta G > 0", "B. delta G < 0", "C. delta H < 0 only", "D. delta S < 0 only"], a: "B. delta G < 0" }
+                { q: "A reaction is spontaneous when:", o: ["A. $\\Delta G > 0$", "B. $\\Delta G < 0$", "C. $\\Delta H < 0$ only", "D. $\\Delta S < 0$ only"], a: "B. $\\Delta G < 0$" }
             ],
             sa: [
-                { q: "Describe how to find delta H for a reaction in {focus} using Hess's law or bond energies.", a: "Add the enthalpies of steps (Hess's law) or compute (bonds broken minus bonds formed), tracking signs carefully." },
-                { q: "Explain how a buffer related to {focus} maintains pH, using equilibrium.", a: "The weak acid neutralizes added base and its conjugate base neutralizes added acid; pH = pKa + log([A-]/[HA])." },
-                { q: "Relate delta G, delta H, delta S, and temperature for a process in {focus}.", a: "delta G = delta H - T delta S; the signs and temperature decide spontaneity; identify the temperature where it becomes spontaneous." },
+                { q: "Describe how to find $\\Delta H$ for a reaction in {focus} using Hess's law or bond energies.", a: "Add the enthalpies of steps (Hess's law) or compute (bonds broken $-$ bonds formed), tracking signs carefully." },
+                { q: "Explain how a buffer related to {focus} maintains pH, using equilibrium.", a: "The weak acid neutralizes added base and its conjugate base neutralizes added acid; $\\text{pH} = \\text{p}K_a + \\log\\frac{[\\text{A}^-]}{[\\text{HA}]}$." },
+                { q: "Relate $\\Delta G$, $\\Delta H$, $\\Delta S$, and temperature for a process in {focus}.", a: "$\\Delta G = \\Delta H - T\\Delta S$; the signs and temperature decide spontaneity; identify the temperature where it becomes spontaneous." },
                 { q: "Interpret a reaction-rate experiment for {focus} using collision theory.", a: "Rate rises with concentration, temperature, and catalysts because the number of effective collisions (right orientation and enough energy) increases." }
             ]
         }
