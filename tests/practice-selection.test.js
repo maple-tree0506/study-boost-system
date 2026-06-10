@@ -101,6 +101,13 @@ test("empty / missing reviews => empty selection", () => {
     assert.strictEqual(planPracticeSelection({}).metadata.reviewCount, 0);
 });
 
+test("carries the stored explanation into the resurfaced review", () => {
+    const r = rec(1);
+    r.explanation = "x^2 differentiates to 2x; choosing x ignores the power rule.";
+    const { selected } = planPracticeSelection({ reviews: [r], isDue: alwaysDue });
+    assert.strictEqual(selected[0].explanation, r.explanation);
+});
+
 test("default isDue treats a record with no sr as due", () => {
     const r = { id: 9, subject: null, type: "Short Answer", question: "Q9", answer: "A9" }; // no sr
     const { selected } = planPracticeSelection({ reviews: [r] }); // no isDue injected => default

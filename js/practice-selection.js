@@ -76,6 +76,7 @@
                 type: r.type,
                 question: r.question,
                 answer: r.answer,
+                explanation: r.explanation,    // carry the stored "why" into the resurfaced review
                 options: undefined,            // saved mistakes carry no options => recall render
                 subject: r.subject,
                 source: "review",

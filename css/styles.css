@@ -199,6 +199,17 @@ details.answer-box > summary {
     color: var(--primary);
 }
 
+/* Remediation explanation (shown only after an incorrect answer). */
+.explanation {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-left: 3px solid var(--primary);
+    background: #f8fafc;
+    border-radius: 6px;
+}
+.explanation h4 { margin: 0 0 4px; font-size: 14px; color: var(--primary); }
+.explanation p { margin: 0; }
+
 .sa-input.locked {
     background: #f3f4f6;
     color: #374151;

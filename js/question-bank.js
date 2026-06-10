@@ -4,8 +4,11 @@
  * Shape:  OFFLINE_BANK[subjectId][tier] = { mcq: [...], sa: [...] }
  *   - subjectId matches the ids in AP_SUBJECTS (app.js)
  *   - tier is "basic" | "medium" | "challenge"
- *   - mcq item: { q, o: [4 options "A. .."], a: "full correct option string" }
- *   - sa  item: { q, a }   ('q' may contain the token {focus}, replaced at render time)
+ *   - mcq item: { q, o: [4 options "A. .."], a: "full correct option string", e? }
+ *   - sa  item: { q, a, e? }   ('q' may contain the token {focus}, replaced at render time)
+ *   - e: OPTIONAL explanation. Why the correct answer is correct and (for MCQ) why each
+ *        distractor is wrong. Do NOT just restate the answer. Omit it rather than pad.
+ *        (No items carry `e` yet — first batch should prioritize MCQ medium/challenge.)
  *
  * Loaded as a plain <script> (before app.js) so it also works from file://
  * (a fetch of a local .json would be blocked by the browser).

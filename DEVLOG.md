@@ -11,6 +11,25 @@ Newest entries first.
 
 ---
 
+## 2026-06 — Explanation layer (real remediation, no synthesis)
+**Why:** Getting a question wrong only showed the *answer*, not *why*. Added an explanation that
+surfaces precisely on incorrect responses — turning the mistake loop into remediation.
+**What I did:**
+- `explanation` is a real optional field. AI emits it (prompt: explain why correct + each
+  distractor's misconception, do not repeat the answer); a dedupe filter blanks it if it just
+  restates the answer or is < 20 chars (filtering, **not** synthesis).
+- Offline explanations come only from an authored bank `e` field (deterministic). **No synthesis
+  from the answer** — if there's no explanation, nothing is shown (not an answer restatement).
+- Shown **only after an incorrect response** (MCQ `!ok`, SA self-wrong); hidden on correct.
+  Answer-box heading split into "Answer" + a separate "Why" block.
+- Stored with mistake records and carried into resurfaced reviews (folded `<details>Why</details>`
+  to preserve active recall).
+**Honest coverage gap:** none of the 364 offline bank items carry `e` yet, so offline wrong-answers
+currently show no "why" until the bank is enriched (deferred; MCQ medium/challenge first). The AI
+path provides explanations now.
+**R1 unchanged:** selection/grading/auto-capture/due-injection behavior is identical; the planner
+only gained an additive `explanation` passthrough.
+
 ## 2026-06 — Math rendering with KaTeX
 **Why:** AP Calculus/Physics/Chemistry questions were plain ASCII (`x^2`, `integral from a to b`),
 which read like a prototype. Added real LaTeX typesetting.

@@ -191,6 +191,7 @@ function migrateErrorRecord(item) {
     if (!item || typeof item !== "object") return item;
     const copy = Object.assign({}, item);
     if (!copy.subject) copy.subject = "Uncategorized";
+    if (typeof copy.explanation !== "string") copy.explanation = "";
     // Initialize spaced-repetition state for records saved before this feature.
     if (!copy.sr && window.ReviewSystem) copy.sr = window.ReviewSystem.initReview();
     return copy;
@@ -394,12 +395,18 @@ function normalizeAIQuestions(rawQuestions) {
                 }
             }
 
+            // Explanation is optional. Dedupe filter (NOT synthesis): drop it if it
+            // just restates the answer or is too short to be a real explanation.
+            const explanationText = String(q.explanation || "").trim();
+            const explanation = (explanationText.length >= 20 && explanationText !== answerText)
+                ? explanationText : "";
             return {
                 id: (renderType === "Multiple Choice" ? "mcq-" : "sa-") + Date.now() + "-" + index,
                 type: renderType,
                 question: questionText,
                 options: options,
-                answer: answerText || "No answer provided by AI."
+                answer: answerText || "No answer provided by AI.",
+                explanation: explanation
             };
         })
         .filter(Boolean);
@@ -545,12 +552,13 @@ async function generateQuizWithAI(topic, difficulty, expected, apSubjectId, note
     const system =
         "You write AP-style practice questions. Return ONLY valid JSON with key questions (array). " +
         "You MUST output exactly " + expected.mcq + " multiple_choice and " + expected.sa + " short_answer questions, in that total order preference: list MCQs first, then short answers. " +
-        "multiple_choice: type 'multiple_choice', question string, options array of exactly 4 strings starting with 'A. '..'D. ', answer equals the full correct option string. " +
-        "short_answer: type 'short_answer', question string, answer is a concise model answer (2-5 sentences). " +
+        "multiple_choice: type 'multiple_choice', question string, options array of exactly 4 strings starting with 'A. '..'D. ', answer equals the full correct option string, explanation string. " +
+        "short_answer: type 'short_answer', question string, answer is a concise model answer (2-5 sentences), explanation string. " +
         "Questions must match the AP course style and use authentic terminology and structures for that exam. " +
         "Calibrate the complexity STRICTLY to the requested difficulty level described below. " +
         "Write any mathematical expressions as LaTeX delimited with $...$ " +
         "(e.g. $x^2$, $\\frac{dy}{dx}$, $\\int_0^1 x\\,dx$); do this inside question, options, and answer strings. " +
+        "The explanation must say WHY the correct answer is correct and, for multiple_choice, what misconception each wrong option reflects; do NOT repeat the answer text. If you cannot give a real explanation, set explanation to \"\". " +
         "Avoid generic study-skills questions. No markdown fences.";
 
     let user = "AP course: " + courseName + "\n";
@@ -624,7 +632,8 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected, notesCont
                 type: "Multiple Choice",
                 question: notesPrefix + prefix + fill(item.q),
                 options: (item.o || []).slice(),
-                answer: item.a
+                answer: item.a,
+                explanation: fill(item.e || "")
             });
         }
     }
@@ -636,7 +645,8 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected, notesCont
                 id: "sa-demo-" + Date.now() + "-" + j + "-" + notesSeed,
                 type: "Short Answer",
                 question: notesPrefix + fill(item.q),
-                answer: item.a
+                answer: item.a,
+                explanation: fill(item.e || "")
             });
         }
     }
@@ -718,8 +728,14 @@ function renderQuestions() {
 
         // Khan-style: the answer stays hidden until the student checks/submits.
         html += '<div class="answer-box" data-answer="' + escapeHtml(item.id) + '" hidden>';
-        html += "<h4>Answer &amp; explanation</h4>";
+        html += "<h4>Answer</h4>";
         html += "<p>" + escapeHtml(item.answer) + "</p>";
+        if (item.explanation) {
+            // Remediation explanation: hidden until an INCORRECT response reveals it.
+            html += '<div class="explanation" data-explanation="' + escapeHtml(item.id) + '" hidden>';
+            html += "<h4>Why</h4><p>" + escapeHtml(item.explanation) + "</p>";
+            html += "</div>";
+        }
         html += "</div>";
 
         html += '<div class="actions" style="margin-top:10px">';
@@ -744,6 +760,13 @@ function revealAnswer(card, qid) {
     if (!card) return;
     const ab = card.querySelector('[data-answer="' + cssEscape(qid) + '"]');
     if (ab) ab.hidden = false;
+}
+
+// Reveal the remediation explanation — only called after an INCORRECT response.
+function revealExplanation(card, qid) {
+    if (!card) return;
+    const ex = card.querySelector('[data-explanation="' + cssEscape(qid) + '"]');
+    if (ex) ex.hidden = false;
 }
 
 // R1: map a grade to an SM-2 quality (coarse: correct=got, incorrect=forgot).
@@ -807,6 +830,7 @@ function handleQuizClick(ev) {
         updateScoreBanner();
         recordAttempt(item, ok);
         applyGradeOutcome(item, ok);
+        if (!ok) revealExplanation(card, qid);
         return;
     }
 
@@ -869,6 +893,7 @@ function handleQuizClick(ev) {
         const item = generatedQuestions.find(function (x) { return x.id === qid; });
         recordAttempt(item, isCorrect);
         applyGradeOutcome(item, isCorrect);
+        if (!isCorrect) revealExplanation(card, qid);
     }
 }
 
@@ -1206,6 +1231,7 @@ function addErrorRecord(questionId) {
         type: found.type,
         question: found.question,
         answer: found.answer,
+        explanation: found.explanation || "",
         userAnswer: found.userAnswer || "",
         sr: window.ReviewSystem ? window.ReviewSystem.initReview() : null,
         subject: subj,
@@ -1313,6 +1339,9 @@ function renderErrorRecords() {
                 ? '<p class="your-answer"><strong>Your answer:</strong> ' + escapeHtml(item.userAnswer) + "</p>"
                 : "") +
             '<details class="answer-box"><summary>Suggested answer</summary><p>' + escapeHtml(item.answer) + "</p></details>" +
+            (item.explanation
+                ? '<details class="answer-box"><summary>Why</summary><p>' + escapeHtml(item.explanation) + "</p></details>"
+                : "") +
             '<p class="due-info">' + escapeHtml(dueText) + (sr && sr.reviews ? " · reviewed " + sr.reviews + "x" : "") + "</p>" +
             '<div class="actions review-actions">' +
             '<span class="selfgrade-q">How well did you recall it?</span>' +
