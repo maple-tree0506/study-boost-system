@@ -1217,7 +1217,10 @@ function addErrorRecord(questionId) {
         errorStatus.textContent = "Could not find the selected question.";
         return;
     }
-    const subj = subjectLabelFromId(apSubjectInput.value);
+    // Use the question's OWN subject (set when the set was built), not the live
+    // dropdown — otherwise switching subjects mid-session mislabels captured
+    // mistakes and R1's subject-filtered review injection silently misses them.
+    const subj = found.subject || subjectLabelFromId(apSubjectInput.value);
     const exists = errorRecords.some(function (item) {
         return item.sourceId === found.id;
     });
