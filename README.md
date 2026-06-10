@@ -72,8 +72,9 @@ unavailable, the raw text is shown instead — it degrades gracefully, never cra
 - **Backend (Python):** `py -m pip install -r requirements-dev.txt` then `pytest -q`.
   Tests use a temporary database (via the `STUDYBOOST_DB` env var) and never touch your
   real `studyboost.db`.
-- **Frontend (JS):** `node --test tests/spaced-repetition.test.js` — unit tests for the
-  SM-2 scheduler, using Node's built-in test runner (no dependencies; Node 18+).
+- **Frontend (JS):** `node --test tests/spaced-repetition.test.js tests/practice-selection.test.js`
+  — unit tests for the SM-2 scheduler and the R1 practice-selection planner (due-review
+  selection + explanation passthrough), using Node's built-in test runner (no dependencies; Node 18+).
 - Both suites run in CI on every push (see the badge above).
 
 ## AI output reliability

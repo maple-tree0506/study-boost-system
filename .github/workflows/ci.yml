@@ -37,5 +37,6 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Run JS unit tests (SM-2 scheduler)
-        run: node --test tests/spaced-repetition.test.js
+      - name: Run JS unit tests
+        # Explicit files (bare `tests/` mis-handles the dir under newer Node).
+        run: node --test tests/spaced-repetition.test.js tests/practice-selection.test.js
