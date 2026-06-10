@@ -86,8 +86,9 @@ now automatically tested on every push — not just browser-verified.
   returns syntactically valid JSON. Confirmed Groq's Llama model supports it.
 - **Shape validation**: JSON mode guarantees valid JSON but not the right *shape* — in testing,
   the model returned `key_items` instead of the requested key. So the client validates the
-  structure (`validateSummaryShape` / `validateQuizShape`) and does exactly one repair retry
-  before falling back to the offline bank.
+  structure and does exactly one repair retry before falling back to the offline bank. Summaries
+  use `validateSummaryShape`; quizzes are filtered by `normalizeAIQuestions` and then checked for
+  the requested MCQ/short-answer structure by `isQuizQualityAcceptable`.
 - **A reliability metric**: every generation is recorded as ok / repaired / failed in
   localStorage (`getAiReliability()`), so the malformed-output rate is now *measurable* instead
   of a guess.

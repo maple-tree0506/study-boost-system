@@ -289,17 +289,6 @@ function validateSummaryShape(obj) {
         obj.keyPoints.every(function (p) { return typeof p === "string" && p.trim().length > 0; });
 }
 
-function validateQuizShape(questions) {
-    if (!Array.isArray(questions) || !questions.length) return false;
-    return questions.every(function (q) {
-        if (!q || typeof q !== "object") return false;
-        const hasQuestion = typeof (q.question || q.prompt) === "string" &&
-            String(q.question || q.prompt).trim().length > 0;
-        const hasAnswer = !!(q.answer || q.correctAnswer || q.solution);
-        return hasQuestion && hasAnswer;
-    });
-}
-
 // outcome: "ok" (valid first try) | "repaired" (valid after one retry) | "failed"
 function recordAiResult(kind, outcome) {
     try {
@@ -422,8 +411,8 @@ function parseFormat(formatStr) {
 }
 
 // Structural quality gate: the result has at least the requested number of each
-// question type. Field shape (question/answer/options present) is validated
-// separately by the AI reliability layer (validateQuizShape / normalizeAIQuestions).
+// question type. Field shape (question/answer/options present) is handled
+// separately by normalizeAIQuestions, which filters out malformed items first.
 //
 // An earlier topic-keyword check was removed here: it false-rejected valid
 // questions that express the topic with LaTeX/symbols (e.g. $f'(x)$, $\int$)

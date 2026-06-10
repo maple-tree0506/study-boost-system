@@ -81,10 +81,14 @@ unavailable, the raw text is shown instead — it degrades gracefully, never cra
 LLM responses are treated as an unreliable input that must be validated:
 - **JSON mode**: the proxy forwards `response_format: {"type":"json_object"}` so the model
   returns syntactically valid JSON.
-- **Shape validation**: JSON mode guarantees valid JSON but *not the right shape* (e.g. the
-  model may return `key_items` instead of `keyPoints`), so the client validates the structure
-  (`validateSummaryShape`, `validateQuizShape`) and **repairs with one retry** before falling
-  back to the offline bank.
+- **Shape validation**: JSON mode guarantees valid JSON but *not the right shape*, so the client
+  validates the structure and **retries once** before falling back to the offline bank. The two
+  generators validate differently:
+  - *Summary*: `validateSummaryShape` checks the object (e.g. the model may return `key_items`
+    instead of `keyPoints`); on failure the same request is retried once.
+  - *Quiz*: `normalizeAIQuestions` filters out malformed items, then `isQuizQualityAcceptable`
+    enforces the requested MCQ/short-answer structure; if the set falls short it regenerates once
+    before falling back.
 - **Reliability metric**: each generation is recorded as `ok` (valid first try), `repaired`
   (valid after one retry), or `failed`. Open the browser console and run `getAiReliability()`
   to see the running counts — this is how the malformed-output rate is measured.
