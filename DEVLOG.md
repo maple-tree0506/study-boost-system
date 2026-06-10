@@ -11,6 +11,16 @@ Newest entries first.
 
 ---
 
+## 2026-06 — H-F: one SM-2 update per item per session
+**Why:** A resurfaced mistake could be graded twice in one session — in practice
+(`applyGradeOutcome → reviewMistake`) and again in Section 3 (Forgot/Hard/Got it) — applying two
+conflicting SM-2 updates (e.g. "Got it" grows the interval, then "Forgot" resets it).
+**Fix:** an in-memory `sessionReviewedErrIds` Set guards the single chokepoint `reviewMistake`:
+first grade per item wins; a second grade is a no-op with a soft notice (no DB write / re-render).
+Cleared when the mistake log is cleared. **Known leak:** the Set resets on page reload (acceptable);
+a durable day-level dedup is deferred to R3 (review recency belongs in the unified event log, not
+welded onto SR state now). Browser-verified (`sr.reviews` goes +1, not +2); DOM-coupled so no unit test.
+
 ## 2026-06 — Explanation layer (real remediation, no synthesis)
 **Why:** Getting a question wrong only showed the *answer*, not *why*. Added an explanation that
 surfaces precisely on incorrect responses — turning the mistake loop into remediation.

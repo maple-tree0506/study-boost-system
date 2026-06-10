@@ -23,6 +23,8 @@ const AP_SUBJECTS = [
 
 let generatedQuestions = [];
 let errorRecords = readErrorRecords();
+// H-F: errIds whose SM-2 schedule was already updated this browser session (dedup).
+const sessionReviewedErrIds = new Set();
 let showOnlyDue = false;
 let mistakeSubjectFilter = "";
 let lastNotesContext = "";
@@ -1247,6 +1249,14 @@ function addErrorRecord(questionId) {
 }
 
 function reviewMistake(errorId, quality) {
+    // H-F: one SM-2 update per item per session. A resurfaced item can be graded both
+    // in practice (applyGradeOutcome) and in Section 3 — first grade wins. The Set is
+    // in-memory, so it resets on reload (documented leak); a durable day-level dedup is
+    // a future R3 upgrade once review recency lives in the unified event log.
+    if (sessionReviewedErrIds.has(errorId)) {
+        errorStatus.textContent = "Already reviewed this session — schedule unchanged.";
+        return;
+    }
     let reviewed = null;
     errorRecords = errorRecords.map(function (item) {
         if (item.id !== errorId) return item;
@@ -1255,6 +1265,7 @@ function reviewMistake(errorId, quality) {
         return reviewed;
     });
     if (!reviewed) return;
+    sessionReviewedErrIds.add(errorId);
     saveErrorRecords();
     renderErrorRecords();
     const days = window.ReviewSystem.daysUntilDue(reviewed.sr);
@@ -1278,6 +1289,7 @@ function clearErrorRecords() {
         return;
     }
     errorRecords = [];
+    sessionReviewedErrIds.clear();
     saveErrorRecords();
     renderErrorRecords();
     refreshMistakeFilterOptions();
