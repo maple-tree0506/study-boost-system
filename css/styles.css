@@ -13,9 +13,14 @@
 
 * { box-sizing: border-box; }
 
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+}
+
 body {
     margin: 0;
-    font-family: Arial, sans-serif;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: var(--bg);
     color: var(--text);
     line-height: 1.45;
@@ -28,7 +33,82 @@ body {
 }
 
 h1 { margin: 0 0 8px; }
-.subtitle { margin: 0 0 20px; color: var(--muted); }
+
+/* Product hero / brand identity (presentation only; reuses existing tokens) */
+.hero {
+    margin: 8px 0 24px;
+    padding: 24px 4px 8px;
+}
+.hero-wordmark {
+    margin: 0 0 12px;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--text);
+}
+.hero-wordmark span { color: var(--primary); }
+.hero h1 {
+    margin: 0 0 10px;
+    font-size: 30px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+.hero-sub {
+    margin: 0 0 16px;
+    max-width: 60ch;
+    color: var(--muted);
+    font-size: 16px;
+}
+.hero-chips {
+    list-style: none;
+    margin: 0 0 18px;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.hero-chips .tag {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    font-size: 13px;
+    padding: 4px 10px;
+    background: #dbeafe;   /* same blue tint as .tag.subject — stays on-palette */
+    color: #1e40af;
+}
+.hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+.hero-cta {
+    display: inline-block;
+    border-radius: 8px;
+    padding: 10px 18px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+}
+.hero-cta:hover { background: #1d4ed8; }
+.hero-cta:focus-visible {
+    outline: 3px solid #93c5fd;
+    outline-offset: 2px;
+}
+.hero-link {
+    color: var(--primary);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+.hero-link:hover { text-decoration: underline; }
+
+@media (max-width: 640px) {
+    .hero { padding-top: 16px; }
+    .hero h1 { font-size: 24px; }
+}
 
 .panel {
     background: var(--card);
@@ -42,6 +122,8 @@ h1 { margin: 0 0 8px; }
     margin-top: 0;
     margin-bottom: 12px;
     font-size: 20px;
+    font-weight: 600;           /* sit beneath the hero h1 in the hierarchy */
+    scroll-margin-top: 24px;    /* clean offset for in-page anchor targets */
 }
 
 details.panel-details > summary {
