@@ -11,6 +11,30 @@ Newest entries first.
 
 ---
 
+## 2026-06 — Productization: hero + dashboard information architecture
+**Why:** The app worked but read like a class project — it opened with developer setup
+(`.env` / `server.py`), used worksheet-style numbered sections ("1)…5)"), and stacked
+everything in one flat column. The goal was an academic-SaaS feel credible to AP students
+and admissions reviewers, **without** touching any learning logic.
+**What I did (presentation only — `index.html` + `css/styles.css`):**
+- **Product hero**: a `StudyBoost` wordmark, a value-prop `<h1>` ("The adaptive study system
+  for AP students."), credibility chips (adaptive practice · SM-2 · topic-mastery analytics ·
+  offline practice bank), and a CTA that anchors to the first tool. The old developer-facing
+  subtitle ("keys stay on the server") is gone from the first screen.
+- **Dashboard IA**: grouped the five panels into three labeled clusters — **Create** (Summary +
+  Practice), **Review** (Adaptive Mistake Review), **Insights** (Progress + Topic Mastery). The
+  two analytics panels sit side-by-side in a responsive grid that goes 2-column at **≥1100px**
+  and stacks below that (1100, not 1024, so Progress's stat-cards/trend keep room).
+- **Heading outline fixed**: hero `<h1>` → group `<h2>` eyebrows → panel `<h3>` (titles demoted
+  and de-numbered; ids unchanged so JS/anchors/`aria-labelledby` are unaffected).
+- **Setup relocated**: the connection/model panel moved to the bottom as a quiet "Setup &
+  connection" utility.
+- System font stack (off Arial), subtle card shadow, `:focus-visible` rings, smooth scroll with
+  a `prefers-reduced-motion` guard.
+**Safety:** no `app.js`/module/test/server changes; every JS-referenced id preserved; DOM order =
+visual order (grouping wrappers, no CSS reordering) so tab order is intact. R1/R2 behavior, AI
+flows, SM-2, and mastery logic are untouched. Browser-verified across 360/768/1100/1280px.
+
 ## 2026-06 — R2: Topic-level mastery modeling
 **Why:** Accuracy was only tracked at the *course* level (the 14 AP subjects). That's too
 coarse to answer "which topics am I weak on?" — the question an adaptive system should answer.

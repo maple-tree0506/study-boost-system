@@ -28,125 +28,125 @@
         </header>
 
         <section class="dash-group" aria-labelledby="create-label">
-        <h2 class="group-label" id="create-label">Create</h2>
+            <h2 class="group-label" id="create-label">Create</h2>
 
-        <section class="panel" aria-labelledby="summary-title">
-            <h3 id="summary-title">AI Note Summary</h3>
-            <div class="field">
-                <label for="noteInput">Paste your raw notes</label>
-                <textarea id="noteInput" maxlength="12000" placeholder="Paste class notes, textbook excerpts, or your own draft summary."></textarea>
-                <p class="hint">Up to 12,000 characters per request.</p>
-            </div>
-            <div class="actions">
-                <button id="summaryBtn" type="button">Generate Simplified Summary</button>
-            </div>
-            <div class="status" id="summaryStatus" aria-live="polite"></div>
-            <div class="output" id="summaryOutput">
-                <p class="empty">No summary generated yet.</p>
-            </div>
-        </section>
+            <section class="panel" aria-labelledby="summary-title">
+                <h3 id="summary-title">AI Note Summary</h3>
+                <div class="field">
+                    <label for="noteInput">Paste your raw notes</label>
+                    <textarea id="noteInput" maxlength="12000" placeholder="Paste class notes, textbook excerpts, or your own draft summary."></textarea>
+                    <p class="hint">Up to 12,000 characters per request.</p>
+                </div>
+                <div class="actions">
+                    <button id="summaryBtn" type="button">Generate Simplified Summary</button>
+                </div>
+                <div class="status" id="summaryStatus" aria-live="polite"></div>
+                <div class="output" id="summaryOutput">
+                    <p class="empty">No summary generated yet.</p>
+                </div>
+            </section>
 
-        <section class="panel" aria-labelledby="quiz-title">
-            <h3 id="quiz-title">Practice Questions</h3>
-            <div class="grid-3">
-                <div class="field">
-                    <label for="apSubjectInput">AP course</label>
-                    <select id="apSubjectInput"></select>
+            <section class="panel" aria-labelledby="quiz-title">
+                <h3 id="quiz-title">Practice Questions</h3>
+                <div class="grid-3">
+                    <div class="field">
+                        <label for="apSubjectInput">AP course</label>
+                        <select id="apSubjectInput"></select>
+                    </div>
+                    <div class="field">
+                        <label for="questionFormatInput">Question format</label>
+                        <select id="questionFormatInput">
+                            <option value="3:2" selected>3 multiple choice + 2 short answer</option>
+                            <option value="5:0">5 multiple choice only</option>
+                            <option value="0:5">5 short answer only</option>
+                            <option value="4:1">4 multiple choice + 1 short answer</option>
+                            <option value="2:3">2 multiple choice + 3 short answer</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="difficultyInput">Difficulty</label>
+                        <select id="difficultyInput">
+                            <option value="basic">Basic</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="challenge">Challenge</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="field">
-                    <label for="questionFormatInput">Question format</label>
-                    <select id="questionFormatInput">
-                        <option value="3:2" selected>3 multiple choice + 2 short answer</option>
-                        <option value="5:0">5 multiple choice only</option>
-                        <option value="0:5">5 short answer only</option>
-                        <option value="4:1">4 multiple choice + 1 short answer</option>
-                        <option value="2:3">2 multiple choice + 3 short answer</option>
-                    </select>
+                    <label for="topicInput">Focus topic (optional)</label>
+                    <input id="topicInput" type="text" placeholder="e.g. Related rates, Glycolysis, Kirchhoff's laws">
                 </div>
                 <div class="field">
-                    <label for="difficultyInput">Difficulty</label>
-                    <select id="difficultyInput">
-                        <option value="basic">Basic</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="challenge">Challenge</option>
-                    </select>
+                    <label for="useNotesContextInput" style="display:flex;align-items:center;gap:10px;font-weight:600;margin:0;">
+                        <input id="useNotesContextInput" type="checkbox" checked />
+                        Use notes from the box above for practice questions (re-paste new notes before generating)
+                    </label>
+                    <p class="hint" id="notesContextHint">Paste notes above, then generate questions. Different notes should produce different questions.</p>
                 </div>
-            </div>
-            <div class="field">
-                <label for="topicInput">Focus topic (optional)</label>
-                <input id="topicInput" type="text" placeholder="e.g. Related rates, Glycolysis, Kirchhoff's laws">
-            </div>
-            <div class="field">
-                <label for="useNotesContextInput" style="display:flex;align-items:center;gap:10px;font-weight:600;margin:0;">
-                    <input id="useNotesContextInput" type="checkbox" checked />
-                    Use notes from the box above for practice questions (re-paste new notes before generating)
-                </label>
-                <p class="hint" id="notesContextHint">Paste notes above, then generate questions. Different notes should produce different questions.</p>
-            </div>
-            <div class="actions">
-                <button id="quizBtn" type="button">Generate Practice Questions</button>
-            </div>
-            <div class="status" id="quizStatus" aria-live="polite"></div>
-            <div class="output" id="quizOutput">
-                <p class="empty">No questions generated yet.</p>
-            </div>
-        </section>
+                <div class="actions">
+                    <button id="quizBtn" type="button">Generate Practice Questions</button>
+                </div>
+                <div class="status" id="quizStatus" aria-live="polite"></div>
+                <div class="output" id="quizOutput">
+                    <p class="empty">No questions generated yet.</p>
+                </div>
+            </section>
         </section>
 
         <section class="dash-group" aria-labelledby="review-label">
-        <h2 class="group-label" id="review-label">Review</h2>
+            <h2 class="group-label" id="review-label">Review</h2>
 
-        <section class="panel" aria-labelledby="errors-title">
-            <h3 id="errors-title">Adaptive Mistake Review</h3>
-            <p class="hint">Rate your recall (Forgot / Hard / Got it) and the system schedules each
-                item with a spaced-repetition algorithm (SM-2), tracking mastery automatically.</p>
-            <div class="grid-2">
-                <div class="field">
-                    <label for="mistakeSubjectFilter">Filter by course</label>
-                    <select id="mistakeSubjectFilter">
-                        <option value="">All courses</option>
-                    </select>
+            <section class="panel" aria-labelledby="errors-title">
+                <h3 id="errors-title">Adaptive Mistake Review</h3>
+                <p class="hint">Rate your recall (Forgot / Hard / Got it) and the system schedules each
+                    item for its next review with a spaced-repetition algorithm (SM-2). This drives the
+                    review schedule — per-topic proficiency is shown separately under Topic Mastery.</p>
+                <div class="grid-2">
+                    <div class="field">
+                        <label for="mistakeSubjectFilter">Filter by course</label>
+                        <select id="mistakeSubjectFilter">
+                            <option value="">All courses</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
-            <div class="actions">
-                <button id="showAllBtn" type="button" class="secondary">Show All</button>
-                <button id="showUnknownBtn" type="button" class="secondary">Show Due for Review</button>
-                <button id="clearErrorsBtn" type="button" class="danger">Clear Mistake Log</button>
-            </div>
-            <div class="status" id="errorStatus" aria-live="polite"></div>
-            <div class="output" id="errorOutput">
-                <p class="empty">No mistake records yet.</p>
-            </div>
-        </section>
+                <div class="actions">
+                    <button id="showAllBtn" type="button" class="secondary">Show All</button>
+                    <button id="showUnknownBtn" type="button" class="secondary">Show Due for Review</button>
+                    <button id="clearErrorsBtn" type="button" class="danger">Clear Mistake Log</button>
+                </div>
+                <div class="status" id="errorStatus" aria-live="polite"></div>
+                <div class="output" id="errorOutput">
+                    <p class="empty">No mistake records yet.</p>
+                </div>
+            </section>
         </section>
 
         <section class="dash-group" aria-labelledby="insights-label">
-        <h2 class="group-label" id="insights-label">Insights</h2>
-        <div class="insights-grid">
+            <h2 class="group-label" id="insights-label">Insights</h2>
+            <div class="insights-grid">
+                <section class="panel" aria-labelledby="progress-title">
+                    <h3 id="progress-title">Progress</h3>
+                    <p class="hint">Accuracy and volume from every question you grade. Stored on the server (SQLite); queued locally and synced if the server is offline.</p>
+                    <div class="actions">
+                        <button id="refreshStatsBtn" type="button" class="secondary">Refresh</button>
+                    </div>
+                    <div class="status" id="statsStatus" aria-live="polite"></div>
+                    <div class="output" id="statsOutput">
+                        <p class="empty">No progress yet.</p>
+                    </div>
+                </section>
 
-        <section class="panel" aria-labelledby="progress-title">
-            <h3 id="progress-title">Progress</h3>
-            <p class="hint">Accuracy and volume from every question you grade. Stored on the server (SQLite); queued locally and synced if the server is offline.</p>
-            <div class="actions">
-                <button id="refreshStatsBtn" type="button" class="secondary">Refresh</button>
+                <section class="panel" aria-labelledby="topic-mastery-title">
+                    <h3 id="topic-mastery-title">Topic Mastery</h3>
+                    <p class="hint">Per-topic proficiency for the selected course, estimated from your
+                        quiz-grade outcomes (a recency-weighted accuracy plus a volume gate). This reflects
+                        <strong>practice quiz grading only</strong> — it does not include the Forgot / Hard /
+                        Got it ratings in Adaptive Mistake Review.</p>
+                    <div class="output" id="topicMasteryOutput" aria-live="polite">
+                        <p class="empty">No topic mastery yet — grade practice questions for this course to build it.</p>
+                    </div>
+                </section>
             </div>
-            <div class="status" id="statsStatus" aria-live="polite"></div>
-            <div class="output" id="statsOutput">
-                <p class="empty">No progress yet.</p>
-            </div>
-        </section>
-
-        <section class="panel" aria-labelledby="topic-mastery-title">
-            <h3 id="topic-mastery-title">Topic Mastery</h3>
-            <p class="hint">Per-topic proficiency for the selected course, estimated from your
-                quiz-grade outcomes (a recency-weighted accuracy plus a volume gate). This reflects
-                <strong>practice quiz grading only</strong> — it does not include the Forgot / Hard /
-                Got it ratings in Adaptive Mistake Review.</p>
-            <div class="output" id="topicMasteryOutput" aria-live="polite">
-                <p class="empty">No topic mastery yet — grade practice questions for this course to build it.</p>
-            </div>
-        </section>
-        </div>
         </section>
 
         <details class="panel panel-details" id="connectionPanel">
