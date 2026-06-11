@@ -277,6 +277,25 @@ details.answer-box > summary {
 
 .hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
+/* R2: Topic Mastery panel (read-only). Reuses .review-stats / .tag patterns;
+   level colors mirror the existing status palette but use distinct class names. */
+.mastery-list { display: flex; flex-direction: column; gap: 6px; }
+.mastery-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+}
+.mastery-row:last-child { border-bottom: none; }
+.mastery-topic { flex: 1 1 140px; font-weight: 600; }
+.mastery-meta { font-size: 13px; color: var(--muted); }
+.tag.mastery-new { background: #e5e7eb; }
+.tag.mastery-developing { background: #fef3c7; }
+.tag.mastery-proficient { background: #dbeafe; color: #1e40af; }
+.tag.mastery-mastered { background: #d1fae5; }
+
 @media (min-width: 800px) {
     .grid-2 {
         display: grid;

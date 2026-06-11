@@ -11,6 +11,31 @@ Newest entries first.
 
 ---
 
+## 2026-06 — R2: Topic-level mastery modeling
+**Why:** Accuracy was only tracked at the *course* level (the 14 AP subjects). That's too
+coarse to answer "which topics am I weak on?" — the question an adaptive system should answer.
+R2 adds a per-topic mastery signal computed from real graded outcomes.
+**What I did (staged, like R1):**
+- **2A — pure model** (`js/mastery-model.js`, dual-export peer to the SR/planner modules):
+  `normalizeTopicKey` (lowercase/trim/collapse; blank → subject-general bucket), `updateMastery`
+  (immutable; attempts/correct counters + a recency-weighted accuracy EMA, α=0.4), `masteryLevel`
+  (volume-gated new / developing / proficient / mastered — a high EMA alone never reads as mastered),
+  `summarizeMastery` (topics + weakest, optional subject filter). 22 `node:test` cases; added to CI.
+- **2B — feed:** `finalizeSet` stamps `topic`/`topicKey` on generated items; the planner carries them
+  into resurfaced reviews; `recordAttempt` folds each outcome into the mastery map *after* the existing
+  attempt/SQLite path (additive — can't affect grading); mistakes copy the question's own topic on
+  capture (never the live input, same rule as the subject fix); persisted in `studyBoostMasteryV1`.
+- **2C — read-only panel** ("5) Topic Mastery"): topics tracked / mastered / graded, a "focus next"
+  list of the 3 weakest topics, and per-topic rows (level badge + accuracy + attempts), scoped to the
+  selected course. Reuses the existing `.review-stats` / `.tag` patterns.
+**Honest limitations (by design):** topic identity is the learner's *normalized free-text* topic —
+casing/whitespace merge, but synonyms ("derivatives" vs "the derivative") stay distinct, and a blank
+topic aggregates at the subject level. Topic mastery counts **practice quiz grading only** — the
+Forgot/Hard/Got it ratings in Section 3 feed SM-2 scheduling, not topic mastery. Mastery lives in
+localStorage for now; moving it server-side (with a topic column) is deferred to R3.
+**R1 unchanged:** selection/injection/auto-capture behavior is identical; the planner only gained
+additive `topic`/`topicKey` passthrough.
+
 ## 2026-06 — H-F: one SM-2 update per item per session
 **Why:** A resurfaced mistake could be graded twice in one session — in practice
 (`applyGradeOutcome → reviewMistake`) and again in Section 3 (Forgot/Hard/Got it) — applying two

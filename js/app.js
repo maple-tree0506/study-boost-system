@@ -62,6 +62,7 @@ const quizOutput = document.getElementById("quizOutput");
 const refreshStatsBtn = document.getElementById("refreshStatsBtn");
 const statsStatus = document.getElementById("statsStatus");
 const statsOutput = document.getElementById("statsOutput");
+const topicMasteryOutput = document.getElementById("topicMasteryOutput");
 
 const mistakeSubjectFilterEl = document.getElementById("mistakeSubjectFilter");
 const showAllBtn = document.getElementById("showAllBtn");
@@ -963,6 +964,7 @@ function recordAttempt(item, correct) {
             at: payload.ts
         });
         saveMastery();
+        renderTopicMastery(); // 2C: refresh the read-only panel after each graded outcome
     }
 }
 
@@ -1111,6 +1113,68 @@ function renderStats(data, localOnly) {
     html += "</div>";
 
     statsOutput.innerHTML = html;
+}
+
+// A blank topicKey is the subject-general bucket; give it a readable label.
+function topicDisplay(stat) {
+    const label = (stat && typeof stat.topic === "string") ? stat.topic.trim() : "";
+    return label || "General (no topic)";
+}
+
+// R2 Stage 2C: read-only Topic Mastery panel, scoped to the selected course.
+// Single data source: MasteryModel.summarizeMastery. No writes; synchronous
+// localStorage-backed state, so there is no loading state to show. Degrades to the
+// empty message if the module is missing or the map is unusable (error state).
+function renderTopicMastery() {
+    if (!topicMasteryOutput) return;
+    const emptyMsg = '<p class="empty">No topic mastery yet — grade practice questions for this course to build it.</p>';
+
+    if (!window.MasteryModel || !masteryMap || typeof masteryMap !== "object") {
+        topicMasteryOutput.innerHTML = emptyMsg;
+        return;
+    }
+
+    const subjectLabel = subjectLabelFromId(apSubjectInput.value);
+    const summary = window.MasteryModel.summarizeMastery(masteryMap, { subject: subjectLabel });
+    const topics = summary.topics || [];
+
+    if (!topics.length) {
+        topicMasteryOutput.innerHTML = emptyMsg;
+        return;
+    }
+
+    // Topic Mastery levels are deliberately distinct from SM-2's new/learning/mastered.
+    const LEVEL_LABEL = { "new": "New", developing: "Developing", proficient: "Proficient", mastered: "Mastered" };
+    const masteredCount = topics.filter(function (t) {
+        return window.MasteryModel.masteryLevel(t) === "mastered";
+    }).length;
+    const totalGraded = topics.reduce(function (a, t) { return a + t.attempts; }, 0);
+    const weakest = (summary.weakest || []).slice(0, 3); // top 3 weakest only
+
+    let html = '<div class="review-stats">';
+    html += '<div class="review-stat"><span class="rs-num">' + topics.length + '</span><span class="rs-label">Topics tracked</span></div>';
+    html += '<div class="review-stat"><span class="rs-num">' + masteredCount + '</span><span class="rs-label">Mastered</span></div>';
+    html += '<div class="review-stat"><span class="rs-num">' + totalGraded + '</span><span class="rs-label">Graded</span></div>';
+    html += "</div>";
+
+    if (weakest.length) {
+        html += '<p class="hint">Focus next: ' + weakest.map(function (t) {
+            return escapeHtml(topicDisplay(t)) + " (" + Math.round(t.ema * 100) + "%)";
+        }).join(" · ") + "</p>";
+    }
+
+    html += '<div class="mastery-list">';
+    topics.forEach(function (t) {
+        const level = window.MasteryModel.masteryLevel(t);
+        html += '<div class="mastery-row">';
+        html += '<span class="mastery-topic">' + escapeHtml(topicDisplay(t)) + "</span>";
+        html += '<span class="tag mastery-' + level + '">' + (LEVEL_LABEL[level] || level) + "</span>";
+        html += '<span class="mastery-meta">' + Math.round(t.ema * 100) + "% accuracy · " + t.attempts + " graded</span>";
+        html += "</div>";
+    });
+    html += "</div>";
+
+    topicMasteryOutput.innerHTML = html;
 }
 
 // FR3/FR4: load and render stats; FR5 fallback to local queue when offline.
@@ -1526,6 +1590,9 @@ if (window.location.protocol !== "file:") {
 updateNotesContextUI();
 renderErrorRecords();
 refreshMistakeFilterOptions();
+renderTopicMastery();
+// 2C: re-scope the Topic Mastery panel when the course selection changes.
+apSubjectInput.addEventListener("change", renderTopicMastery);
 if (window.location.protocol === "file:") {
     loadStats();
 }
