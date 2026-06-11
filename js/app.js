@@ -3,6 +3,7 @@ const STORAGE_KEY_ERRORS = "studyBoostMistakesV2";
 const STORAGE_UI = "studyBoostUIPrefsV1";
 const STORAGE_ATTEMPT_QUEUE = "studyBoostAttemptQueueV1";
 const STORAGE_AI_RELIABILITY = "studyBoostAiReliabilityV1";
+const STORAGE_MASTERY = "studyBoostMasteryV1";
 
 const AP_SUBJECTS = [
     { id: "calc_ab", label: "AP Calculus AB" },
@@ -23,6 +24,9 @@ const AP_SUBJECTS = [
 
 let generatedQuestions = [];
 let errorRecords = readErrorRecords();
+// R2: per-(subject, topic) mastery map (studyBoostMasteryV1). Pure model lives in
+// js/mastery-model.js; this is just the persisted state it operates on.
+let masteryMap = readMastery();
 // H-F: errIds whose SM-2 schedule was already updated this browser session (dedup).
 const sessionReviewedErrIds = new Set();
 let showOnlyDue = false;
@@ -194,9 +198,31 @@ function migrateErrorRecord(item) {
     const copy = Object.assign({}, item);
     if (!copy.subject) copy.subject = "Uncategorized";
     if (typeof copy.explanation !== "string") copy.explanation = "";
+    // R2: topic identity for records saved before topic tracking existed.
+    if (typeof copy.topic !== "string") copy.topic = "";
+    if (typeof copy.topicKey !== "string") copy.topicKey = "";
     // Initialize spaced-repetition state for records saved before this feature.
     if (!copy.sr && window.ReviewSystem) copy.sr = window.ReviewSystem.initReview();
     return copy;
+}
+
+// R2: load/save the topic-mastery map. Best-effort, mirroring the error-record
+// and attempt-queue helpers — a storage failure must never break grading.
+function readMastery() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(STORAGE_MASTERY) || "{}");
+        return (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveMastery() {
+    try {
+        localStorage.setItem(STORAGE_MASTERY, JSON.stringify(masteryMap));
+    } catch (e) {
+        // storage full or unavailable — mastery is a derived convenience, skip silently
+    }
 }
 
 function saveErrorRecords() {
@@ -924,6 +950,20 @@ function recordAttempt(item, correct) {
         ts: new Date().toISOString()
     };
     sendAttempt(payload);
+
+    // R2: fold this outcome into the topic-level mastery model. Additive and
+    // independent of the attempt/SQLite path above — a failure here can't affect
+    // grading. Topic comes from the item (stamped at finalizeSet / carried by the
+    // planner for resurfaced reviews); subject matches what was recorded.
+    if (window.MasteryModel) {
+        masteryMap = window.MasteryModel.updateMastery(masteryMap, {
+            subject: payload.subject,
+            topic: item.topic,
+            correct: !!correct,
+            at: payload.ts
+        });
+        saveMastery();
+    }
 }
 
 async function postAttempt(payload) {
@@ -1111,10 +1151,14 @@ async function generateQuiz() {
         : { selected: [] };
     const reviewItems = reviewPlan.selected;
     const finalizeSet = function (newItems) {
+        // R2: stamp topic identity so graded outcomes can feed topic-level mastery.
+        const topicKey = window.MasteryModel ? window.MasteryModel.normalizeTopicKey(topic) : "";
         (newItems || []).forEach(function (q) {
             q.subject = subjectLabel || "Uncategorized";
             q.source = "generated";
             q.reason = "generator:new";
+            q.topic = topic || "";
+            q.topicKey = topicKey;
         });
         return reviewItems.concat(newItems || []);
     };
@@ -1229,6 +1273,11 @@ function addErrorRecord(questionId) {
         userAnswer: found.userAnswer || "",
         sr: window.ReviewSystem ? window.ReviewSystem.initReview() : null,
         subject: subj,
+        // R2: copy the question's OWN topic (set at finalizeSet), never the live
+        // topicInput — same rule as subject, so switching topics mid-session can't
+        // mislabel a captured mistake.
+        topic: found.topic || "",
+        topicKey: found.topicKey || "",
         createdAt: new Date().toISOString()
     });
     saveErrorRecords();

@@ -79,6 +79,8 @@
                 explanation: r.explanation,    // carry the stored "why" into the resurfaced review
                 options: undefined,            // saved mistakes carry no options => recall render
                 subject: r.subject,
+                topic: r.topic,                // R2: carry topic identity so grading a review feeds mastery
+                topicKey: r.topicKey,
                 source: "review",
                 reason: "schedule:due",
                 selectedAt: selectedAt

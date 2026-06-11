@@ -108,6 +108,22 @@ test("carries the stored explanation into the resurfaced review", () => {
     assert.strictEqual(selected[0].explanation, r.explanation);
 });
 
+test("carries topic and topicKey into the resurfaced review (R2 passthrough)", () => {
+    const r = rec(1);
+    r.topic = "The Chain Rule";
+    r.topicKey = "the chain rule";
+    const { selected } = planPracticeSelection({ reviews: [r], isDue: alwaysDue });
+    assert.strictEqual(selected[0].topic, "The Chain Rule");
+    assert.strictEqual(selected[0].topicKey, "the chain rule");
+});
+
+test("topic passthrough is undefined when the record has no topic", () => {
+    const r = rec(1); // no topic/topicKey set
+    const { selected } = planPracticeSelection({ reviews: [r], isDue: alwaysDue });
+    assert.strictEqual(selected[0].topic, undefined);
+    assert.strictEqual(selected[0].topicKey, undefined);
+});
+
 test("default isDue treats a record with no sr as due", () => {
     const r = { id: 9, subject: null, type: "Short Answer", question: "Q9", answer: "A9" }; // no sr
     const { selected } = planPracticeSelection({ reviews: [r] }); // no isDue injected => default
