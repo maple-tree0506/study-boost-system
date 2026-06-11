@@ -49,11 +49,11 @@ unavailable, the raw text is shown instead — it degrades gracefully, never cra
 (The built-in offline question bank is still plain text; converting it to LaTeX is a follow-up.)
 
 ## Practice & answers
-- **Answers are gated (Khan-style):** the model answer stays hidden until you
+- **Answers are gated (Khan-style):** the suggested answer stays hidden until you
   act — multiple-choice reveals after "Check answer"; short-answer/FRQ reveals
   after you type an answer and click "Submit answer", then you self-grade.
 - Short-answer questions include a text box so you write your own response; your
-  answer is saved alongside the question in the mistake log.
+  answer is saved alongside the question in the Mistake Log.
 
 ## Progress tracking (SQLite)
 - Every graded question (MCQ "Check answer" or short-answer "Mark correct/incorrect")

@@ -273,11 +273,11 @@ function updateNotesContextUI() {
     const hasAny = fromBox || fromSummary;
     useNotesContextInput.disabled = false;
     if (!hasAny && useNotesContextInput.checked) {
-        notesContextHint.textContent = "Paste notes in the box above (or generate a summary) before using note-based questions.";
+        notesContextHint.textContent = "Paste notes above, or generate a summary, to base questions on your material.";
     } else if (fromBox) {
-        notesContextHint.textContent = "Will use the notes currently in the box (" + sanitizeText(noteInput.value).length + " chars). Change notes, then click Generate again.";
+        notesContextHint.textContent = "Using the notes in the box above. Edit them anytime, then generate again.";
     } else if (fromSummary) {
-        notesContextHint.textContent = "Box is empty — will use your last AI summary. Paste new notes in the box for different questions.";
+        notesContextHint.textContent = "Using your last summary. Paste new notes above for different questions.";
     } else {
         notesContextHint.textContent = "Optional: paste notes to tailor questions to your material.";
     }
@@ -454,22 +454,22 @@ function isQuizQualityAcceptable(questions, topic, expected) {
 async function fetchHealth() {
     healthReady = false;
     setAIControlsBusy(true);
-    healthStatus.textContent = "Checking proxy connection...";
+    healthStatus.textContent = "Checking connection...";
     try {
         const res = await fetch("/api/health", { method: "GET" });
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
         serverHealthy = !!data.ok;
         healthConfig.openai_configured = !!data.openai_configured;
-        const o = healthConfig.openai_configured ? "API key OK" : "API key missing";
-        healthStatus.textContent = "Proxy: connected · " + o + ".";
+        const o = healthConfig.openai_configured ? "AI features available" : "no API key yet";
+        healthStatus.textContent = "Connected — " + o + ".";
         if (!isProviderConfigured()) {
-            healthStatus.textContent += " No API key — offline/demo mode until configured.";
+            healthStatus.textContent += " Practice works offline; add a key to enable AI.";
         }
     } catch (e) {
         serverHealthy = false;
         healthConfig.openai_configured = false;
-        healthStatus.textContent = "Proxy not reachable. Run server.py and open http://127.0.0.1:8765/ — do not use file://.";
+        healthStatus.textContent = "Not connected. Start the local server (server.py), then open http://127.0.0.1:8765/.";
     } finally {
         healthReady = true;
         setAIControlsBusy(false);
@@ -690,7 +690,7 @@ function renderScoreBanner() {
     if (!total) return "";
     return (
         '<div class="score-banner" id="scoreBanner">' +
-        "Score: " + s.correct + " correct · " + s.answered + " graded · " + total + " questions in this set." +
+        s.correct + " correct of " + s.answered + " graded · " + total + " in this set." +
         "</div>"
     );
 }
@@ -700,13 +700,13 @@ function updateScoreBanner() {
     if (el) {
         const s = scoreSummary();
         const total = generatedQuestions.length;
-        el.textContent = "Score: " + s.correct + " correct · " + s.answered + " graded · " + total + " questions in this set.";
+        el.textContent = s.correct + " correct of " + s.answered + " graded · " + total + " in this set.";
     }
 }
 
 function renderQuestions() {
     if (!generatedQuestions.length) {
-        quizOutput.innerHTML = "<p class='empty'>No questions generated yet.</p>";
+        quizOutput.innerHTML = "<p class='empty'>Choose a course and generate questions to begin.</p>";
         return;
     }
 
@@ -732,13 +732,13 @@ function renderQuestions() {
             html += '<div class="feedback" data-feedback="' + escapeHtml(item.id) + '" hidden></div>';
         } else {
             html += '<div class="field">';
-            html += '<textarea class="sa-input" data-sa-input="' + escapeHtml(item.id) + '" placeholder="Type your answer here, then submit to reveal the model answer."></textarea>';
+            html += '<textarea class="sa-input" data-sa-input="' + escapeHtml(item.id) + '" placeholder="Type your answer, then submit to see the suggested answer."></textarea>';
             html += "</div>";
             html += '<div class="actions"><button type="button" class="secondary submit-sa" data-qid="' + escapeHtml(item.id) + '">Submit answer</button></div>';
             html += '<div class="feedback" data-feedback="' + escapeHtml(item.id) + '" hidden></div>';
             // Self-grade buttons appear only AFTER the student submits their answer.
             html += '<div class="short-actions" data-selfgrade="' + escapeHtml(item.id) + '" hidden>';
-            html += '<span class="selfgrade-q">Compare with the model answer below. Did you get it right?</span>';
+            html += '<span class="selfgrade-q">Compare with the suggested answer below. Did you get it right?</span>';
             html += '<button type="button" class="outline self-correct" data-qid="' + escapeHtml(item.id) + '" data-correct="1">I was right</button>';
             html += '<button type="button" class="outline self-wrong" data-qid="' + escapeHtml(item.id) + '" data-correct="0">I was wrong</button>';
             html += "</div>";
@@ -746,7 +746,7 @@ function renderQuestions() {
 
         // Khan-style: the answer stays hidden until the student checks/submits.
         html += '<div class="answer-box" data-answer="' + escapeHtml(item.id) + '" hidden>';
-        html += "<h4>Answer</h4>";
+        html += "<h4>Suggested answer</h4>";
         html += "<p>" + escapeHtml(item.answer) + "</p>";
         if (item.explanation) {
             // Remediation explanation: hidden until an INCORRECT response reveals it.
@@ -828,7 +828,7 @@ function handleQuizClick(ev) {
         if (quizResults[qid] && quizResults[qid].done) {
             fb.hidden = false;
             fb.className = "feedback bad";
-            fb.textContent = "Already graded for this question.";
+            fb.textContent = "Already graded — your first answer counts.";
             return;
         }
 
@@ -884,7 +884,7 @@ function handleQuizClick(ev) {
 
         fb.hidden = false;
         fb.className = "feedback";
-        fb.textContent = "Answer submitted. Compare with the model answer, then self-grade.";
+        fb.textContent = "Answer submitted — compare with the suggested answer, then grade yourself.";
         return;
     }
 
@@ -897,7 +897,7 @@ function handleQuizClick(ev) {
             if (fb) {
                 fb.hidden = false;
                 fb.className = "feedback bad";
-                fb.textContent = "Already graded.";
+                fb.textContent = "Already graded — your first answer counts.";
             }
             return;
         }
@@ -1184,7 +1184,7 @@ async function loadStats() {
 
     if (window.location.protocol === "file:" || !serverHealthy) {
         renderStats(computeLocalStats(readAttemptQueue()), true);
-        statsStatus.textContent = "Local-only mode (server unreachable).";
+        statsStatus.textContent = "Showing results saved on this device — they'll sync when the connection returns.";
         return;
     }
 
@@ -1193,10 +1193,10 @@ async function loadStats() {
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
         renderStats(data, false);
-        statsStatus.textContent = "Progress updated from server.";
+        statsStatus.textContent = "Progress up to date.";
     } catch (e) {
         renderStats(computeLocalStats(readAttemptQueue()), true);
-        statsStatus.textContent = "Server unreachable — showing local-only data.";
+        statsStatus.textContent = "Showing results saved on this device — they'll sync when the connection returns.";
     }
 }
 
@@ -1233,10 +1233,10 @@ async function generateQuiz() {
     }
 
     const ctxLabel =
-        ctx.source === "textarea" ? "notes in box (" + notesCtx.length + " chars)" :
-        ctx.source === "summary" ? "last AI summary (" + notesCtx.length + " chars)" :
-        "no notes (course/topic only)";
-    quizStatus.textContent = "Generating questions using " + ctxLabel + "...";
+        ctx.source === "textarea" ? "your notes" :
+        ctx.source === "summary" ? "your last summary" :
+        "the course and topic";
+    quizStatus.textContent = "Generating questions from " + ctxLabel + "...";
     quizResults = {};
 
     const tryDemo = function (reason) {
@@ -1245,21 +1245,21 @@ async function generateQuiz() {
             if (reviewItems.length) {
                 generatedQuestions = reviewItems.slice();
                 renderQuestions();
-                quizStatus.textContent = reason + " No offline bank for " + subjectLabel +
-                    "; showing " + reviewItems.length + " due review item(s).";
+                quizStatus.textContent = reason + " There's no built-in bank for " + subjectLabel +
+                    " — showing " + reviewItems.length + " review(s) due instead.";
             } else {
                 generatedQuestions = [];
                 renderQuestions();
-                quizStatus.textContent = reason + " No offline question bank for " + subjectLabel +
-                    " yet — connect an API key for AI questions, or try a subject with an offline bank " +
-                    "(e.g. AP Calculus AB or AP Biology).";
+                quizStatus.textContent = reason + " There's no built-in bank for " + subjectLabel +
+                    " yet — add an API key for AI questions, or try a course like " +
+                    "AP Calculus AB or AP Biology.";
             }
             return;
         }
         generatedQuestions = finalizeSet(demo);
         renderQuestions();
-        quizStatus.textContent = reason + " Offline questions. " + ctxLabel +
-            (reviewItems.length ? " · " + reviewItems.length + " due review(s) added." : ".");
+        quizStatus.textContent = reason + " Showing questions from the built-in bank" +
+            (reviewItems.length ? " · " + reviewItems.length + " review(s) due today included." : ".");
     };
 
     if (!healthReady) {
@@ -1269,8 +1269,8 @@ async function generateQuiz() {
 
     if (!canUseLiveAI()) {
         const reason = !serverHealthy
-            ? "Proxy unavailable."
-            : "API key missing.";
+            ? "AI is unavailable right now."
+            : "AI isn't set up yet.";
         tryDemo(reason);
         return;
     }
@@ -1288,7 +1288,7 @@ async function generateQuiz() {
         if (isQuizQualityAcceptable(generatedQuestions, topic || subjectLabel, expected)) {
             recordAiResult("quiz", "ok");
         } else {
-            quizStatus.textContent = "First result was too generic. Regenerating once...";
+            quizStatus.textContent = "First result was too generic — regenerating once...";
             aiQuestions = await generateQuizWithAI(topic, difficulty, expected, apId, notesCtx);
             generatedQuestions = normalizeAIQuestions(aiQuestions);
             if (!generatedQuestions.length || !isQuizQualityAcceptable(generatedQuestions, topic || subjectLabel, expected)) {
@@ -1299,11 +1299,11 @@ async function generateQuiz() {
 
         generatedQuestions = finalizeSet(generatedQuestions);
         renderQuestions();
-        quizStatus.textContent = "Questions generated (AI) from " + ctxLabel +
-            (reviewItems.length ? " · " + reviewItems.length + " due review(s) added." : ".");
+        quizStatus.textContent = "Questions ready — generated from " + ctxLabel +
+            (reviewItems.length ? " · " + reviewItems.length + " review(s) due today included." : ".");
     } catch (err) {
         recordAiResult("quiz", "failed");
-        tryDemo("AI quiz failed: " + err.message);
+        tryDemo("The AI request didn't go through.");
     } finally {
         setAIControlsBusy(false);
         quizBtn.removeAttribute("aria-busy");
@@ -1326,7 +1326,7 @@ function addErrorRecord(questionId) {
         return item.sourceId === found.id;
     });
     if (exists) {
-        errorStatus.textContent = "Already in the mistake log.";
+        errorStatus.textContent = "Already in your Mistake Log.";
         return;
     }
     errorRecords.unshift({
@@ -1349,7 +1349,7 @@ function addErrorRecord(questionId) {
     saveErrorRecords();
     renderErrorRecords();
     refreshMistakeFilterOptions();
-    errorStatus.textContent = "Saved to mistake log.";
+    errorStatus.textContent = "Saved — this question will come back for review.";
 }
 
 function reviewMistake(errorId, quality) {
@@ -1358,7 +1358,7 @@ function reviewMistake(errorId, quality) {
     // in-memory, so it resets on reload (documented leak); a durable day-level dedup is
     // a future R3 upgrade once review recency lives in the unified event log.
     if (sessionReviewedErrIds.has(errorId)) {
-        errorStatus.textContent = "Already reviewed this session — schedule unchanged.";
+        errorStatus.textContent = "Already reviewed this session — your schedule is unchanged.";
         return;
     }
     let reviewed = null;
@@ -1389,7 +1389,7 @@ function removeErrorRecord(errorId) {
 
 function clearErrorRecords() {
     if (!errorRecords.length) {
-        errorStatus.textContent = "Mistake log is already empty.";
+        errorStatus.textContent = "Your Mistake Log is already empty.";
         return;
     }
     errorRecords = [];
@@ -1397,7 +1397,7 @@ function clearErrorRecords() {
     saveErrorRecords();
     renderErrorRecords();
     refreshMistakeFilterOptions();
-    errorStatus.textContent = "Cleared.";
+    errorStatus.textContent = "Mistake Log cleared.";
 }
 
 function renderErrorRecords() {
@@ -1433,7 +1433,7 @@ function renderErrorRecords() {
     }
 
     if (!records.length) {
-        errorOutput.innerHTML = analytics + "<p class='empty'>No items for this filter.</p>";
+        errorOutput.innerHTML = analytics + "<p class='empty'>No items match this filter.</p>";
         return;
     }
 
@@ -1480,8 +1480,8 @@ function renderErrorRecords() {
 summaryBtn.addEventListener("click", async function () {
     const raw = sanitizeText(noteInput.value);
     if (!raw) {
-        summaryStatus.textContent = "Paste notes first.";
-        summaryOutput.innerHTML = "<p class='empty'>No summary yet.</p>";
+        summaryStatus.textContent = "Paste your notes above first.";
+        summaryOutput.innerHTML = "<p class='empty'>Paste your notes above and generate a summary to get started.</p>";
         return;
     }
     if (!healthReady) {
@@ -1499,8 +1499,8 @@ summaryBtn.addEventListener("click", async function () {
         typesetMath(summaryOutput);
         lastNotesContext = raw;
         summaryStatus.textContent = serverHealthy
-            ? "Offline summary — " + providerKeyHint()
-            : "Offline summary (start server for AI). Notes linked to quiz.";
+            ? "Offline summary — add an API key in Setup & connection to enable AI summaries."
+            : "Offline summary — start the local server to enable AI. Your notes are linked to the quiz.";
         updateNotesContextUI();
         return;
     }
@@ -1517,10 +1517,10 @@ summaryBtn.addEventListener("click", async function () {
             "<h3>Key Points</h3><ul>" + listHtml + "</ul>";
         typesetMath(summaryOutput);
         lastNotesContext = json.simplifiedSummary + "\n" + (json.keyPoints || []).join("\n");
-        summaryStatus.textContent = "Summary ready — quiz can use this context.";
+        summaryStatus.textContent = "Summary ready — your practice questions can now use these notes.";
         updateNotesContextUI();
     } catch (err) {
-        summaryStatus.textContent = "AI summary failed: " + err.message;
+        summaryStatus.textContent = "AI summary unavailable right now — showing an offline summary instead.";
         const demo = summarizeNotesDemo(raw);
         summaryOutput.innerHTML =
             "<h3>Simplified Summary</h3><p>" + escapeHtml(demo ? demo.simplifiedSummary : raw) + "</p>" +
@@ -1539,13 +1539,13 @@ quizBtn.addEventListener("click", generateQuiz);
 showAllBtn.addEventListener("click", function () {
     showOnlyDue = false;
     renderErrorRecords();
-    errorStatus.textContent = "Filter: all items.";
+    errorStatus.textContent = "Showing all items.";
 });
 
 showUnknownBtn.addEventListener("click", function () {
     showOnlyDue = true;
     renderErrorRecords();
-    errorStatus.textContent = "Filter: due for review.";
+    errorStatus.textContent = "Showing items due for review.";
 });
 
 clearErrorsBtn.addEventListener("click", clearErrorRecords);

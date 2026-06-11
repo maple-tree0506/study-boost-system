@@ -33,16 +33,16 @@
             <section class="panel" aria-labelledby="summary-title">
                 <h3 id="summary-title">AI Note Summary</h3>
                 <div class="field">
-                    <label for="noteInput">Paste your raw notes</label>
+                    <label for="noteInput">Your notes</label>
                     <textarea id="noteInput" maxlength="12000" placeholder="Paste class notes, textbook excerpts, or your own draft summary."></textarea>
                     <p class="hint">Up to 12,000 characters per request.</p>
                 </div>
                 <div class="actions">
-                    <button id="summaryBtn" type="button">Generate Simplified Summary</button>
+                    <button id="summaryBtn" type="button">Generate Summary</button>
                 </div>
                 <div class="status" id="summaryStatus" aria-live="polite"></div>
                 <div class="output" id="summaryOutput">
-                    <p class="empty">No summary generated yet.</p>
+                    <p class="empty">Paste your notes above and generate a summary to get started.</p>
                 </div>
             </section>
 
@@ -79,16 +79,16 @@
                 <div class="field">
                     <label for="useNotesContextInput" style="display:flex;align-items:center;gap:10px;font-weight:600;margin:0;">
                         <input id="useNotesContextInput" type="checkbox" checked />
-                        Use notes from the box above for practice questions (re-paste new notes before generating)
+                        Base questions on my notes above
                     </label>
-                    <p class="hint" id="notesContextHint">Paste notes above, then generate questions. Different notes should produce different questions.</p>
+                    <p class="hint" id="notesContextHint">Optional: paste notes to tailor questions to your material.</p>
                 </div>
                 <div class="actions">
                     <button id="quizBtn" type="button">Generate Practice Questions</button>
                 </div>
                 <div class="status" id="quizStatus" aria-live="polite"></div>
                 <div class="output" id="quizOutput">
-                    <p class="empty">No questions generated yet.</p>
+                    <p class="empty">Choose a course and generate questions to begin.</p>
                 </div>
             </section>
         </section>
@@ -116,7 +116,7 @@
                 </div>
                 <div class="status" id="errorStatus" aria-live="polite"></div>
                 <div class="output" id="errorOutput">
-                    <p class="empty">No mistake records yet.</p>
+                    <p class="empty">Questions you miss are saved here automatically for spaced review.</p>
                 </div>
             </section>
         </section>
@@ -126,13 +126,13 @@
             <div class="insights-grid">
                 <section class="panel" aria-labelledby="progress-title">
                     <h3 id="progress-title">Progress</h3>
-                    <p class="hint">Accuracy and volume from every question you grade. Stored on the server (SQLite); queued locally and synced if the server is offline.</p>
+                    <p class="hint">Accuracy and volume from every question you grade — saved automatically, even offline.</p>
                     <div class="actions">
                         <button id="refreshStatsBtn" type="button" class="secondary">Refresh</button>
                     </div>
                     <div class="status" id="statsStatus" aria-live="polite"></div>
                     <div class="output" id="statsOutput">
-                        <p class="empty">No progress yet.</p>
+                        <p class="empty">Grade a few practice questions to start tracking accuracy.</p>
                     </div>
                 </section>
 
