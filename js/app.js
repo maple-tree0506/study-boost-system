@@ -1276,6 +1276,7 @@ async function generateQuiz() {
     }
 
     setAIControlsBusy(true);
+    quizBtn.setAttribute("aria-busy", "true"); // presentational: drives the busy spinner + SR state
     try {
         let aiQuestions = await generateQuizWithAI(topic, difficulty, expected, apId, notesCtx);
         generatedQuestions = normalizeAIQuestions(aiQuestions);
@@ -1305,6 +1306,7 @@ async function generateQuiz() {
         tryDemo("AI quiz failed: " + err.message);
     } finally {
         setAIControlsBusy(false);
+        quizBtn.removeAttribute("aria-busy");
     }
 }
 
@@ -1504,6 +1506,7 @@ summaryBtn.addEventListener("click", async function () {
     }
 
     setAIControlsBusy(true);
+    summaryBtn.setAttribute("aria-busy", "true"); // presentational: drives the busy spinner + SR state
     try {
         const json = await summarizeNotesWithAI(raw);
         const listHtml = (json.keyPoints || []).map(function (pt) {
@@ -1527,6 +1530,7 @@ summaryBtn.addEventListener("click", async function () {
         updateNotesContextUI();
     } finally {
         setAIControlsBusy(false);
+        summaryBtn.removeAttribute("aria-busy");
     }
 });
 

@@ -11,6 +11,15 @@ Newest entries first.
 
 ---
 
+## 2026-06 — Micro-interactions, focus rings, accessible busy state
+Presentation pass: button hover/press feedback, input/select/checkbox **keyboard focus rings**
+(previously only the hero links had them — a real a11y gap, now closed), a soft reveal on the
+details panels and freshly rendered cards, polished empty states, and a busy **spinner on the
+generate buttons** driven by `aria-busy` set only on the generation paths (deliberately NOT in
+`setAIControlsBusy`, which also runs during the startup health check — a `:disabled`-keyed
+spinner would have spun there misleadingly). All new motion is ≤200ms and fully neutralized
+under `prefers-reduced-motion`. No logic changes; 4 presentational lines in `app.js`.
+
 ## 2026-06 — Productization: hero + dashboard information architecture
 **Why:** The app worked but read like a class project — it opened with developer setup
 (`.env` / `server.py`), used worksheet-style numbered sections ("1)…5)"), and stacked

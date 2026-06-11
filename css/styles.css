@@ -17,6 +17,11 @@
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
 }
 
 body {
@@ -176,6 +181,29 @@ details.panel-details .details-body {
     border-top: 1px dashed var(--border);
 }
 
+/* Reveal animations: Setup details body and the mistake-review answer boxes. */
+details.panel-details[open] > .details-body,
+details.answer-box[open] > :not(summary) {
+    animation: fade-in 0.18s ease;
+}
+
+/* Freshly rendered content eases in (one-time, per render). */
+.qa-card, .error-card, .score-banner {
+    animation: fade-in-up 0.18s ease;
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 .field { margin-bottom: 10px; }
 
 label {
@@ -190,6 +218,16 @@ textarea, input:not([type="checkbox"]):not([type="radio"]), select {
     border-radius: 8px;
     padding: 10px;
     font-size: 14px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Input focus: border + soft ring via box-shadow (no layout shift). */
+textarea:focus,
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 input[type="checkbox"], input[type="radio"] {
@@ -221,6 +259,7 @@ button {
     color: #fff;
     font-size: 14px;
     cursor: pointer;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.06s ease;
 }
 
 button.secondary { background: #4b5563; }
@@ -229,6 +268,36 @@ button.outline {
     background: #fff;
     color: var(--primary);
     border: 1px solid var(--primary);
+}
+
+/* Micro-interactions: hover/press feedback, never on disabled buttons. */
+button:not(:disabled):hover { background: #1d4ed8; }
+button.secondary:not(:disabled):hover { background: #374151; }
+button.danger:not(:disabled):hover { background: #b91c1c; }
+button.outline:not(:disabled):hover { background: #eff6ff; }
+button:not(:disabled):active { transform: translateY(1px); }
+.hero-cta:active { transform: translateY(1px); }
+
+/* Keyboard focus rings (a11y): match the hero pattern across all controls. */
+button:focus-visible,
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+    outline: 3px solid #93c5fd;
+    outline-offset: 2px;
+}
+
+/* Accessible busy state: generation paths set aria-busy on the trigger button. */
+button[aria-busy="true"]::after {
+    content: "";
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    margin-left: 8px;
+    vertical-align: -0.15em;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
 }
 
 .status {
@@ -389,7 +458,21 @@ details.answer-box > summary {
 .tag.subject { background: #dbeafe; color: #1e40af; }
 .tag.not-understood { background: #fecaca; color: #991b1b; }
 
-.empty { color: var(--muted); font-style: italic; }
+.empty {
+    color: var(--muted);
+    font-style: italic;
+    text-align: center;
+    padding: 14px 8px;
+    margin: 0;
+    font-size: 14px;
+}
+.empty::before {
+    content: "—";
+    display: block;
+    margin-bottom: 4px;
+    font-style: normal;
+    color: var(--border);
+}
 
 .hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
