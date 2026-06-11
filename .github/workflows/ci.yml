@@ -39,4 +39,4 @@ jobs:
 
       - name: Run JS unit tests
         # Explicit files (bare `tests/` mis-handles the dir under newer Node).
-        run: node --test tests/spaced-repetition.test.js tests/practice-selection.test.js
+        run: node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tests/mastery-model.test.js
