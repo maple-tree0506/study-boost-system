@@ -27,25 +27,11 @@
             </div>
         </header>
 
-        <details class="panel panel-details" id="connectionPanel">
-            <summary>Connection &amp; model</summary>
-            <div class="details-body">
-                <p class="hint">API key: edit the project file <code>.env</code> (fill in <code>OPENAI_API_KEY</code>), save, then restart <code>server.py</code>. The key stays on the server — never in this page. Open via <code>http://127.0.0.1:8765/</code>, not <code>file://</code>.</p>
-                <div class="status" id="healthStatus" aria-live="polite"></div>
-                <div class="field">
-                    <label for="modelInput">Model</label>
-                    <input id="modelInput" type="text" placeholder="e.g. llama-3.3-70b-versatile" />
-                </div>
-                <div class="actions">
-                    <button id="saveUIPrefsBtn" type="button" class="secondary">Save preferences</button>
-                    <button id="retryHealthBtn" type="button" class="outline">Recheck connection</button>
-                </div>
-                <div class="status" id="uiPrefsStatus" aria-live="polite"></div>
-            </div>
-        </details>
+        <section class="dash-group" aria-labelledby="create-label">
+        <h2 class="group-label" id="create-label">Create</h2>
 
         <section class="panel" aria-labelledby="summary-title">
-            <h2 id="summary-title">1) AI Note Summary</h2>
+            <h3 id="summary-title">AI Note Summary</h3>
             <div class="field">
                 <label for="noteInput">Paste your raw notes</label>
                 <textarea id="noteInput" maxlength="12000" placeholder="Paste class notes, textbook excerpts, or your own draft summary."></textarea>
@@ -61,7 +47,7 @@
         </section>
 
         <section class="panel" aria-labelledby="quiz-title">
-            <h2 id="quiz-title">2) Practice Questions</h2>
+            <h3 id="quiz-title">Practice Questions</h3>
             <div class="grid-3">
                 <div class="field">
                     <label for="apSubjectInput">AP course</label>
@@ -105,9 +91,13 @@
                 <p class="empty">No questions generated yet.</p>
             </div>
         </section>
+        </section>
+
+        <section class="dash-group" aria-labelledby="review-label">
+        <h2 class="group-label" id="review-label">Review</h2>
 
         <section class="panel" aria-labelledby="errors-title">
-            <h2 id="errors-title">3) Adaptive Mistake Review</h2>
+            <h3 id="errors-title">Adaptive Mistake Review</h3>
             <p class="hint">Rate your recall (Forgot / Hard / Got it) and the system schedules each
                 item with a spaced-repetition algorithm (SM-2), tracking mastery automatically.</p>
             <div class="grid-2">
@@ -128,9 +118,14 @@
                 <p class="empty">No mistake records yet.</p>
             </div>
         </section>
+        </section>
+
+        <section class="dash-group" aria-labelledby="insights-label">
+        <h2 class="group-label" id="insights-label">Insights</h2>
+        <div class="insights-grid">
 
         <section class="panel" aria-labelledby="progress-title">
-            <h2 id="progress-title">4) Progress</h2>
+            <h3 id="progress-title">Progress</h3>
             <p class="hint">Accuracy and volume from every question you grade. Stored on the server (SQLite); queued locally and synced if the server is offline.</p>
             <div class="actions">
                 <button id="refreshStatsBtn" type="button" class="secondary">Refresh</button>
@@ -142,15 +137,34 @@
         </section>
 
         <section class="panel" aria-labelledby="topic-mastery-title">
-            <h2 id="topic-mastery-title">5) Topic Mastery</h2>
+            <h3 id="topic-mastery-title">Topic Mastery</h3>
             <p class="hint">Per-topic proficiency for the selected course, estimated from your
                 quiz-grade outcomes (a recency-weighted accuracy plus a volume gate). This reflects
                 <strong>practice quiz grading only</strong> — it does not include the Forgot / Hard /
-                Got it ratings in Section 3.</p>
+                Got it ratings in Adaptive Mistake Review.</p>
             <div class="output" id="topicMasteryOutput" aria-live="polite">
                 <p class="empty">No topic mastery yet — grade practice questions for this course to build it.</p>
             </div>
         </section>
+        </div>
+        </section>
+
+        <details class="panel panel-details" id="connectionPanel">
+            <summary>Setup &amp; connection</summary>
+            <div class="details-body">
+                <p class="hint">API key: edit the project file <code>.env</code> (fill in <code>OPENAI_API_KEY</code>), save, then restart <code>server.py</code>. The key stays on the server — never in this page. Open via <code>http://127.0.0.1:8765/</code>, not <code>file://</code>.</p>
+                <div class="status" id="healthStatus" aria-live="polite"></div>
+                <div class="field">
+                    <label for="modelInput">Model</label>
+                    <input id="modelInput" type="text" placeholder="e.g. llama-3.3-70b-versatile" />
+                </div>
+                <div class="actions">
+                    <button id="saveUIPrefsBtn" type="button" class="secondary">Save preferences</button>
+                    <button id="retryHealthBtn" type="button" class="outline">Recheck connection</button>
+                </div>
+                <div class="status" id="uiPrefsStatus" aria-live="polite"></div>
+            </div>
+        </details>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" defer></script>
