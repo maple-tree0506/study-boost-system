@@ -843,7 +843,7 @@ function handleQuizClick(ev) {
         quizResults[qid] = { done: true, correct: ok };
         fb.hidden = false;
         fb.className = ok ? "feedback ok" : "feedback bad";
-        fb.textContent = ok ? "Correct." : "Incorrect. Compare with the answer below.";
+        fb.textContent = ok ? "Correct." : "Incorrect. Compare with the suggested answer below.";
         revealAnswer(card, qid);
         updateScoreBanner();
         recordAttempt(item, ok);
@@ -1288,7 +1288,7 @@ async function generateQuiz() {
         if (isQuizQualityAcceptable(generatedQuestions, topic || subjectLabel, expected)) {
             recordAiResult("quiz", "ok");
         } else {
-            quizStatus.textContent = "First result was too generic — regenerating once...";
+            quizStatus.textContent = "Questions were too generic — trying again...";
             aiQuestions = await generateQuizWithAI(topic, difficulty, expected, apId, notesCtx);
             generatedQuestions = normalizeAIQuestions(aiQuestions);
             if (!generatedQuestions.length || !isQuizQualityAcceptable(generatedQuestions, topic || subjectLabel, expected)) {
@@ -1302,6 +1302,7 @@ async function generateQuiz() {
         quizStatus.textContent = "Questions ready — generated from " + ctxLabel +
             (reviewItems.length ? " · " + reviewItems.length + " review(s) due today included." : ".");
     } catch (err) {
+        console.error("AI quiz generation failed:", err); // debug detail stays out of the UI
         recordAiResult("quiz", "failed");
         tryDemo("The AI request didn't go through.");
     } finally {
@@ -1433,7 +1434,11 @@ function renderErrorRecords() {
     }
 
     if (!records.length) {
-        errorOutput.innerHTML = analytics + "<p class='empty'>No items match this filter.</p>";
+        // Truly empty log gets the motivational empty; filter-excluded gets filter copy.
+        const emptyMsg = errorRecords.length
+            ? "No items match this filter."
+            : "Questions you miss are saved here automatically for spaced review.";
+        errorOutput.innerHTML = analytics + "<p class='empty'>" + emptyMsg + "</p>";
         return;
     }
 
@@ -1520,6 +1525,7 @@ summaryBtn.addEventListener("click", async function () {
         summaryStatus.textContent = "Summary ready — your practice questions can now use these notes.";
         updateNotesContextUI();
     } catch (err) {
+        console.error("AI summary failed:", err); // debug detail stays out of the UI
         summaryStatus.textContent = "AI summary unavailable right now — showing an offline summary instead.";
         const demo = summarizeNotesDemo(raw);
         summaryOutput.innerHTML =
