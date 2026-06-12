@@ -2,6 +2,14 @@
 
 [![CI](https://github.com/maple-tree0506/study-boost-system/actions/workflows/ci.yml/badge.svg)](https://github.com/maple-tree0506/study-boost-system/actions/workflows/ci.yml)
 
+**Live demo:** <https://studyboostai.pythonanywhere.com/> — runs in **offline mode**
+(no AI key on the demo server): practice questions come from the built-in bank for
+all 14 AP subjects, and the adaptive loop (spaced repetition, mistake review, topic
+mastery) is fully functional. The Progress panel starts with **synthetic seed data**
+(disclosed here, periodically reset); your Mistake Log and Topic Mastery are stored
+in your own browser. Run it locally with your own API key to enable real AI
+summaries and AI-generated questions.
+
 > **This is a client + server app — it is not a static page.** Opening
 > `index.html` directly (`file://`) only runs the offline mode; AI features and
 > progress tracking need the local server below. Always use the
@@ -22,8 +30,9 @@
 - **AI features use a key, and the key is never shared in this repo.** Each person
   adds their **own** API key to a local `.env` (OpenAI, or any OpenAI-compatible
   provider such as Groq via `OPENAI_BASE_URL`). With no key, offline mode works.
-- A non-technical reviewer who cannot run a server can still see everything via a
-  short demo video / a deployed link (planned).
+- A non-technical reviewer who cannot run a server can use the
+  [live demo](https://studyboostai.pythonanywhere.com/) directly (offline mode,
+  see above).
 
 ## Run locally (manual)
 1. Install deps: `py -m pip install -r requirements.txt`

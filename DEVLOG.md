@@ -11,6 +11,43 @@ Newest entries first.
 
 ---
 
+## 2026-06 — Public demo deployment (PythonAnywhere, keyless)
+**Why:** README promised a reviewer-friendly deployed link; admissions reviewers won't run a
+local server. Live at **https://studyboostai.pythonanywhere.com/**.
+**Key decisions (and the honest trade-offs):**
+- **No API key on the demo server.** Visitors can never spend my Groq quota, there's no AI
+  output to moderate, and the per-IP rate limits can't be gamed into cost. The demo runs the
+  offline path — which the app already treated as a first-class mode: the full adaptive loop
+  (R1 injection, SM-2, topic mastery) works from the built-in 14-subject bank. AI summaries/
+  generation are local-run features with your own key.
+- **Platform: PythonAnywhere free tier** over Render free: always-on (no 30–60s cold start —
+  measured ~0.5s page load), which matters more for a reviewer clicking a link than push-to-
+  deploy automation. Updates are `cd ~/study-boost-system && git pull` + Reload in the Web tab.
+- **Progress is seeded + shared.** `DEMO_SEED=1` populates an EMPTY attempts table with ~61
+  deterministic synthetic records so first-time visitors see real charts (disclosed in README).
+  All visitors share one SQLite, so Progress is global/mixed on the demo; each visitor's
+  Mistake Log and Topic Mastery live in their own browser (localStorage) and are isolated.
+  `reset_demo.py` (refuses to run without `DEMO_SEED=1`) wipes + re-seeds; note the WSGI
+  import also auto-seeds an empty DB, so the reset script's re-seed is a no-op safety net.
+- **Env-gated everything:** `HOST` (default 127.0.0.1 — local behavior unchanged), `DEMO_SEED`
+  (off locally; pytest covers both on and off), `STUDYBOOST_DB` (reused from the test suite).
+**PythonAnywhere config (archived for reproducibility):** Web tab → Manual configuration →
+set *Source code* and *Working directory* to `/home/<user>/study-boost-system`; WSGI file:
+```python
+import os, sys
+os.environ["DEMO_SEED"] = "1"
+path = "/home/<user>/study-boost-system"
+if path not in sys.path:
+    sys.path.insert(0, path)
+from server import app as application
+```
+Install deps in a Bash console: `pip3 install --user -r requirements.txt`. Optional daily
+reset task: `DEMO_SEED=1 python3 ~/study-boost-system/reset_demo.py` (free-tier scheduled
+tasks permitting; otherwise run it manually on occasion).
+**Known limits (accepted):** in-memory rate limiting is fine on PA's single worker; the free
+account needs a login every 3 months or the app is reclaimed; KaTeX still comes from a CDN
+(now async, so it can't block first paint).
+
 ## 2026-06 — Micro-interactions, focus rings, accessible busy state
 Presentation pass: button hover/press feedback, input/select/checkbox **keyboard focus rings**
 (previously only the hero links had them — a real a11y gap, now closed), a soft reveal on the
