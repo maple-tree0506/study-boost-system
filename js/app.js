@@ -729,13 +729,13 @@ function renderQuestions() {
             });
             html += "</div>";
             html += '<div class="actions"><button type="button" class="secondary check-mcq" data-qid="' + escapeHtml(item.id) + '">Check answer</button></div>';
-            html += '<div class="feedback" data-feedback="' + escapeHtml(item.id) + '" hidden></div>';
+            html += '<div class="feedback" role="status" data-feedback="' + escapeHtml(item.id) + '" hidden></div>';
         } else {
             html += '<div class="field">';
-            html += '<textarea class="sa-input" data-sa-input="' + escapeHtml(item.id) + '" placeholder="Type your answer, then submit to see the suggested answer."></textarea>';
+            html += '<textarea class="sa-input" data-sa-input="' + escapeHtml(item.id) + '" aria-label="Your answer" placeholder="Type your answer, then submit to see the suggested answer."></textarea>';
             html += "</div>";
             html += '<div class="actions"><button type="button" class="secondary submit-sa" data-qid="' + escapeHtml(item.id) + '">Submit answer</button></div>';
-            html += '<div class="feedback" data-feedback="' + escapeHtml(item.id) + '" hidden></div>';
+            html += '<div class="feedback" role="status" data-feedback="' + escapeHtml(item.id) + '" hidden></div>';
             // Self-grade buttons appear only AFTER the student submits their answer.
             html += '<div class="short-actions" data-selfgrade="' + escapeHtml(item.id) + '" hidden>';
             html += '<span class="selfgrade-q">Compare with the suggested answer below. Did you get it right?</span>';
