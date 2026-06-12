@@ -55,6 +55,47 @@ def _db() -> sqlite3.Connection:
     return conn
 
 
+def _seed_demo_attempts_if_needed() -> None:
+    """Demo-instance seeding (public deploy): when DEMO_SEED=1 and the attempts
+    table is EMPTY, insert ~60 synthetic graded results spread over the last 14
+    days so the Progress panel has content for first-time visitors. Never runs
+    locally (env-gated) and never touches a non-empty table. The demo README
+    discloses that this data is synthetic."""
+    if os.environ.get("DEMO_SEED") != "1":
+        return
+    import random
+    from datetime import datetime, timedelta, timezone
+
+    with closing(_db()) as conn:
+        count = conn.execute("SELECT COUNT(*) FROM attempts").fetchone()[0]
+        if count:
+            return
+        rng = random.Random(20260822)  # deterministic seed -> same demo data each reset
+        subjects = [
+            ("AP Calculus AB", 0.72),
+            ("AP Biology", 0.78),
+            ("AP Physics 1", 0.61),
+            ("AP United States History", 0.69),
+        ]
+        now = datetime.now(timezone.utc)
+        rows = []
+        for day_back in range(13, -1, -1):
+            day = now - timedelta(days=day_back)
+            for subject, accuracy in subjects:
+                for _ in range(rng.choice([0, 1, 1, 2])):  # ~1 per subject per day
+                    qtype = rng.choice(["Multiple Choice", "Short Answer"])
+                    correct = 1 if rng.random() < accuracy else 0
+                    ts = day.replace(
+                        hour=rng.randint(15, 22), minute=rng.randint(0, 59), second=0, microsecond=0
+                    ).isoformat()
+                    rows.append((subject, qtype, correct, ts))
+        conn.executemany(
+            "INSERT INTO attempts (subject, qtype, correct, created_at) VALUES (?, ?, ?, ?)",
+            rows,
+        )
+        conn.commit()
+
+
 def _init_db() -> None:
     with closing(_db()) as conn:
         conn.execute(
@@ -69,6 +110,7 @@ def _init_db() -> None:
             """
         )
         conn.commit()
+    _seed_demo_attempts_if_needed()
 
 
 _init_db()
@@ -317,5 +359,7 @@ def chat_proxy():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8765"))
-    print("StudyBoost AI proxy — http://127.0.0.1:%s/" % port, file=sys.stderr)
-    app.run(host="127.0.0.1", port=port, debug=False)
+    # HOST stays loopback-only by default; deployment platforms set HOST=0.0.0.0.
+    host = os.environ.get("HOST", "127.0.0.1")
+    print("StudyBoost AI proxy — http://%s:%s/" % (host, port), file=sys.stderr)
+    app.run(host=host, port=port, debug=False)

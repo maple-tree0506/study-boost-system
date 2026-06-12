@@ -116,6 +116,30 @@ def test_chat_no_json_mode_by_default(client, monkeypatch):
     assert captured["json_mode"] is False
 
 
+def test_demo_seed_populates_empty_db(client, monkeypatch):
+    # DEMO_SEED=1 + empty table -> synthetic attempts appear in stats.
+    monkeypatch.setenv("DEMO_SEED", "1")
+    server._seed_demo_attempts_if_needed()
+
+    data = client.get("/api/stats").get_json()
+    assert data["overall"]["answered"] > 0
+    assert len(data["bySubject"]) >= 3
+
+    # Seeding is idempotent: a second call must not double the data.
+    before = data["overall"]["answered"]
+    server._seed_demo_attempts_if_needed()
+    after = client.get("/api/stats").get_json()["overall"]["answered"]
+    assert after == before
+
+
+def test_no_seed_without_env(client, monkeypatch):
+    # Without DEMO_SEED, an empty database stays empty (local behavior unchanged).
+    monkeypatch.delenv("DEMO_SEED", raising=False)
+    server._seed_demo_attempts_if_needed()
+    data = client.get("/api/stats").get_json()
+    assert data["overall"]["answered"] == 0
+
+
 def test_attempt_rate_limited(client, monkeypatch):
     # With a small per-minute limit, the (limit+1)th attempt should be rejected.
     monkeypatch.setattr(server, "ATTEMPT_RATE_LIMIT_PER_MIN", 3)
