@@ -11,6 +11,33 @@ Newest entries first.
 
 ---
 
+## 2026-06 — Per-user Progress (scope stats to anonymous userId)
+**Why:** Progress reads server-side SQLite, which was global — every visitor (and the seed
+data) showed up for everyone. Now that P1 stamps an anonymous `user_id` on each attempt, scope
+Progress to the caller so each person sees only their own — starting empty and growing as they
+practice, consistent with the per-browser Mistake Log / Topic Mastery and with the per-user beta
+metrics.
+**What I did:**
+- `/api/stats` reads `?userId=` (trim, ≤64 — same rules as `/api/attempt`); filters
+  `WHERE user_id = ?`. **No userId → empty stats** (Progress has no identity to report) rather
+  than leaking the global aggregate. Legacy NULL rows, `demo-seed`, and other users are naturally
+  excluded.
+- `loadStats()` requests `/api/stats?userId=` + `getOrCreateUserId()`. If storage is unavailable
+  (no id), it falls back to the local-queue view instead of sending `?userId=null`.
+- **Seed retired on the demo:** with per-user stats, `demo-seed` rows are invisible to every real
+  user, so the demo no longer seeds (remove `DEMO_SEED=1` from the WSGI env) and the existing
+  rows are cleared (`DELETE FROM attempts WHERE user_id IS NULL OR user_id='demo-seed'`). The seed
+  code + `reset_demo.py` + their pytest stay (env-gated, still useful locally) — just unused online.
+- Tests: stats tests now post + query with a shared test userId; +2 (per-user isolation,
+  no-userId-empty); seed tests count via DB (seed rows aren't in any per-user view). pytest 16,
+  JS 46. `/api/attempt`, R1/R2, SM-2, mastery, export/import, and `metrics_beta.py` (reads the DB
+  directly) are unaffected.
+**Trade-off:** a first-time visitor (incl. an admissions reviewer) now sees an empty Progress
+until they answer a few questions — accepted: it shows the system recording *their* real
+performance, and the empty state already guides the next action.
+**Demo ops order (important):** remove `DEMO_SEED` from WSGI → Reload → then delete rows. Doing it
+in reverse would let the empty-table check re-seed on reload.
+
 ## 2026-06 — Learning-data export / import (browser-loss guard)
 **Why:** beta runs on students' phones; iOS Safari evicts localStorage after ~7 days of
 non-visit and clearing site data wipes everything. A "Download my data / Restore from file"

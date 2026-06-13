@@ -5,21 +5,30 @@ from datetime import datetime, timezone
 import server
 
 
-def _attempt(client, subject="AP Biology", qtype="Multiple Choice", correct=True, ts=None):
+# Default test user — attempts and the matching stats query share this id, since
+# Progress is now scoped per anonymous user.
+_USER = "u-test"
+
+
+def _attempt(client, subject="AP Biology", qtype="Multiple Choice", correct=True, ts=None, user=_USER):
     body = {"subject": subject, "type": qtype, "correct": correct}
     if ts is not None:
         body["ts"] = ts
+    if user is not None:
+        body["userId"] = user
     return client.post("/api/attempt", json=body)
+
+
+def _stats(client, user=_USER):
+    url = "/api/stats" + ("?userId=" + user if user is not None else "")
+    return client.get(url).get_json()
 
 
 def test_attempt_then_stats_aggregates(client):
     _attempt(client, correct=True)
     _attempt(client, correct=False)
 
-    resp = client.get("/api/stats")
-    assert resp.status_code == 200
-    data = resp.get_json()
-
+    data = _stats(client)
     assert data["overall"]["answered"] == 2
     assert data["overall"]["correct"] == 1
     assert abs(data["overall"]["accuracy"] - 0.5) < 1e-9
@@ -30,8 +39,7 @@ def test_stats_by_subject_split(client):
     _attempt(client, subject="AP Biology", correct=True)
     _attempt(client, subject="AP Calculus AB", correct=False)
 
-    data = client.get("/api/stats").get_json()
-    by_subject = {row["subject"]: row for row in data["bySubject"]}
+    by_subject = {row["subject"]: row for row in _stats(client)["bySubject"]}
 
     assert by_subject["AP Biology"]["answered"] == 2
     assert by_subject["AP Biology"]["correct"] == 2
@@ -49,7 +57,7 @@ def test_today_utc_attempt_appears_in_daily_window(client):
     now_utc = datetime.now(timezone.utc).isoformat()
     _attempt(client, correct=True, ts=now_utc)
 
-    data = client.get("/api/stats").get_json()
+    data = _stats(client)
     today_utc = datetime.now(timezone.utc).date().isoformat()
 
     assert len(data["daily"]) == 14
@@ -60,19 +68,40 @@ def test_today_utc_attempt_appears_in_daily_window(client):
 
 
 def test_empty_stats(client):
-    data = client.get("/api/stats").get_json()
+    data = _stats(client)  # user with no attempts
     assert data["overall"]["answered"] == 0
     assert data["bySubject"] == []
     assert len(data["daily"]) == 14
     assert all(day["answered"] == 0 for day in data["daily"])
 
 
+def test_stats_scoped_per_user(client):
+    # Each user sees only their own attempts; others/legacy/seed are excluded.
+    _attempt(client, user="u-A", correct=True)
+    _attempt(client, user="u-A", correct=True)
+    _attempt(client, user="u-B", correct=False)
+    client.post("/api/attempt", json={"subject": "AP Biology", "type": "MC", "correct": True})  # legacy NULL user
+
+    a = _stats(client, "u-A")
+    assert a["overall"]["answered"] == 2 and a["overall"]["correct"] == 2
+    b = _stats(client, "u-B")
+    assert b["overall"]["answered"] == 1 and b["overall"]["correct"] == 0
+
+
+def test_stats_without_userid_is_empty(client):
+    # No userId => no identity => empty Progress, even when rows exist.
+    _attempt(client, user="u-A", correct=True)
+    data = _stats(client, user=None)  # GET /api/stats with no query
+    assert data["overall"]["answered"] == 0
+    assert data["bySubject"] == []
+
+
 def test_attempt_defaults_for_missing_fields(client):
     # Missing subject/type should fall back to safe defaults, not crash.
-    resp = client.post("/api/attempt", json={"correct": True})
+    resp = client.post("/api/attempt", json={"correct": True, "userId": _USER})
     assert resp.status_code == 200
 
-    data = client.get("/api/stats").get_json()
+    data = _stats(client)
     assert data["overall"]["answered"] == 1
     assert data["bySubject"][0]["subject"] == "Uncategorized"
 
@@ -172,36 +201,39 @@ def test_init_db_is_idempotent(client):
     assert {"user_id", "source"}.issubset(cols)
 
 
+def _seed_count(user="demo-seed"):
+    from contextlib import closing as _closing
+    with _closing(server._db()) as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM attempts WHERE user_id = ?", (user,)
+        ).fetchone()[0]
+
+
 def test_demo_seed_populates_empty_db(client, monkeypatch):
-    # DEMO_SEED=1 + empty table -> synthetic attempts appear in stats.
+    # DEMO_SEED=1 + empty table -> synthetic attempts inserted, tagged demo-seed.
+    # (Counted via DB, not /api/stats: seed rows are not in any per-user view.)
     monkeypatch.setenv("DEMO_SEED", "1")
     server._seed_demo_attempts_if_needed()
 
-    data = client.get("/api/stats").get_json()
-    assert data["overall"]["answered"] > 0
-    assert len(data["bySubject"]) >= 3
-
-    # Seeding is idempotent: a second call must not double the data.
-    before = data["overall"]["answered"]
-    server._seed_demo_attempts_if_needed()
-    after = client.get("/api/stats").get_json()["overall"]["answered"]
-    assert after == before
-
-    # Seed rows are tagged user_id='demo-seed' so metrics can exclude them.
+    seeded = _seed_count()
+    assert seeded > 0
     from contextlib import closing as _closing
     with _closing(server._db()) as conn:
-        tagged = conn.execute(
-            "SELECT COUNT(*) FROM attempts WHERE user_id = 'demo-seed'"
+        subjects = conn.execute(
+            "SELECT COUNT(DISTINCT subject) FROM attempts WHERE user_id = 'demo-seed'"
         ).fetchone()[0]
-    assert tagged == before
+    assert subjects >= 3
+
+    # Idempotent: a second call must not add more rows.
+    server._seed_demo_attempts_if_needed()
+    assert _seed_count() == seeded
 
 
 def test_no_seed_without_env(client, monkeypatch):
     # Without DEMO_SEED, an empty database stays empty (local behavior unchanged).
     monkeypatch.delenv("DEMO_SEED", raising=False)
     server._seed_demo_attempts_if_needed()
-    data = client.get("/api/stats").get_json()
-    assert data["overall"]["answered"] == 0
+    assert _seed_count() == 0
 
 
 def test_attempt_rate_limited(client, monkeypatch):
@@ -216,5 +248,5 @@ def test_attempt_rate_limited(client, monkeypatch):
     assert blocked.status_code == 429
 
     # Stored attempts should be only the 3 that were accepted.
-    data = client.get("/api/stats").get_json()
+    data = _stats(client)
     assert data["overall"]["answered"] == 3

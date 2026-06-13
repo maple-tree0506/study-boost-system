@@ -1299,14 +1299,18 @@ async function loadStats() {
     statsStatus.textContent = "Loading progress...";
     await flushAttemptQueue();
 
-    if (window.location.protocol === "file:" || !serverHealthy) {
+    // Progress is per-user: scope the request to this browser's anonymous id.
+    // If storage is unavailable (no id), fall back to the local-queue view rather
+    // than requesting global data.
+    const uid = getOrCreateUserId();
+    if (window.location.protocol === "file:" || !serverHealthy || !uid) {
         renderStats(computeLocalStats(readAttemptQueue()), true);
         statsStatus.textContent = "Showing results saved on this device — they'll sync when the connection returns.";
         return;
     }
 
     try {
-        const res = await fetch("/api/stats");
+        const res = await fetch("/api/stats?userId=" + encodeURIComponent(uid));
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
         renderStats(data, false);

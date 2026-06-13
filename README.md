@@ -5,9 +5,10 @@
 **Live demo:** <https://studyboostai.pythonanywhere.com/> — runs in **offline mode**
 (no AI key on the demo server): practice questions come from the built-in bank for
 all 14 AP subjects, and the adaptive loop (spaced repetition, mistake review, topic
-mastery) is fully functional. The Progress panel starts with **synthetic seed data**
-(disclosed here, periodically reset); your Mistake Log and Topic Mastery are stored
-in your own browser. Run it locally with your own API key to enable real AI
+mastery) is fully functional. Progress, Mistake Log, and Topic Mastery are all
+**per-user and start empty** — Progress is scoped to an anonymous per-browser id on
+the server; Mistake Log and Topic Mastery live in your own browser. Answer a few
+questions to see them fill in. Run it locally with your own API key to enable real AI
 summaries and AI-generated questions.
 
 **Privacy:** the demo records anonymous usage statistics — an opaque random ID per
@@ -78,13 +79,15 @@ unavailable, the raw text is shown instead — it degrades gracefully, never cra
   is recorded server-side in `studyboost.db` (created automatically on first run).
 - The **Progress** panel shows overall accuracy, total answered, per-subject accuracy,
   and a 14-day accuracy/volume trend — drawn with plain HTML/CSS (no chart library).
+- **Per-user:** Progress is scoped to an anonymous per-browser id, so each person sees
+  only their own results (it starts empty and grows as you practice).
 - Resilience: if the server is unreachable, grading still works and results queue in
   `localStorage`, then sync automatically once the server is reachable again.
 - The database file is local-only and git-ignored.
 
 ### API
-- `POST /api/attempt` — body `{ subject, type, correct, ts }`; stores one graded result.
-- `GET /api/stats` — returns `{ overall, bySubject, daily }` for the dashboard.
+- `POST /api/attempt` — body `{ subject, type, correct, ts, userId, source }`; stores one graded result.
+- `GET /api/stats?userId=<id>` — returns `{ overall, bySubject, daily }` for that user; omitting `userId` returns empty stats.
 
 ## Testing
 - **Backend (Python):** `py -m pip install -r requirements-dev.txt` then `pytest -q`.

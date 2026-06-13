@@ -258,11 +258,19 @@ def record_attempt():
 
 @app.route("/api/stats")
 def stats():
+    # Progress is per-user: scope to the caller's anonymous userId. No userId =>
+    # empty stats (Progress has no identity to report). Matches the trim/length
+    # rules used when storing attempts.
+    user_id = (str(request.args.get("userId") or "").strip()[:64]) or None
     try:
         with closing(_db()) as conn:
-            rows = conn.execute(
-                "SELECT subject, qtype, correct, created_at FROM attempts"
-            ).fetchall()
+            if user_id is None:
+                rows = []
+            else:
+                rows = conn.execute(
+                    "SELECT subject, qtype, correct, created_at FROM attempts WHERE user_id = ?",
+                    (user_id,),
+                ).fetchall()
     except Exception as e:  # noqa: BLE001
         print("[StudyBoost ERROR] stats query", repr(e), file=sys.stderr)
         return jsonify({"error": "Could not read stats"}), 500
