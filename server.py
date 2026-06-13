@@ -88,12 +88,26 @@ def _seed_demo_attempts_if_needed() -> None:
                     ts = day.replace(
                         hour=rng.randint(15, 22), minute=rng.randint(0, 59), second=0, microsecond=0
                     ).isoformat()
-                    rows.append((subject, qtype, correct, ts))
+                    # user_id='demo-seed' marks synthetic rows so the beta metrics
+                    # script can exclude them (alongside legacy NULL rows).
+                    rows.append((subject, qtype, correct, ts, "demo-seed", "generated"))
         conn.executemany(
-            "INSERT INTO attempts (subject, qtype, correct, created_at) VALUES (?, ?, ?, ?)",
+            "INSERT INTO attempts (subject, qtype, correct, created_at, user_id, source) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             rows,
         )
         conn.commit()
+
+
+def _migrate_attempts_columns(conn: sqlite3.Connection) -> None:
+    """Additive, idempotent migration: add the beta-instrumentation columns
+    (user_id, source) if they are not already present. Existing rows get NULL,
+    which the metrics script excludes. Safe to run on every startup."""
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(attempts)")}
+    if "user_id" not in existing:
+        conn.execute("ALTER TABLE attempts ADD COLUMN user_id TEXT")
+    if "source" not in existing:
+        conn.execute("ALTER TABLE attempts ADD COLUMN source TEXT")
 
 
 def _init_db() -> None:
@@ -109,6 +123,7 @@ def _init_db() -> None:
             )
             """
         )
+        _migrate_attempts_columns(conn)
         conn.commit()
     _seed_demo_attempts_if_needed()
 
@@ -221,11 +236,17 @@ def record_attempt():
     if not _valid_iso(ts):
         ts = datetime.now(timezone.utc).isoformat()
 
+    # Beta instrumentation (both optional; absent on legacy/offline-queue payloads).
+    user_id = (str(body.get("userId") or "").strip()[:64]) or None
+    source = body.get("source")
+    source = source if source in ("review", "generated") else None  # whitelist
+
     try:
         with closing(_db()) as conn:
             conn.execute(
-                "INSERT INTO attempts (subject, qtype, correct, created_at) VALUES (?, ?, ?, ?)",
-                (subject, qtype, correct, ts),
+                "INSERT INTO attempts (subject, qtype, correct, created_at, user_id, source) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (subject, qtype, correct, ts, user_id, source),
             )
             conn.commit()
     except Exception as e:  # noqa: BLE001

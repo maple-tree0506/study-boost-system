@@ -116,6 +116,62 @@ def test_chat_no_json_mode_by_default(client, monkeypatch):
     assert captured["json_mode"] is False
 
 
+def _last_row(client):
+    import server as _s
+    from contextlib import closing as _closing
+    with _closing(_s._db()) as conn:
+        return conn.execute(
+            "SELECT user_id, source FROM attempts ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+
+
+def test_attempt_stores_userid_and_source(client):
+    resp = client.post(
+        "/api/attempt",
+        json={"subject": "AP Biology", "type": "Multiple Choice", "correct": True,
+              "userId": "u-abc123", "source": "review"},
+    )
+    assert resp.status_code == 200
+    row = _last_row(client)
+    assert row["user_id"] == "u-abc123"
+    assert row["source"] == "review"
+
+
+def test_attempt_without_new_fields_still_works(client):
+    # Legacy / offline-queue payload (only the original 4 fields) must still 200,
+    # with the new columns left NULL.
+    resp = client.post(
+        "/api/attempt",
+        json={"subject": "AP Biology", "type": "Short Answer", "correct": False},
+    )
+    assert resp.status_code == 200
+    row = _last_row(client)
+    assert row["user_id"] is None
+    assert row["source"] is None
+
+
+def test_attempt_rejects_unknown_source(client):
+    # An out-of-whitelist source is stored as NULL, not persisted verbatim.
+    resp = client.post(
+        "/api/attempt",
+        json={"subject": "AP Biology", "type": "Multiple Choice", "correct": True,
+              "userId": "u-x", "source": "hacker"},
+    )
+    assert resp.status_code == 200
+    assert _last_row(client)["source"] is None
+
+
+def test_init_db_is_idempotent(client):
+    # Running the migration twice must not raise or duplicate columns.
+    import server as _s
+    _s._init_db()
+    _s._init_db()
+    from contextlib import closing as _closing
+    with _closing(_s._db()) as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(attempts)")}
+    assert {"user_id", "source"}.issubset(cols)
+
+
 def test_demo_seed_populates_empty_db(client, monkeypatch):
     # DEMO_SEED=1 + empty table -> synthetic attempts appear in stats.
     monkeypatch.setenv("DEMO_SEED", "1")
@@ -130,6 +186,14 @@ def test_demo_seed_populates_empty_db(client, monkeypatch):
     server._seed_demo_attempts_if_needed()
     after = client.get("/api/stats").get_json()["overall"]["answered"]
     assert after == before
+
+    # Seed rows are tagged user_id='demo-seed' so metrics can exclude them.
+    from contextlib import closing as _closing
+    with _closing(server._db()) as conn:
+        tagged = conn.execute(
+            "SELECT COUNT(*) FROM attempts WHERE user_id = 'demo-seed'"
+        ).fetchone()[0]
+    assert tagged == before
 
 
 def test_no_seed_without_env(client, monkeypatch):
