@@ -23,6 +23,9 @@ with closing(server._db()) as conn:
     deleted = conn.execute("DELETE FROM attempts").rowcount
     conn.commit()
 
+# Re-seeded rows are tagged user_id='demo-seed' (see server.py) so the beta
+# metrics script excludes them; legacy pre-instrumentation rows (NULL) are
+# excluded too. Do not run this during a beta window — it deletes real attempts.
 server._seed_demo_attempts_if_needed()
 
 with closing(server._db()) as conn:

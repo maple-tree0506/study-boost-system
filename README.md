@@ -10,6 +10,12 @@ mastery) is fully functional. The Progress panel starts with **synthetic seed da
 in your own browser. Run it locally with your own API key to enable real AI
 summaries and AI-generated questions.
 
+**Privacy:** the demo records anonymous usage statistics — an opaque random ID per
+browser, plus each question's subject, type, and whether it was answered correctly —
+to measure learning outcomes. No names, emails, or personal information are collected
+or requested. **Beta testers:** please use the live link above (results from a copy
+run locally with `python server.py` are not part of the study).
+
 > **This is a client + server app — it is not a static page.** Opening
 > `index.html` directly (`file://`) only runs the offline mode; AI features and
 > progress tracking need the local server below. Always use the

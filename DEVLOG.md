@@ -11,6 +11,38 @@ Newest entries first.
 
 ---
 
+## 2026-06 — Beta instrumentation + pre-registered metrics
+**Why:** to run a 10–20 student beta and report *measurable* learning outcomes (for UC
+application materials) instead of anecdotes. R1 already tags every practice item
+`source: review|generated`, but `recordAttempt` dropped it at the API boundary. This adds
+that tag plus an anonymous per-user dimension so outcomes can be grouped per student.
+**What I did:**
+- DB: additive, idempotent migration adds nullable `user_id`, `source` to `attempts`
+  (verified on an old 4-column DB like the live instance). `/api/attempt` accepts optional
+  `userId` (≤64 chars) and whitelisted `source` (else NULL). `/api/stats` and the Progress
+  panel are unchanged.
+- Frontend: `getOrCreateUserId()` = opaque `u-` + `crypto.randomUUID()` in localStorage
+  (`studyBoostUserIdV1`), no PII; `recordAttempt` now sends `userId` + `source`.
+- `metrics_beta.py` (read-only, stdlib, `--since/--until`): reports the metrics below,
+  excluding `user_id IS NULL` (legacy/offline-queue) and `user_id='demo-seed'` (Progress seed).
+**Pre-registered metrics (defined BEFORE collecting data, to avoid cherry-picking):**
+- **Review Recovery Rate** (primary): correctness rate of attempts with `source='review'` —
+  i.e. questions *scheduled for review from the Mistake Log*. Phrased deliberately, not
+  "previously-missed", because a user can also add an item manually before answering it wrong.
+- Baseline: `source='generated'` correctness = new-question first-attempt level (a reference
+  point, NOT a control group / causal comparison).
+- Unique users, retention (≥2 distinct active days), median attempts/user.
+**Honest limits (PIQ wording must respect these):** rates are *attempt-level* (a question
+reviewed N times contributes N rows, not "N mistakes cured"); short answers are self-graded;
+no control group → these are *outcome* metrics. Use "answered correctly after scheduled
+review", never "proves/causes". Public-demo visitors share the URL and also get `u-*` ids, so
+isolate the beta cohort with `--since/--until` (date window is the only clean separator).
+**Privacy:** anonymous opaque id only; no names/emails/PII; disclosed in README. Beta data
+only lands in the deployed instance — locally-run copies don't reach `metrics_beta.py`.
+**Ops note:** set `ATTEMPT_RATE_LIMIT_PER_MIN=240` in the PA WSGI env (rate limit is per-IP;
+a class on shared school WiFi is one IP). This is PA config, not in git — re-add if the WSGI
+file is recreated.
+
 ## 2026-06 — Public demo deployment (PythonAnywhere, keyless)
 **Why:** README promised a reviewer-friendly deployed link; admissions reviewers won't run a
 local server. Live at **https://studyboostai.pythonanywhere.com/**.

@@ -4,6 +4,7 @@ const STORAGE_UI = "studyBoostUIPrefsV1";
 const STORAGE_ATTEMPT_QUEUE = "studyBoostAttemptQueueV1";
 const STORAGE_AI_RELIABILITY = "studyBoostAiReliabilityV1";
 const STORAGE_MASTERY = "studyBoostMasteryV1";
+const STORAGE_USER_ID = "studyBoostUserIdV1";
 
 const AP_SUBJECTS = [
     { id: "calc_ab", label: "AP Calculus AB" },
@@ -941,6 +942,23 @@ function queueAttempt(payload) {
     writeAttemptQueue(list);
 }
 
+// Beta instrumentation: an opaque, anonymous per-browser id (no PII). Generated
+// once and reused, so attempts can be grouped per user to measure outcomes.
+function getOrCreateUserId() {
+    try {
+        let id = localStorage.getItem(STORAGE_USER_ID);
+        if (!id) {
+            id = "u-" + ((window.crypto && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10));
+            localStorage.setItem(STORAGE_USER_ID, id);
+        }
+        return id;
+    } catch (e) {
+        return null; // storage unavailable — attempt still records, just without an id
+    }
+}
+
 // FR1/FR2/FR5: record a graded result. Always succeeds locally; syncs when possible.
 function recordAttempt(item, correct) {
     if (!item) return;
@@ -948,7 +966,11 @@ function recordAttempt(item, correct) {
         subject: item.subject || subjectLabelFromId(apSubjectInput.value) || "Uncategorized",
         type: item.type || "Unknown",
         correct: !!correct,
-        ts: new Date().toISOString()
+        ts: new Date().toISOString(),
+        // Beta: anonymous user + R1 provenance (review vs newly generated). The
+        // server whitelists source and ignores unknown values.
+        userId: getOrCreateUserId(),
+        source: item.source === "review" ? "review" : "generated"
     };
     sendAttempt(payload);
 
