@@ -11,6 +11,29 @@ Newest entries first.
 
 ---
 
+## 2026-06 — AP authenticity bank: Biology pilot (Stage A)
+**Why:** the offline bank was recall/definition-level with throwaway distractors and zero
+explanations. Stage A pilots the AP-authenticity standard on one flagship subject — **AP Biology**
+(highest-enrollment AP; data/experiment-heavy format best showcases discipline-specific design and
+de-risks the rubric before scaling to the other 13).
+**What I did (content only — `OFFLINE_BANK.bio` MCQs):** replaced the 13 bio MCQs with **26**
+authentic items (basic 8 / medium 9 / challenge 9), **each carrying an `e` explanation** (why the key
+is right + why a named distractor is tempting). Coverage spans Units 1–8 (chemistry of life, cell
+structure, energetics, communication & cycle, heredity, gene expression, evolution, ecology) plus
+experimental methodology, with ≥50% of items built on data/experimental reasoning (variables &
+controls, osmosis prediction, enzyme temperature curve, Hardy-Weinberg 2pq, chi-square vs critical
+value, 10% energy two-step, surface-area-to-volume, error-bar overlap). Tier ladder = reasoning
+depth, not obscure facts. Distractors encode real misconceptions (resistance "on demand,"
+dominant-vs-recessive fraction, AB×O codominance, low-vs-high glucose for the lac operon). Original
+wording; no College Board reproduction; no fabricated quotations.
+**Scope kept tight:** bio **SA arrays untouched**; the other 13 subjects untouched; no app/schema/
+test/CI changes. The Stage 0 validator (now enforcing the `e` rule for the first real content)
+guards the upgrade.
+**Verified:** Stage 0 validator 5/5; full JS 51/51; pytest 16/16. Browser: all 3 tiers render;
+explanation shows on incorrect; R1 capture→due→review-injection carries the new `e`; SA unchanged.
+**Counts:** bio MCQ 13→26 (8/9/9), all with `e`; bio SA 13 (unchanged); total bank 364→377.
+First subject with full explanation coverage; standard ready to scale (Stage C).
+
 ## 2026-06 — Per-user Progress (scope stats to anonymous userId)
 **Why:** Progress reads server-side SQLite, which was global — every visitor (and the seed
 data) showed up for everyone. Now that P1 stamps an anonymous `user_id` on each attempt, scope
