@@ -172,6 +172,16 @@
                     <button id="retryHealthBtn" type="button" class="outline">Recheck connection</button>
                 </div>
                 <div class="status" id="uiPrefsStatus" aria-live="polite"></div>
+
+                <h4 class="data-heading">Your data</h4>
+                <p class="hint">Your mistake log and topic mastery are stored in this browser.
+                    Back them up, or restore them on another device.</p>
+                <div class="actions">
+                    <button id="exportDataBtn" type="button" class="secondary">Download my data</button>
+                    <button id="importDataBtn" type="button" class="outline">Restore from file</button>
+                    <input id="importDataInput" type="file" accept="application/json" aria-label="Choose a StudyBoost backup file" hidden>
+                </div>
+                <div class="status" id="dataStatus" aria-live="polite"></div>
             </div>
         </details>
     </main>

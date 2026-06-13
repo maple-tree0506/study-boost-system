@@ -479,6 +479,14 @@ details.answer-box > summary {
 
 .hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
+/* P3: "Your data" backup block inside the Setup panel. */
+.data-heading {
+    margin: 18px 0 4px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
+    font-size: 15px;
+}
+
 /* R2: Topic Mastery panel (read-only). Reuses .review-stats / .tag patterns;
    level colors mirror the existing status palette but use distinct class names. */
 .mastery-list { display: flex; flex-direction: column; gap: 6px; }

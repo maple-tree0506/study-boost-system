@@ -71,6 +71,10 @@ const showUnknownBtn = document.getElementById("showUnknownBtn");
 const clearErrorsBtn = document.getElementById("clearErrorsBtn");
 const errorStatus = document.getElementById("errorStatus");
 const errorOutput = document.getElementById("errorOutput");
+const exportDataBtn = document.getElementById("exportDataBtn");
+const importDataBtn = document.getElementById("importDataBtn");
+const importDataInput = document.getElementById("importDataInput");
+const dataStatus = document.getElementById("dataStatus");
 
 function sanitizeText(value) {
     return (value || "").trim().replace(/\s+/g, " ");
@@ -959,6 +963,97 @@ function getOrCreateUserId() {
     }
 }
 
+// P3: portable backup of the learner's data so it survives browser-storage loss
+// (iOS evicts localStorage after ~7 days; clearing site data wipes it too).
+// Exports the durable, user-meaningful keys ONLY — NOT the offline attempt queue
+// (transient; re-importing would double-submit) or the AI-reliability counters.
+const BACKUP_KEYS = [
+    STORAGE_KEY_ERRORS,   // mistake log + SM-2 schedule
+    STORAGE_MASTERY,      // topic mastery
+    STORAGE_USER_ID,      // anonymous id — kept so a restore on another device stays one user
+    STORAGE_UI            // UI prefs (harmless)
+];
+
+function exportUserData() {
+    // Store each key's RAW localStorage string verbatim. This round-trips both the
+    // JSON-blob keys (mistakes/mastery/prefs) and the plain-string id key exactly,
+    // with no parse/stringify that could drop a non-JSON value.
+    const data = {};
+    BACKUP_KEYS.forEach(function (k) {
+        const raw = localStorage.getItem(k);
+        if (raw !== null) {
+            data[k] = raw;
+        }
+    });
+    const payload = {
+        app: "StudyBoost",
+        type: "studyboost-backup",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        data: data
+    };
+    try {
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "studyboost-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        dataStatus.textContent = "Backup downloaded. Keep it safe — restore it anytime or on another device.";
+    } catch (e) {
+        dataStatus.textContent = "Could not create the backup file in this browser.";
+    }
+}
+
+function importUserData(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+        let parsed;
+        try {
+            parsed = JSON.parse(reader.result);
+        } catch (e) {
+            dataStatus.textContent = "That file isn't valid JSON.";
+            return;
+        }
+        if (!parsed || parsed.type !== "studyboost-backup" || !parsed.data || typeof parsed.data !== "object") {
+            dataStatus.textContent = "That file isn't a StudyBoost backup.";
+            return;
+        }
+        // Replace (not merge) — clear, predictable; the main use is restoring lost data.
+        if (!window.confirm("Restore this backup? It replaces the mistake log and topic mastery currently stored in this browser.")) {
+            dataStatus.textContent = "Restore cancelled.";
+            return;
+        }
+        try {
+            BACKUP_KEYS.forEach(function (k) {
+                // Values are stored verbatim as raw strings (see exportUserData).
+                if (Object.prototype.hasOwnProperty.call(parsed.data, k) &&
+                    typeof parsed.data[k] === "string") {
+                    localStorage.setItem(k, parsed.data[k]);
+                }
+            });
+        } catch (e) {
+            dataStatus.textContent = "Could not save the restored data (browser storage may be full).";
+            return;
+        }
+        // Re-hydrate in-memory state and re-render the affected sections.
+        errorRecords = readErrorRecords();
+        masteryMap = readMastery();
+        sessionReviewedErrIds.clear();
+        renderErrorRecords();
+        refreshMistakeFilterOptions();
+        renderTopicMastery();
+        applyUIPrefs();
+        dataStatus.textContent = "Backup restored.";
+    };
+    reader.onerror = function () { dataStatus.textContent = "Could not read that file."; };
+    reader.readAsText(file);
+}
+
 // FR1/FR2/FR5: record a graded result. Always succeeds locally; syncs when possible.
 function recordAttempt(item, correct) {
     if (!item) return;
@@ -1599,6 +1694,16 @@ errorOutput.addEventListener("click", function (event) {
 saveUIPrefsBtn.addEventListener("click", saveUIPrefs);
 
 retryHealthBtn.addEventListener("click", fetchHealth);
+
+if (exportDataBtn && importDataBtn && importDataInput) {
+    exportDataBtn.addEventListener("click", exportUserData);
+    importDataBtn.addEventListener("click", function () { importDataInput.click(); });
+    importDataInput.addEventListener("change", function (e) {
+        const file = e.target.files && e.target.files[0];
+        importUserData(file);
+        e.target.value = ""; // allow re-importing the same file
+    });
+}
 
 if (refreshStatsBtn) {
     refreshStatsBtn.addEventListener("click", loadStats);

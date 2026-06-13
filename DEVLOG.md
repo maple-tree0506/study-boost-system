@@ -11,6 +11,23 @@ Newest entries first.
 
 ---
 
+## 2026-06 — Learning-data export / import (browser-loss guard)
+**Why:** beta runs on students' phones; iOS Safari evicts localStorage after ~7 days of
+non-visit and clearing site data wipes everything. A "Download my data / Restore from file"
+pair in the Setup panel lets a student back up and recover their mistake log + topic mastery.
+**What I did:** `exportUserData()` writes a versioned JSON (`type:"studyboost-backup"`,
+`version:1`) of the durable keys — mistakes (`studyBoostMistakesV2`), mastery
+(`studyBoostMasteryV1`), the anonymous id (`studyBoostUserIdV1`), and UI prefs; `importUserData()`
+validates type/version, confirms, then writes back and re-hydrates in-memory state +
+re-renders. Pure client, no server, no new deps.
+**Decisions:** (1) **Replace, not merge** on import — merging SM-2 schedules / mastery EMAs would
+need conflict rules and is error-prone; replace is predictable and matches the "restore lost data"
+use case, guarded by a confirm dialog and "this device" wording. (2) **Include the anonymous
+userId** so a restore on a new device stays the same beta user (metrics don't split one student
+into two). (3) **Exclude** the offline attempt queue (re-importing would double-submit attempts
+and pollute metrics) and the AI-reliability counters (local diagnostics). DOM/localStorage-coupled,
+so browser-verified (consistent with addErrorRecord/reviewMistake), no new unit tests.
+
 ## 2026-06 — Beta instrumentation + pre-registered metrics
 **Why:** to run a 10–20 student beta and report *measurable* learning outcomes (for UC
 application materials) instead of anecdotes. R1 already tags every practice item
