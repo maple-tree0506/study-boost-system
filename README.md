@@ -93,11 +93,12 @@ unavailable, the raw text is shown instead — it degrades gracefully, never cra
 - **Backend (Python):** `py -m pip install -r requirements-dev.txt` then `pytest -q`.
   Tests use a temporary database (via the `STUDYBOOST_DB` env var) and never touch your
   real `studyboost.db`.
-- **Frontend (JS):** `node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tests/mastery-model.test.js`
+- **Frontend (JS):** `node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tests/mastery-model.test.js tests/question-bank.test.js`
   — unit tests for the SM-2 scheduler, the R1 practice-selection planner (due-review
-  selection + explanation passthrough), and the topic-mastery model (normalization, EMA
-  update math, volume-gated levels, summary ordering), using Node's built-in test runner
-  (no dependencies; Node 18+).
+  selection + explanation passthrough), the topic-mastery model (normalization, EMA
+  update math, volume-gated levels, summary ordering), and a structural validator for the
+  offline question bank (option/answer contract, KaTeX `$` balance, banned patterns),
+  using Node's built-in test runner (no dependencies; Node 18+).
 - Both suites run in CI on every push (see the badge above).
 
 ## AI output reliability
