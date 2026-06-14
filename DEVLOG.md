@@ -11,6 +11,24 @@ Newest entries first.
 
 ---
 
+## 2026-06 — AP authenticity bank: Physics 1 (Stage C)
+**Why:** third lab-science flagship in the AP-authenticity rollout, so a third high-enrollment STEM
+course feels like the real exam. Same standard and validator as Biology/Chemistry.
+**What I did (content only — `OFFLINE_BANK.phys1` MCQs):** replaced the 13 phys1 MCQs with **26**
+authentic items (basic 8 / medium 9 / challenge 9), **each with an `e` explanation**. Coverage spans
+the core AP Physics 1 mechanics units — kinematics, dynamics (Newton's laws), circular motion &
+gravitation, energy, momentum, simple harmonic motion, torque/rotation — plus an experimental-design
+item. ≥50% are quantitative or reasoning-from-data; challenge items are multi-step and hand-computed
+(ramp v = 6 m/s, impulse 4 kg·m/s, elevator normal 720 N, centripetal 1.6 N, torque 1.2 N·m,
+inverse-square 1/4 — each matched to the keyed option, g = 10 m/s²). Distractors encode the classic
+physics misconceptions (motion needs a force, heavier falls faster, centrifugal "outward" force,
+KE ∝ v not v², inverse-linear vs inverse-square gravity, momentum unchanged on a bounce). Units use
+plain Unicode (m/s², N·m, kg·m/s) so no LaTeX is needed; no College Board reproduction.
+**Scope:** phys1 **SA arrays untouched** (13); other subjects untouched; no app/schema/test/CI
+changes. Stage 0 validator guards it.
+**Verified:** validator 5/5; full JS 51/51; pytest 16/16. **Counts:** phys1 MCQ 13→26 (all with `e`),
+phys1 SA 13 (unchanged), total bank 390→403. Third subject with full `e` coverage.
+
 ## 2026-06 — AP authenticity bank: Chemistry (Stage C)
 **Why:** extend the AP-authenticity standard from the Biology pilot to a second lab-science
 flagship so switching courses on the demo also feels like real AP. Same template, same validator.
