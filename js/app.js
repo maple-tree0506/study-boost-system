@@ -721,6 +721,11 @@ function renderQuestions() {
         const isMcq = item.type === "Multiple Choice" && item.options && item.options.length;
         html += '<article class="qa-card" data-qid="' + escapeHtml(item.id) + '">';
         html += '<div><span class="tag">' + escapeHtml(item.type) + "</span>";
+        // R1: resurfaced due mistakes are added on top of the requested set — label
+        // them so the (intentionally) larger count reads as the feature it is.
+        if (item.source === "review") {
+            html += '<span class="tag review">Review · from your Mistake Log</span>';
+        }
         html += "<strong>Question " + (index + 1) + "</strong></div>";
         html += '<p class="qa-q">' + escapeHtml(item.question) + "</p>";
 
@@ -1379,8 +1384,9 @@ async function generateQuiz() {
         }
         generatedQuestions = finalizeSet(demo);
         renderQuestions();
-        quizStatus.textContent = reason + " Showing questions from the built-in bank" +
-            (reviewItems.length ? " · " + reviewItems.length + " review(s) due today included." : ".");
+        const demoNew = generatedQuestions.filter(function (q) { return q.source !== "review"; }).length;
+        quizStatus.textContent = reason + " Showing " + demoNew + " new from the built-in bank" +
+            (reviewItems.length ? " + " + reviewItems.length + " due review." : ".");
     };
 
     if (!healthReady) {
@@ -1420,8 +1426,9 @@ async function generateQuiz() {
 
         generatedQuestions = finalizeSet(generatedQuestions);
         renderQuestions();
-        quizStatus.textContent = "Questions ready — generated from " + ctxLabel +
-            (reviewItems.length ? " · " + reviewItems.length + " review(s) due today included." : ".");
+        const aiNew = generatedQuestions.filter(function (q) { return q.source !== "review"; }).length;
+        quizStatus.textContent = "Questions ready — " + aiNew + " new from " + ctxLabel +
+            (reviewItems.length ? " + " + reviewItems.length + " due review." : ".");
     } catch (err) {
         console.error("AI quiz generation failed:", err); // debug detail stays out of the UI
         recordAiResult("quiz", "failed");

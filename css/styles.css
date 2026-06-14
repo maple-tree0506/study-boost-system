@@ -460,6 +460,9 @@ details.answer-box > summary {
 
 .tag.subject { background: #dbeafe; color: #1e40af; }
 .tag.not-understood { background: #fecaca; color: #991b1b; }
+/* R1: badge on resurfaced due-review questions injected into a practice set
+   (amber — distinct from the red ".due" used for due status in the mistake log). */
+.tag.review { background: #fef3c7; color: #92400e; }
 
 .empty {
     color: var(--muted);
