@@ -11,6 +11,27 @@ Newest entries first.
 
 ---
 
+## 2026-06 — AP authenticity bank: Chemistry (Stage C)
+**Why:** extend the AP-authenticity standard from the Biology pilot to a second lab-science
+flagship so switching courses on the demo also feels like real AP. Same template, same validator.
+**What I did (content only — `OFFLINE_BANK.chem` MCQs):** replaced the 13 chem MCQs with **26**
+authentic items (basic 8 / medium 9 / challenge 9), **each with an `e` explanation**. Coverage spans
+AP Chem Units 1–9 (atomic/periodic, bonding, intermolecular forces, reactions/stoichiometry,
+kinetics, thermodynamics, equilibrium, acids/bases, electrochemistry) with ≥50% quantitative/data
+reasoning, including explicit data tables (initial-rate trials, titration buret readings, Hess's-law
+step enthalpies). Difficulty rises by reasoning depth: challenge items are genuinely multi-step
+(ICE → Kc = 64, Henderson-Hasselbalch buffer pH = pKa, ΔG = ΔH − TΔS crossover ≈ 333 K, titration
+0.100 M, Hess −393 kJ — each hand-computed and matched to the keyed option). Distractors encode the
+named AP-Chem misconceptions the standard flagged: IMF vs intramolecular bonds, ΔG vs ΔH sign,
+Q vs K direction, rate vs equilibrium, strong-acid pH magnitude, limiting-reagent coefficients.
+LaTeX uses the bank's `\text{}` style (no mhchem/`\ce{}`). Original wording; no College Board
+reproduction.
+**Scope:** chem **SA arrays untouched** (13); other 13 subjects untouched; no app/schema/test/CI
+changes. Stage 0 validator (enforcing the `e` rule) guards it.
+**Verified:** validator 5/5; full JS 51/51; pytest 16/16. Browser: all 3 tiers render; KaTeX
+typesets the formulas; explanation shows on incorrect. **Counts:** chem MCQ 13→26 (all with `e`),
+chem SA 13 (unchanged), total bank 377→390. Chemistry is the second subject with full `e` coverage.
+
 ## 2026-06 — AP authenticity bank: Biology pilot (Stage A)
 **Why:** the offline bank was recall/definition-level with throwaway distractors and zero
 explanations. Stage A pilots the AP-authenticity standard on one flagship subject — **AP Biology**
