@@ -246,6 +246,11 @@ function populateSubjectSelects() {
         opt.textContent = s.label;
         apSubjectInput.appendChild(opt);
     });
+    // Land first-time visitors on the flagship upgraded subject (authentic
+    // AP-style items with explanations) instead of the list's first entry.
+    if (AP_SUBJECTS.some(function (s) { return s.id === "bio"; })) {
+        apSubjectInput.value = "bio";
+    }
 }
 
 function getQuizNotesContext() {
