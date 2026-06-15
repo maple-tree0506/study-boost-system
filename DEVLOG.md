@@ -11,6 +11,24 @@ Newest entries first.
 
 ---
 
+## 2026-06 — AP authenticity bank: Physics C Mechanics (Stage C)
+**Why:** fourth subject in the rollout; the calculus-based mechanics course, distinct from
+Physics 1 (algebra-based). Same standard and validator.
+**What I did (content only — `OFFLINE_BANK.phys_c_mech` MCQs):** replaced the 13 MCQs with **26**
+authentic items (basic 8 / medium 9 / challenge 9), **each with an `e` explanation**. Coverage spans
+the AP Physics C: Mechanics units — kinematics (calculus), Newton's laws, work/energy/power,
+momentum & center of mass, rotation, oscillations, gravitation — and is genuinely calculus-based
+(v = dx/dt, integrate a→v, W = ∫F dx, F = dp/dt, I in rotational KE). ≥50% quantitative; challenge
+items multi-step and hand-computed (rotational KE 2 J, work-energy v=6 m/s, x(t) velocity-zero at
+t=4, recoil 0.3 m/s, spring energy 1 J, work=ΔKE 200 kJ — each matched to the keyed option).
+Distractors encode calculus/setup errors (differentiate vs integrate, forget the square root,
+drop the ½) and mechanics misconceptions (orbital speed vs energy, L∝1/I). LaTeX `$` balance
+verified by the validator; explanations are plain text. No College Board reproduction.
+**Scope:** phys_c_mech **SA arrays untouched** (13); other subjects untouched; no app/schema/test/CI
+changes.
+**Verified:** validator 5/5; full JS 51/51; pytest 16/16. **Counts:** phys_c_mech MCQ 13→26 (all with
+`e`), SA 13 (unchanged), total bank 403→416. Fourth subject with full `e` coverage.
+
 ## 2026-06 — AP authenticity bank: Physics 1 (Stage C)
 **Why:** third lab-science flagship in the AP-authenticity rollout, so a third high-enrollment STEM
 course feels like the real exam. Same standard and validator as Biology/Chemistry.
