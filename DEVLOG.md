@@ -11,6 +11,24 @@ Newest entries first.
 
 ---
 
+## 2026-06 — AP authenticity bank: Calculus AB (Stage C)
+**Why:** fifth subject in the rollout; the first pure-math course. Same standard and validator.
+**What I did (content only — `OFFLINE_BANK.calc_ab` MCQs):** replaced the 13 MCQs with **26**
+authentic items (basic 8 / medium 9 / challenge 9), **each with an `e` explanation**. Coverage spans
+the AP Calculus AB units — limits & continuity, differentiation (power/chain/product/exponential
+rules), applications of derivatives (motion, related rates, extrema, MVT, increasing/concavity),
+integration (FTC, u-substitution, average value, signed area), and separable differential
+equations. ≥50% quantitative; challenge items hand-computed (extrema of x³−3x, related-rates dr/dt=3/π,
+displacement 9, average value 3, separable y=Ce²ˣ — each matched to the keyed option). Distractors
+encode the standard calculus errors (chain-rule omission, forgetting +C, evaluating the integrand
+instead of integrating, swapping the second-derivative sign, confusing FTC with differentiating the
+integrand). LaTeX `$` balance verified by the validator; explanations are plain text. No College
+Board reproduction.
+**Scope:** calc_ab **SA arrays untouched** (13); other subjects untouched; no app/schema/test/CI changes.
+**Verified:** validator 5/5; full JS 51/51; pytest 16/16; browser render + KaTeX + explanation-on-incorrect.
+**Counts:** calc_ab MCQ 13→26 (all with `e`), SA 13 (unchanged), total bank 416→429. **Five subjects now
+have full `e` coverage** (Biology, Chemistry, Physics 1, Physics C, Calculus AB).
+
 ## 2026-06 — AP authenticity bank: Physics C Mechanics (Stage C)
 **Why:** fourth subject in the rollout; the calculus-based mechanics course, distinct from
 Physics 1 (algebra-based). Same standard and validator.
