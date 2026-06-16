@@ -11,6 +11,21 @@ Newest entries first.
 
 ---
 
+## 2026-06 — AP authenticity bank: Calculus BC (Stage C)
+**Why:** sixth subject; the BC-distinctive topics beyond AB. Same standard and validator.
+**What I did (content only — `OFFLINE_BANK.calc_bc` MCQs):** replaced the 13 MCQs with **26**
+(basic 8 / medium 9 / challenge 9), **each with an `e` explanation**, emphasizing BC content:
+infinite series (geometric, p-series, alternating, ratio test, integral test, interval of
+convergence, Maclaurin/Taylor + Lagrange remainder), parametric arc length, polar area, advanced
+integration (by parts, partial fractions), improper integrals, Euler's method, and logistic growth.
+≥50% quantitative; challenge items hand-checked (∫₀¹ x eˣ = 1, ∫₀¹ 1/√x = 2, ratio test → ½,
+Maclaurin x³ coefficient 1/6, IoC [−1,1)). Distractors encode series/convergence traps (skipping
+endpoint tests, forgetting the ½ in polar area, exact-vs-Euler estimate, conditional vs absolute
+convergence). Validator-verified `$` balance.
+**Scope:** calc_bc **SA arrays untouched** (13); other subjects untouched; no app/schema/test/CI changes.
+**Verified:** validator 5/5; full JS 51/51; pytest 16/16. **Counts:** calc_bc MCQ 13→26 (all with `e`),
+SA 13 (unchanged), total bank 429→442. **Six subjects now fully covered.**
+
 ## 2026-06 — AP authenticity bank: Calculus AB (Stage C)
 **Why:** fifth subject in the rollout; the first pure-math course. Same standard and validator.
 **What I did (content only — `OFFLINE_BANK.calc_ab` MCQs):** replaced the 13 MCQs with **26**
