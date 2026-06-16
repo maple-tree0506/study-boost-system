@@ -11,6 +11,19 @@ Newest entries first.
 
 ---
 
+## 2026-06 — AP authenticity bank: Statistics (Stage C)
+**Why:** seventh subject; completes the quantitative-STEM family. Same standard and validator.
+**What I did (content only — `OFFLINE_BANK.stats` MCQs):** replaced the 13 MCQs with **26**
+(basic 8 / medium 9 / challenge 9), **each with an `e` explanation**, spanning one-variable data,
+two-variable data (regression/residual/r^2), data collection (SRS, confounding, correlation vs
+causation), probability (expected value, binomial), sampling distributions (CLT), and inference
+(CI/p-value interpretation, Type I/II, power, two-sample t, chi-square). Distractors encode classic
+AP Stats traps (p-value vs P(H0 true), correlation vs causation, Type I vs II, residual sign,
+r vs r^2). Numeric items hand-checked (expected value 1, z = 2).
+**Scope:** stats **SA arrays untouched** (13); other subjects untouched; no app/schema/test/CI changes.
+**Verified:** validator 5/5; full JS 51/51; pytest 16/16. **Counts:** stats MCQ 13->26 (all with `e`),
+SA 13 (unchanged), total bank 442->455. **Seven subjects now fully covered** (quantitative-STEM family).
+
 ## 2026-06 — AP authenticity bank: Calculus BC (Stage C)
 **Why:** sixth subject; the BC-distinctive topics beyond AB. Same standard and validator.
 **What I did (content only — `OFFLINE_BANK.calc_bc` MCQs):** replaced the 13 MCQs with **26**
