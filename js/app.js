@@ -782,6 +782,68 @@ function renderQuestions() {
     typesetMath(quizOutput);
 }
 
+// --- P0: study streak (consecutive days) ---
+const STREAK_KEY = "studyBoostStreakV1";
+function bumpStreak() {
+    const today = new Date().toISOString().slice(0, 10);
+    let s = {};
+    try { s = JSON.parse(localStorage.getItem(STREAK_KEY)) || {}; } catch (e) { s = {}; }
+    if (s.lastDay === today) return s.count || 1;            // already counted today
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    s.count = s.lastDay === yesterday ? (s.count || 0) + 1 : 1;
+    s.lastDay = today;
+    try { localStorage.setItem(STREAK_KEY, JSON.stringify(s)); } catch (e) { /* storage full */ }
+    return s.count;
+}
+
+// --- P0: completion screen — a state switch shown once a set is fully graded ---
+function maybeShowCompletion() {
+    const total = generatedQuestions.length;
+    if (!total) return;
+    if (scoreSummary().answered !== total) return;          // not finished yet
+    enterCompletionMode();
+}
+
+function enterCompletionMode() {
+    if (document.getElementById("completionCard")) return;  // already shown
+    const total = generatedQuestions.length;
+    const s = scoreSummary();
+    const wrong = s.answered - s.correct;
+    // generated items answered incorrectly are auto-captured into the Mistake Log (SM-2)
+    const added = generatedQuestions.filter(function (q) {
+        const r = quizResults[q.id];
+        return q.source !== "review" && r && r.done && !r.correct;
+    }).length;
+    const streak = bumpStreak();
+
+    const card = document.createElement("div");
+    card.id = "completionCard";
+    card.className = "completion-card";
+    card.setAttribute("style", "border:2px solid #2f855a; border-radius:12px; padding:22px; margin:4px 0 16px; text-align:center;");
+    let html = "";
+    html += '<h3 style="margin:0 0 6px">Set complete</h3>';
+    html += '<p style="font-size:1.8em; font-weight:700; margin:6px 0">' + s.correct + " / " + total + "</p>";
+    html += '<p style="margin:4px 0">' + (wrong === 0
+        ? "Perfect set — nothing to review."
+        : added + (added === 1 ? " question" : " questions") + " added to your review queue.") + "</p>";
+    html += '<p style="margin:4px 0 14px">Streak: Day ' + streak + "</p>";
+    html += '<div class="actions" style="justify-content:center; flex-wrap:wrap; gap:8px">';
+    if (wrong > 0) {
+        html += '<button type="button" data-action="start-review">Review My Mistakes</button>';
+    }
+    html += '<button type="button" class="secondary" data-action="view-progress">View Progress</button>';
+    html += '<button type="button" class="outline" data-action="show-questions">Show the questions</button>';
+    html += "</div>";
+    card.innerHTML = html;
+
+    // state switch: completion card becomes the main view; collapse the question pile
+    quizOutput.insertBefore(card, quizOutput.firstChild);
+    const sb = document.getElementById("scoreBanner");
+    if (sb) sb.style.display = "none";
+    quizOutput.querySelectorAll(".qa-card").forEach(function (c) { c.style.display = "none"; });
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function findQuestionCard(qid) {
     if (typeof qid !== "string") return null;
     const esc = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(qid) : qid;
@@ -831,6 +893,39 @@ function handleQuizClick(ev) {
         return;
     }
 
+    // P0 completion-screen CTAs
+    if (saveAction === "show-questions") {
+        const cc = document.getElementById("completionCard");
+        if (cc) cc.remove();
+        const sb = document.getElementById("scoreBanner");
+        if (sb) sb.style.display = "";
+        quizOutput.querySelectorAll(".qa-card").forEach(function (c) { c.style.display = ""; });
+        return;
+    }
+    if (saveAction === "view-progress") {
+        const rb = document.getElementById("refreshStatsBtn");
+        if (rb) rb.click();
+        const ins = document.getElementById("insights-label");
+        if (ins) ins.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+    }
+    if (saveAction === "start-review") {
+        const plan = window.PracticeSelection
+            ? window.PracticeSelection.planPracticeSelection({ reviews: errorRecords })
+            : { selected: [] };
+        if (!plan.selected || !plan.selected.length) {
+            quizStatus.textContent = "Nothing is due for review right now — great work.";
+            return;
+        }
+        generatedQuestions = plan.selected.slice();
+        quizResults = {};
+        renderQuestions();
+        quizStatus.textContent = "Reviewing " + generatedQuestions.length +
+            (generatedQuestions.length === 1 ? " item" : " items") + " due from your Mistake Log.";
+        quizOutput.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+    }
+
     if (t.classList.contains("check-mcq")) {
         const qid = t.getAttribute("data-qid");
         const card = findQuestionCard(qid);
@@ -864,6 +959,7 @@ function handleQuizClick(ev) {
         recordAttempt(item, ok);
         applyGradeOutcome(item, ok);
         if (!ok) revealExplanation(card, qid);
+        maybeShowCompletion();
         return;
     }
 
@@ -927,6 +1023,7 @@ function handleQuizClick(ev) {
         recordAttempt(item, isCorrect);
         applyGradeOutcome(item, isCorrect);
         if (!isCorrect) revealExplanation(card, qid);
+        maybeShowCompletion();
     }
 }
 
