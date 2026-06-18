@@ -796,6 +796,41 @@ function bumpStreak() {
     return s.count;
 }
 
+// --- P1: XP, level, and daily progress (flat values, no clever formulas) ---
+const XP_KEY = "studyBoostXpV1";
+const DAILY_KEY = "studyBoostDailyV1";
+const XP_PER_LEVEL = 100;
+
+function getXp() {
+    try { return parseInt(localStorage.getItem(XP_KEY), 10) || 0; } catch (e) { return 0; }
+}
+function addXp(amount) {
+    const total = getXp() + amount;
+    try { localStorage.setItem(XP_KEY, String(total)); } catch (e) { /* storage full */ }
+    return total;
+}
+function levelInfo(total) {
+    return {
+        level: Math.floor(total / XP_PER_LEVEL) + 1,
+        toNext: XP_PER_LEVEL - (total % XP_PER_LEVEL)
+    };
+}
+function getDaily() {
+    const today = new Date().toISOString().slice(0, 10);
+    let d = {};
+    try { d = JSON.parse(localStorage.getItem(DAILY_KEY)) || {}; } catch (e) { d = {}; }
+    if (d.day !== today) d = { day: today, questions: 0, reviews: 0, xp: 0 };
+    return d;
+}
+function bumpDaily(fields) {
+    const d = getDaily();
+    d.questions += fields.questions || 0;
+    d.reviews += fields.reviews || 0;
+    d.xp += fields.xp || 0;
+    try { localStorage.setItem(DAILY_KEY, JSON.stringify(d)); } catch (e) { /* storage full */ }
+    return d;
+}
+
 // --- P0: completion screen — a state switch shown once a set is fully graded ---
 function maybeShowCompletion() {
     const total = generatedQuestions.length;
@@ -816,17 +851,30 @@ function enterCompletionMode() {
     }).length;
     const streak = bumpStreak();
 
+    // P1: set-completion XP bonus (+20), then read totals for display
+    let setXp = 20;
+    generatedQuestions.forEach(function (q) {
+        const r = quizResults[q.id];
+        if (r && r.done) setXp += (r.correct ? 10 : 4) + (q.source === "review" ? 5 : 0);
+    });
+    addXp(20);
+    const daily = bumpDaily({ xp: 20 });
+    const lvl = levelInfo(getXp());
+
     const card = document.createElement("div");
     card.id = "completionCard";
     card.className = "completion-card";
     card.setAttribute("style", "border:2px solid #2f855a; border-radius:12px; padding:22px; margin:4px 0 16px; text-align:center;");
     let html = "";
-    html += '<h3 style="margin:0 0 6px">Set complete</h3>';
-    html += '<p style="font-size:1.8em; font-weight:700; margin:6px 0">' + s.correct + " / " + total + "</p>";
-    html += '<p style="margin:4px 0">' + (wrong === 0
+    html += '<h3 style="margin:0 0 4px">Set complete</h3>';
+    html += '<p style="font-size:1.8em; font-weight:700; margin:4px 0">' + s.correct + " / " + total + "</p>";
+    html += '<p style="font-size:1.15em; font-weight:600; color:#2f855a; margin:2px 0">+' + setXp + " XP</p>";
+    html += '<p style="margin:2px 0">Level ' + lvl.level + " · " + lvl.toNext + " XP to Level " + (lvl.level + 1) + "</p>";
+    html += '<p style="margin:6px 0">' + (wrong === 0
         ? "Perfect set — nothing to review."
         : added + (added === 1 ? " question" : " questions") + " added to your review queue.") + "</p>";
-    html += '<p style="margin:4px 0 14px">Streak: Day ' + streak + "</p>";
+    html += '<div style="margin:8px 0; font-size:0.95em; color:#555">Today: ' + daily.questions + " questions · " + daily.reviews + " reviews · +" + daily.xp + " XP</div>";
+    html += '<p style="margin:2px 0 14px">Streak: Day ' + streak + "</p>";
     html += '<div class="actions" style="justify-content:center; flex-wrap:wrap; gap:8px">';
     if (wrong > 0) {
         html += '<button type="button" data-action="start-review">Review My Mistakes</button>';
@@ -1164,6 +1212,11 @@ function importUserData(file) {
 // FR1/FR2/FR5: record a graded result. Always succeeds locally; syncs when possible.
 function recordAttempt(item, correct) {
     if (!item) return;
+    // P1: award XP and count today's progress for each graded question
+    const isReview = item.source === "review";
+    const gained = (correct ? 10 : 4) + (isReview ? 5 : 0);
+    addXp(gained);
+    bumpDaily({ questions: isReview ? 0 : 1, reviews: isReview ? 1 : 0, xp: gained });
     const payload = {
         subject: item.subject || subjectLabelFromId(apSubjectInput.value) || "Uncategorized",
         type: item.type || "Unknown",
