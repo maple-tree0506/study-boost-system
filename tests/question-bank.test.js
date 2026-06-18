@@ -115,6 +115,37 @@ function assertExplanation(q, loc) {
     if (q.e === q.a) fail(loc, "explanation (e) must not just restate the answer");
 }
 
+test("AP English Language MCQs avoid answer-position and length bias", () => {
+    const items = TIERS.flatMap((tier) => (BANK.lang[tier] || {}).mcq || []);
+    assert.equal(items.length, 26, "lang should have 26 MCQs");
+
+    const letterCounts = { A: 0, B: 0, C: 0, D: 0 };
+    let correctIsLongest = 0;
+
+    items.forEach((q, i) => {
+        const loc = "lang/mcq[" + i + "]";
+        const answerIdx = q.o.indexOf(q.a);
+        assert.ok(answerIdx >= 0, loc + ": answer must match an option");
+
+        const letter = PREFIXES[answerIdx].charAt(0);
+        letterCounts[letter]++;
+
+        const lengths = q.o.map((opt) => opt.length);
+        const maxLen = Math.max.apply(null, lengths);
+        if (lengths[answerIdx] === maxLen) correctIsLongest++;
+    });
+
+    for (const [letter, count] of Object.entries(letterCounts)) {
+        assert.ok(count <= 12, "lang answers skewed toward " + letter + " (" + count + "/26)");
+        assert.ok(count >= 3, "lang answers missing " + letter + " (" + count + "/26)");
+    }
+
+    assert.ok(
+        correctIsLongest <= 12,
+        "lang correct option is longest too often (" + correctIsLongest + "/26)"
+    );
+});
+
 test("bank size sanity: total item count is reported", () => {
     let mcq = 0, sa = 0;
     for (const subject of Object.keys(BANK)) {
