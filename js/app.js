@@ -1422,6 +1422,7 @@ function renderTopicMastery() {
 
     // Topic Mastery levels are deliberately distinct from SM-2's new/learning/mastered.
     const LEVEL_LABEL = { "new": "New", developing: "Developing", proficient: "Proficient", mastered: "Mastered" };
+    const LEVEL_BAR_COLOR = { new: "#ef4444", developing: "#f97316", proficient: "#3b82f6", mastered: "#22c55e" };
     const masteredCount = topics.filter(function (t) {
         return window.MasteryModel.masteryLevel(t) === "mastered";
     }).length;
@@ -1443,10 +1444,18 @@ function renderTopicMastery() {
     html += '<div class="mastery-list">';
     topics.forEach(function (t) {
         const level = window.MasteryModel.masteryLevel(t);
+        const pct = Math.round(t.ema * 100);
+        const barColor = LEVEL_BAR_COLOR[level] || "#9ca3af";
         html += '<div class="mastery-row">';
         html += '<span class="mastery-topic">' + escapeHtml(topicDisplay(t)) + "</span>";
+        html += '<div style="flex:1 1 160px;min-width:0;display:flex;align-items:center;gap:8px">';
+        html += '<div style="flex:1;height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100" aria-label="' + escapeHtml(topicDisplay(t)) + ' mastery">';
+        html += '<div style="width:' + pct + "%;height:100%;background:" + barColor + ';border-radius:999px;transition:width .2s ease"></div>';
+        html += "</div>";
+        html += '<span style="font-size:13px;font-weight:600;flex-shrink:0">' + pct + "%</span>";
+        html += "</div>";
         html += '<span class="tag mastery-' + level + '">' + (LEVEL_LABEL[level] || level) + "</span>";
-        html += '<span class="mastery-meta">' + Math.round(t.ema * 100) + "% accuracy · " + t.attempts + " graded</span>";
+        html += '<span class="mastery-meta" style="font-size:11px;flex-basis:100%">' + t.attempts + " graded</span>";
         html += "</div>";
     });
     html += "</div>";
