@@ -34,3 +34,24 @@ questions.
 **Priority:** low (80 -> 90 polish). Productization (mobile, onboarding,
 retention, data viz) is 40 -> 80 and matters far more for real usage and
 admissions — do that first.
+
+## Analytics / instrumentation
+
+### Completion funnel analytics (Completion → Review)
+
+Add server-side events for the P0 retention funnel:
+
+```
+Completion Screen Shown -> Review CTA Clicked -> Review Session Started -> Review Session Completed
+```
+
+so the Completion -> Review click-through, review start rate, and review
+completion rate can be measured (and used to tune button copy / placement /
+default behavior). Today these are client-only (localStorage) and invisible to
+the server.
+
+**Priority: very low. Deferred until >= 20 active beta users.** With only 5-10
+testers the click-through rate has no statistical meaning (3 of 8 saw it, 2
+clicked = "66.7%" is noise) — just *ask* those users directly ("did you see the
+completion screen? did you click Review? why not?"). Wire the funnel only once
+the cohort is large enough for the numbers to mean something.
