@@ -951,6 +951,7 @@ function handleQuizClick(ev) {
         return;
     }
     if (saveAction === "view-progress") {
+        setGroupCollapsed("insights-group", false); // expand if collapsed for a new user
         const rb = document.getElementById("refreshStatsBtn");
         if (rb) rb.click();
         const ins = document.getElementById("insights-label");
@@ -1908,4 +1909,49 @@ apSubjectInput.addEventListener("change", renderTopicMastery);
 if (window.location.protocol === "file:") {
     loadStats();
 }
+
+// v2 Phase 1: Home front door — single Start CTA into Generate; Review/Insights
+// collapse to a "home base" for first-time visitors (collapse, not hide).
+function setGroupCollapsed(groupId, collapsed) {
+    const g = document.getElementById(groupId);
+    if (!g) return;
+    g.classList.toggle("collapsed", collapsed);
+    const btn = g.querySelector(".group-toggle");
+    if (btn) {
+        btn.textContent = collapsed ? "Show" : "Hide";
+        btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    }
+}
+function isReturningUser() {
+    try {
+        const m = localStorage.getItem(STORAGE_MASTERY);
+        if (m && m !== "{}" && m !== "null") return true;
+        if (Array.isArray(errorRecords) && errorRecords.length) return true;
+        if (getXp() > 0) return true;
+    } catch (e) { /* ignore */ }
+    return false;
+}
+(function initHomeFrontDoor() {
+    const collapsed = !isReturningUser();
+    setGroupCollapsed("review-group", collapsed);
+    setGroupCollapsed("insights-group", collapsed);
+}());
+document.addEventListener("click", function (ev) {
+    const t = ev.target;
+    if (!(t instanceof HTMLElement)) return;
+    const gid = t.getAttribute("data-toggle-group");
+    if (!gid) return;
+    const g = document.getElementById(gid);
+    setGroupCollapsed(gid, !(g && g.classList.contains("collapsed")));
+});
+(function wireStartCta() {
+    const cta = document.getElementById("startStudyingCta");
+    if (!cta) return;
+    cta.addEventListener("click", function (ev) {
+        const panel = document.getElementById("quiz-title");
+        if (panel) { ev.preventDefault(); panel.scrollIntoView({ behavior: "smooth", block: "start" }); }
+        const subj = document.getElementById("apSubjectInput");
+        if (subj) setTimeout(function () { try { subj.focus(); } catch (e) { /* ignore */ } }, 350);
+    });
+}());
     

@@ -615,4 +615,14 @@ details.answer-box > summary {
     .subject-row { grid-template-columns: 90px 1fr 80px; }
     .trend-label { display: none; }
 }
+
+/* Home front door (v2 Phase 1): value-proof strip + collapsible home-base groups */
+.why-it-works { margin: 2px 0 22px; }
+.why-it-works ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.why-it-works li { position: relative; padding-left: 22px; color: var(--muted); font-size: 0.95rem; }
+.why-it-works li::before { content: "\2713"; position: absolute; left: 0; color: #2f855a; font-weight: 700; }
+.group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.group-toggle { background: none; border: 1px solid var(--border, #d0d5dd); color: var(--muted); border-radius: 8px; padding: 6px 14px; font-size: 0.85rem; cursor: pointer; min-height: 36px; }
+.dash-group.collapsed > .panel,
+.dash-group.collapsed > .insights-grid { display: none; }
     

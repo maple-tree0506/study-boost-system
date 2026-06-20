@@ -21,20 +21,20 @@
     <main class="container">
         <header class="hero">
             <p class="hero-wordmark" aria-hidden="true">Study<span>Boost</span></p>
-            <h1>The adaptive study system for AP students.</h1>
-            <p class="hero-sub">Turn your notes into AP-style practice — then let spaced repetition
-                and topic-mastery analytics show you what to review next.</p>
-            <ul class="hero-chips">
-                <li class="tag">Adaptive practice</li>
-                <li class="tag">Spaced repetition (SM-2)</li>
-                <li class="tag">Topic-mastery analytics</li>
-                <li class="tag">Offline practice bank</li>
-            </ul>
+            <h1>Turn your notes into adaptive practice.</h1>
+            <p class="hero-sub">Upload notes · generate AP-style questions · master weak topics automatically.</p>
             <div class="hero-actions">
-                <a class="hero-cta" href="#summary-title">Start studying →</a>
-                <a class="hero-link" href="#quiz-title">How it works</a>
+                <a class="hero-cta" id="startStudyingCta" href="#quiz-title">Start Studying →</a>
             </div>
         </header>
+
+        <section class="why-it-works" aria-label="Why it works">
+            <ul>
+                <li>AI generates practice from your own notes</li>
+                <li>Mistakes automatically enter spaced review</li>
+                <li>Progress tracks your weak topics over time</li>
+            </ul>
+        </section>
 
         <section class="dash-group" aria-labelledby="create-label">
             <h2 class="group-label" id="create-label">Create</h2>
@@ -102,8 +102,11 @@
             </section>
         </section>
 
-        <section class="dash-group" aria-labelledby="review-label">
-            <h2 class="group-label" id="review-label">Review</h2>
+        <section class="dash-group collapsible" id="review-group" aria-labelledby="review-label">
+            <div class="group-head">
+                <h2 class="group-label" id="review-label">Review</h2>
+                <button type="button" class="group-toggle" data-toggle-group="review-group" aria-expanded="true">Hide</button>
+            </div>
 
             <section class="panel" aria-labelledby="errors-title">
                 <h3 id="errors-title">Adaptive Mistake Review</h3>
@@ -130,8 +133,11 @@
             </section>
         </section>
 
-        <section class="dash-group" aria-labelledby="insights-label">
-            <h2 class="group-label" id="insights-label">Insights</h2>
+        <section class="dash-group collapsible" id="insights-group" aria-labelledby="insights-label">
+            <div class="group-head">
+                <h2 class="group-label" id="insights-label">Insights</h2>
+                <button type="button" class="group-toggle" data-toggle-group="insights-group" aria-expanded="true">Hide</button>
+            </div>
             <div class="insights-grid">
                 <section class="panel" aria-labelledby="progress-title">
                     <h3 id="progress-title">Progress</h3>
