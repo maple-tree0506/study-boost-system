@@ -1986,6 +1986,33 @@ function isReturningUser() {
     setGroupCollapsed("review-group", collapsed);
     setGroupCollapsed("insights-group", collapsed);
 }());
+
+// v2 #4: first-run welcome card — walk a brand-new user through the 4-step spine
+// once. Shown only to users with no prior activity who haven't dismissed it; reuses
+// isReturningUser() and the Start-CTA scroll/focus so there's no new mechanism.
+const ONBOARD_KEY = "studyBoostOnboardedV1";
+(function initWelcomeCard() {
+    const card = document.getElementById("welcomeCard");
+    if (!card) return;
+    let seen = false;
+    try { seen = localStorage.getItem(ONBOARD_KEY) === "1"; } catch (e) { /* ignore */ }
+    if (seen || isReturningUser()) return; // returning or already-onboarded: never show
+    card.hidden = false;
+    const dismiss = function () {
+        card.hidden = true;
+        try { localStorage.setItem(ONBOARD_KEY, "1"); } catch (e) { /* storage full */ }
+    };
+    const x = document.getElementById("welcomeDismiss");
+    if (x) x.addEventListener("click", dismiss);
+    const start = document.getElementById("welcomeStart");
+    if (start) start.addEventListener("click", function () {
+        dismiss();
+        const panel = document.getElementById("quiz-title");
+        if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        const subj = document.getElementById("apSubjectInput");
+        if (subj) setTimeout(function () { try { subj.focus(); } catch (e) { /* ignore */ } }, 350);
+    });
+}());
 document.addEventListener("click", function (ev) {
     const t = ev.target;
     if (!(t instanceof HTMLElement)) return;

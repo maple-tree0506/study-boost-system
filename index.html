@@ -19,6 +19,21 @@
 </head>
 <body>
     <main class="container">
+        <section class="welcome-card" id="welcomeCard" aria-labelledby="welcome-title" hidden>
+            <button type="button" class="welcome-dismiss" id="welcomeDismiss" aria-label="Dismiss welcome">&times;</button>
+            <h2 id="welcome-title">New here? The whole loop is 4 steps.</h2>
+            <ol class="welcome-steps">
+                <li><strong>Generate</strong> AP-style questions from a subject, topic, and difficulty — or from your own notes.</li>
+                <li><strong>Practice</strong> the set, one question at a time.</li>
+                <li><strong>See your score, XP, and topic growth</strong> the moment you finish.</li>
+                <li><strong>Review your mistakes</strong> — they come back on a spaced schedule until they stick.</li>
+            </ol>
+            <p class="welcome-note">No API key needed — the demo works out of the box.</p>
+            <div class="welcome-actions">
+                <button type="button" class="hero-cta" id="welcomeStart">Start with step 1 →</button>
+            </div>
+        </section>
+
         <header class="hero">
             <p class="hero-wordmark" aria-hidden="true">Study<span>Boost</span></p>
             <h1>Turn your notes into adaptive practice.</h1>
