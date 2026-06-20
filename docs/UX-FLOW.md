@@ -82,13 +82,18 @@ exists into one path**, not building new mechanics.
 1. **Home front door** — make [0] the entry: value prop + one Start CTA that routes
    into Generate; dashboard reachable as "home base," not the default wall. (Answers
    value-prop + onboarding complaints; biggest "feels like one product" win.)
+   **Shipped.**
 2. **Surface the growth payoff post-Completion** — show mastery/progress inline at
    the motivation peak (data-feedback complaint). **Shipped:** the completion screen
    now shows the practiced topic's mastery movement (e.g. *Developing → Proficient*
    on a level-up, else current level + recent accuracy), captured pre-set so the
    change is real.
-3. **Difficulty level labels** in Generate (quick win).
-4. **First-run onboarding** that walks the spine once.
+3. **Difficulty level labels** in Generate (quick win). **Shipped:** each option
+   carries a parenthetical (recall & definitions / apply & multi-step / AP exam
+   rigor), reusing the diffGuide wording that drives the generator.
+4. **First-run onboarding** that walks the spine once. **Shipped:** a dismissible
+   first-run welcome card shows the 4-step loop and clarifies "no API key needed";
+   shown only to brand-new users, gated on isReturningUser() + a seen flag.
 5. **Mobile comfort pass** — tap targets to 44px etc. (audit verdict: Case A,
    usable-but-cramped, not flow-blocking — so it's here, not P0).
 6. **Topic Mastery radar** — optional, after progress bars prove out.
