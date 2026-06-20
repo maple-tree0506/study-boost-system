@@ -28,6 +28,10 @@ let errorRecords = readErrorRecords();
 // R2: per-(subject, topic) mastery map (studyBoostMasteryV1). Pure model lives in
 // js/mastery-model.js; this is just the persisted state it operates on.
 let masteryMap = readMastery();
+// v2 #2: the practiced topic's mastery level captured BEFORE a set is graded, so
+// the completion screen can show movement (e.g. Developing -> Proficient) at the
+// motivation peak. Shape: { subject, topic, level } | null.
+let preSetMastery = null;
 // H-F: errIds whose SM-2 schedule was already updated this browser session (dedup).
 const sessionReviewedErrIds = new Set();
 let showOnlyDue = false;
@@ -831,6 +835,47 @@ function bumpDaily(fields) {
     return d;
 }
 
+// --- v2 #2: mastery GROWTH payoff on the completion screen ---
+// Mastery is the *growth* signal (XP is the reward). We surface the practiced
+// topic's level movement at the motivation peak instead of burying it in Progress.
+const MASTERY_RANK = { new: 0, developing: 1, proficient: 2, mastered: 3 };
+const MASTERY_LABEL = { new: "New", developing: "Developing", proficient: "Proficient", mastered: "Mastered" };
+
+// Current mastery for a (subject, topic): { level, stat } or null if model absent.
+function currentMastery(subject, topic) {
+    if (!window.MasteryModel) return null;
+    const stat = window.MasteryModel.getTopicStat(masteryMap, subject, topic);
+    return { level: window.MasteryModel.masteryLevel(stat), stat: stat };
+}
+
+// Snapshot the practiced topic's level BEFORE grading, so completion can show movement.
+// Called once per generated set (the chosen subject+topic; review-injected items are
+// secondary). Stores "new" when the topic has no prior data.
+function snapshotPreSetMastery(subject, topic) {
+    const cur = currentMastery(subject, topic);
+    preSetMastery = { subject: subject, topic: topic, level: cur ? cur.level : "new" };
+}
+
+// Build the completion-screen growth line: a celebratory level-up if the practiced
+// topic crossed a threshold this set, else the current level + recent accuracy.
+// Returns "" when there's no graded data for the topic (nothing honest to show).
+function masteryGrowthHtml() {
+    if (!preSetMastery || !window.MasteryModel) return "";
+    const cur = currentMastery(preSetMastery.subject, preSetMastery.topic);
+    if (!cur || !cur.stat || !cur.stat.attempts) return "";
+    const before = preSetMastery.level;
+    const after = cur.level;
+    const rawTopic = (preSetMastery.topic || "").trim();
+    const label = escapeHtml(rawTopic || preSetMastery.subject || "This topic");
+    const acc = Math.round((cur.stat.ema || 0) * 100);
+    if ((MASTERY_RANK[after] || 0) > (MASTERY_RANK[before] || 0)) {
+        return '<div style="margin:8px 0; font-size:1.05em; color:#2f855a; font-weight:600">' +
+            label + ": " + MASTERY_LABEL[before] + " &rarr; " + MASTERY_LABEL[after] + " &#9650; leveled up</div>";
+    }
+    return '<div style="margin:8px 0; font-size:0.95em; color:#555">' +
+        label + " mastery: " + MASTERY_LABEL[after] + " &middot; " + acc + "% recent accuracy</div>";
+}
+
 // --- P0: completion screen — a state switch shown once a set is fully graded ---
 function maybeShowCompletion() {
     const total = generatedQuestions.length;
@@ -870,6 +915,7 @@ function enterCompletionMode() {
     html += '<p style="font-size:1.8em; font-weight:700; margin:4px 0">' + s.correct + " / " + total + "</p>";
     html += '<p style="font-size:1.15em; font-weight:600; color:#2f855a; margin:2px 0">+' + setXp + " XP</p>";
     html += '<p style="margin:2px 0">Level ' + lvl.level + " · " + lvl.toNext + " XP to Level " + (lvl.level + 1) + "</p>";
+    html += masteryGrowthHtml(); // v2 #2: the growth signal, at the motivation peak
     html += '<p style="margin:6px 0">' + (wrong === 0
         ? "Perfect set — nothing to review."
         : added + (added === 1 ? " question" : " questions") + " added to your review queue.") + "</p>";
@@ -1529,6 +1575,10 @@ async function generateQuiz() {
         "the course and topic";
     quizStatus.textContent = "Generating questions from " + ctxLabel + "...";
     quizResults = {};
+    // v2 #2: remember the practiced topic's mastery level before any grading, so the
+    // completion screen can show growth. Uses the chosen subject+topic (what the user
+    // is practicing); review-injected items from other topics are secondary.
+    snapshotPreSetMastery(subjectLabel || "Uncategorized", topic || "");
 
     const tryDemo = function (reason) {
         const demo = createMockQuestions(topic, apId, difficulty, expected, notesCtx);

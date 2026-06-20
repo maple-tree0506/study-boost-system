@@ -83,7 +83,10 @@ exists into one path**, not building new mechanics.
    into Generate; dashboard reachable as "home base," not the default wall. (Answers
    value-prop + onboarding complaints; biggest "feels like one product" win.)
 2. **Surface the growth payoff post-Completion** — show mastery/progress inline at
-   the motivation peak (data-feedback complaint).
+   the motivation peak (data-feedback complaint). **Shipped:** the completion screen
+   now shows the practiced topic's mastery movement (e.g. *Developing → Proficient*
+   on a level-up, else current level + recent accuracy), captured pre-set so the
+   change is real.
 3. **Difficulty level labels** in Generate (quick win).
 4. **First-run onboarding** that walks the spine once.
 5. **Mobile comfort pass** — tap targets to 44px etc. (audit verdict: Case A,
