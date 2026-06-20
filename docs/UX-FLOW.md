@@ -1,79 +1,95 @@
-# StudyBoost — UX Flow
+# StudyBoost — UX Flow (v2)
 
-The single biggest product problem is **not** that the question bank is too small
-(14 subjects, 360+ MCQs, all with explanations). It is that **after a practice
-round, the user does not know what to do next.** The app is a dashboard where the
-core learning loop is split across disconnected panels, so the journey
-notes → practice → grade → review → progress has no through-line. Fixing that
-matters more than adding another hundred questions.
+## The problem v2 solves
 
-## Current state (as built)
+v1 fixed the first symptom: after a practice set the user didn't know what to do
+next. The **Completion Screen** (shipped — score, +XP, level, today's totals,
+streak, and a primary **Review My Mistakes** CTA) closed that gap and is the first
+realized segment of a guided flow.
 
-`index.html` is a single-page dashboard with three clusters of always-visible
-panels:
+But the deeper issue remains: the app is still a **dashboard of co-equal panels**
+(Create / Review / Insights, all visible at once), so it reads as **five separate
+tools**, not **one product**. A professor — or a returning student — doesn't ask
+"is the progress bar a nice color?"; they ask *"why would someone keep using
+this?"* That answer lives in how the screens connect, not in CSS.
 
-- **Create** — AI Note Summary (`#noteInput` → `#summaryOutput`) + Practice
-  Questions (subject/format/difficulty/topic → `#quizOutput`)
-- **Review** — Adaptive Mistake Review (SM-2 due list, filters)
-- **Insights** — Progress + Topic Mastery
-- Collapsed **Setup** — model/connection + export/import ("Your data")
+## The v2 architecture: a guided spine + a dashboard "home base"
 
-This is fine for a returning power user, but a new user (and anyone right after
-generating a set) hits the **experience break**: the quiz renders as a static
-list of cards; when they finish there is no closing step, no "here's what you
-missed / here's your progress / come back tomorrow." The user has to scroll
-between disconnected panels to find the next action.
-
-## The designed journey
+Chosen direction: make the core loop a **guided session spine** that is the
+default experience, and demote the current dashboard to a **home base / overview**
+a returning user can jump to — instead of five panels competing for attention.
 
 ```
-[0 Value prop / first-run]  5s: "Turn your notes into adaptive practice" + one CTA
-        │ Start
-[1 Input]   paste notes → AI summary   (skippable)
-        │
-[2 Set up]  subject + topic + difficulty/format → Generate
-        │
-[3 Practice]  answer the set
-        │  set complete  ← the break is here
-[4 ★ Completion screen]   ← the missing connective tissue
-     · score + which items were wrong
-     · "N added to your Mistake Log · SM-2 scheduled them for review"
-     · progress delta: "Glycolysis: new → developing" · streak: "Day 3"
-     · [PRIMARY] Review My Mistakes   →  [5]
-       [secondary] View Progress      →  [6]
-[5 Review]   Mistake Log / due reviews (closes the SM-2 loop)
-[6 Progress] Topic Mastery radar + streak
+   ┌─────────────────────── the spine (default session path) ───────────────────────┐
+   │                                                                                 │
+   [0 Home]      5s value prop + one Start CTA  ──►  [1 Generate]                     │
+   value prop                                         subject · topic · difficulty    │
+   "why this over Quizlet/ChatGPT/Anki"                       │ Generate             │
+                                                              ▼                       │
+                                                       [2 Practice]                   │
+                                                       answer the set                 │
+                                                              │ set complete          │
+                                                              ▼                       │
+                                                  [3 Completion]  (shipped)           │
+                                                   score · +XP · Level · streak       │
+                                                   [PRIMARY Review] [Progress]        │
+                                                       │              │               │
+                                                       ▼              ▼               │
+                                                  [4 Review]     [5 Progress]         │
+                                                  due mistakes   mastery + streak      │
+   └─────────────────────────────────────────────────────────────────────────────────┘
+                                   ▲
+                          [ Home base / overview ]  ── reachable any time; the old
+                          dashboard: all panels, jump anywhere (for return users)
 ```
 
-### Why Review is the primary CTA on [4]
+**One thing is primary at a time, and every screen has an obvious next step.** The
+dashboard isn't deleted — it becomes the "where am I / jump anywhere" hub, not the
+front door.
 
-A student's motivation peaks **right after getting something wrong**. Just having
-missed a Glycolysis question, they may not care about the mastery radar or the
-stats chart yet — but they very much want to know *what* they got wrong. So the
-default path is **Practice → Mistakes → Progress**, not Practice → Progress.
-`Review My Mistakes` is the primary button; `View Progress` is secondary.
+## Screen by screen
 
-## The key fix: the Completion Screen [4]
+| Spine screen | Shows | Next | Built? |
+|---|---|---|---|
+| **0 Home** | One-line value prop ("turn your notes into adaptive practice the SM-2 way") + the single differentiator vs Quizlet/ChatGPT/Anki + one **Start** CTA. | → Generate | Partial — a hero exists; needs to become the front door + sharpen the 5-second claim. |
+| **1 Generate** | subject · topic · difficulty (with level labels) · format. Optional notes → AI summary. | → Practice | Built (Create panel); needs difficulty level labels + to sit *in* the spine. |
+| **2 Practice** | the set, one card flow. | → Completion on finish | Built. |
+| **3 Completion** | score · +XP · Level + XP-to-next · today's questions/reviews/XP · streak · **[Review My Mistakes]** (primary) · [View Progress]. | → Review / Progress | **Shipped.** |
+| **4 Review** | due SM-2 items, started immediately by the CTA (no second click). | back to spine / Progress | **Shipped** (Review CTA auto-loads due). |
+| **5 Progress** | Topic Mastery progress bars + streak + daily/total XP. | back to Home base | **Shipped** (progress bars). |
 
-This one screen stitches the four disconnected panels into a loop. After a set:
-surface results, route missed items into Review (SM-2), show the mastery delta and
-the streak, and offer the two exits. It needs **only front-end logic over data we
-already have** (grading results, mistake log, mastery model, attempt counts) — no
-new backend, no appearance work.
+**Home base** = today's dashboard, reframed: the place to see everything and jump
+to any panel. Default landing for a *returning* user who just wants to resume;
+first-time / fresh-session users get the spine.
 
-## First-run / onboarding
+## How v2 absorbs the remaining Tier-1 feedback
 
-First visit: show the value prop and guide the user once through [1] → [4].
-Afterwards default to the dashboard. This simultaneously answers three tester
-complaints: unclear 5-second value prop, confusing onboarding, and the break.
+- **Value prop unclear (#2)** → it *is* screen [0]. The spine forces a real front
+  door with a 5-second claim, instead of dropping users into a five-panel wall.
+- **Data feedback weak / "don't feel myself improving" (#3)** → the **mastery +
+  progress payoff moves to right after Completion** (the motivation peak), not
+  buried in the 5th panel. XP is the reward; **mastery is the growth** — surface it
+  where it's felt.
 
-## Build order (each ships independently)
+## Already built — how it slots in
 
-1. **[4] Completion screen** — connects the break; highest ROI; front-end only.
-2. Difficulty labels with parenthetical level explanations (quick win).
-3. **[6]** Topic Mastery radar + progress bars + streak counter.
-4. **[0]** Value-prop hero.
-5. **First-run onboarding** guiding the first loop.
+Completion screen, primary Review CTA (auto-loads due), XP / Level / Daily summary,
+streak counter, Topic Mastery progress bars. v2 is mostly **re-sequencing what
+exists into one path**, not building new mechanics.
 
-Appearance/visual polish is deliberately deferred until the flow works (see
-[PRODUCT-ROADMAP.md](PRODUCT-ROADMAP.md)).
+## Build order for v2 (each ships independently; appearance still deferred)
+
+1. **Home front door** — make [0] the entry: value prop + one Start CTA that routes
+   into Generate; dashboard reachable as "home base," not the default wall. (Answers
+   value-prop + onboarding complaints; biggest "feels like one product" win.)
+2. **Surface the growth payoff post-Completion** — show mastery/progress inline at
+   the motivation peak (data-feedback complaint).
+3. **Difficulty level labels** in Generate (quick win).
+4. **First-run onboarding** that walks the spine once.
+5. **Mobile comfort pass** — tap targets to 44px etc. (audit verdict: Case A,
+   usable-but-cramped, not flow-blocking — so it's here, not P0).
+6. **Topic Mastery radar** — optional, after progress bars prove out.
+
+Mobile and radar are deliberately *below* the spine work: the audit confirmed
+mobile is comfort-level (no overflow, flow completes), and the retention question
+is answered by the spine, not by CSS. See [PRODUCT-ROADMAP.md](PRODUCT-ROADMAP.md).
