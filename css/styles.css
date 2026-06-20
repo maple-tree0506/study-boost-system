@@ -635,4 +635,20 @@ details.answer-box > summary {
 .welcome-actions { display: flex; }
 .welcome-dismiss { position: absolute; top: 8px; right: 10px; background: none; border: none; font-size: 1.4rem; line-height: 1; color: var(--muted); cursor: pointer; min-height: 36px; min-width: 36px; }
 .welcome-dismiss:hover { color: var(--text); }
+
+/* #5 mobile comfort pass: 44px tap targets + 16px form text (prevents iOS
+   focus-zoom) on phones. Scoped to <=640px so desktop density is unchanged
+   (audit: desktop is fine; only phones were cramped). */
+@media (max-width: 640px) {
+    button,
+    .group-toggle,
+    .welcome-dismiss { min-height: 44px; }
+    .hero-cta { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+    select,
+    input:not([type="checkbox"]):not([type="radio"]) { min-height: 44px; }
+    textarea,
+    select,
+    input:not([type="checkbox"]):not([type="radio"]) { font-size: 16px; }
+    .qa-card .mcq-options label { padding: 7px 0; margin-bottom: 4px; }
+}
     
