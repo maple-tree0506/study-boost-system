@@ -95,7 +95,10 @@ exists into one path**, not building new mechanics.
    first-run welcome card shows the 4-step loop and clarifies "no API key needed";
    shown only to brand-new users, gated on isReturningUser() + a seen flag.
 5. **Mobile comfort pass** — tap targets to 44px etc. (audit verdict: Case A,
-   usable-but-cramped, not flow-blocking — so it's here, not P0).
+   usable-but-cramped, not flow-blocking — so it's here, not P0). **Shipped:** one
+   <=640px block bumps buttons/inputs/selects/toggles/CTAs to 44px and form text to
+   16px (no iOS focus-zoom); verified at 360px (no overflow) and desktop unchanged.
+   Real-device pass on actual MIUI hardware still pending beta feedback.
 6. **Topic Mastery radar** — optional, after progress bars prove out.
 
 Mobile and radar are deliberately *below* the spine work: the audit confirmed
