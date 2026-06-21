@@ -99,7 +99,10 @@ exists into one path**, not building new mechanics.
    <=640px block bumps buttons/inputs/selects/toggles/CTAs to 44px and form text to
    16px (no iOS focus-zoom); verified at 360px (no overflow) and desktop unchanged.
    Real-device pass on actual MIUI hardware still pending beta feedback.
-6. **Topic Mastery radar** — optional, after progress bars prove out.
+6. **Topic Mastery radar** — optional, after progress bars prove out. **Shipped:**
+   a hand-rolled SVG radar (no charting lib) sits above the bars, plotting each
+   topic's recent accuracy so the knowledge "shape" reads at a glance; renders with
+   >=3 topics, caps at 8, bars remain the accessible detail (role="img" + aria-label).
 
 Mobile and radar are deliberately *below* the spine work: the audit confirmed
 mobile is comfort-level (no overflow, flow completes), and the retention question
