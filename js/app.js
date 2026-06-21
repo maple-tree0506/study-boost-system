@@ -1445,6 +1445,48 @@ function topicDisplay(stat) {
     return label || "General (no topic)";
 }
 
+// #6: hand-rolled SVG radar of topic mastery — no charting library (the project has
+// no build chain). It's a gestalt complement to the bars below, which stay as the
+// accessible, detailed view. Renders only with >=3 topics (a radar needs >=3 axes)
+// and caps at the 8 most-practiced. Each axis radius = the topic's recent accuracy
+// (ema), matching the bar percentages. Returns "" when there's too little to plot.
+function masteryRadarSvg(topics) {
+    const axes = (topics || []).slice(0, 8);
+    const n = axes.length;
+    if (n < 3) return "";
+    const cx = 150, cy = 105, R = 66, TAU = Math.PI * 2;
+    const ptAt = function (i, radius) {
+        const ang = -Math.PI / 2 + (i / n) * TAU;
+        return [cx + radius * Math.cos(ang), cy + radius * Math.sin(ang)];
+    };
+    const polyPoints = function (radiusFn) {
+        const out = [];
+        for (let i = 0; i < n; i++) { const p = ptAt(i, radiusFn(i)); out.push(p[0].toFixed(1) + "," + p[1].toFixed(1)); }
+        return out.join(" ");
+    };
+    let grid = "";
+    [0.25, 0.5, 0.75, 1].forEach(function (frac) {
+        grid += '<polygon points="' + polyPoints(function () { return R * frac; }) + '" fill="none" stroke="#e5e7eb" stroke-width="1"/>';
+    });
+    let spokes = "", labels = "";
+    for (let i = 0; i < n; i++) {
+        const edge = ptAt(i, R);
+        spokes += '<line x1="' + cx + '" y1="' + cy + '" x2="' + edge[0].toFixed(1) + '" y2="' + edge[1].toFixed(1) + '" stroke="#e5e7eb" stroke-width="1"/>';
+        const ang = -Math.PI / 2 + (i / n) * TAU, dx = Math.cos(ang);
+        const anchor = dx > 0.3 ? "start" : (dx < -0.3 ? "end" : "middle");
+        const lp = ptAt(i, R + 12);
+        const raw = topicDisplay(axes[i]);
+        const short = raw.length > 10 ? raw.slice(0, 9) + "..." : raw;
+        labels += '<text x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="' + anchor + '" dominant-baseline="middle" font-size="9" fill="#6b7280">' + escapeHtml(short) + "</text>";
+    }
+    const dataPoly = '<polygon points="' + polyPoints(function (i) {
+        return R * Math.max(0, Math.min(1, axes[i].ema || 0));
+    }) + '" fill="rgba(37,99,235,0.18)" stroke="#2563eb" stroke-width="2" stroke-linejoin="round"/>';
+    const summary = axes.map(function (t) { return topicDisplay(t) + " " + Math.round((t.ema || 0) * 100) + "%"; }).join(", ");
+    return '<div class="mastery-radar"><svg viewBox="0 0 300 210" width="100%" role="img" aria-label="Topic mastery radar: ' +
+        escapeHtml(summary) + '">' + grid + spokes + dataPoly + labels + "</svg></div>";
+}
+
 // R2 Stage 2C: read-only Topic Mastery panel, scoped to the selected course.
 // Single data source: MasteryModel.summarizeMastery. No writes; synchronous
 // localStorage-backed state, so there is no loading state to show. Degrades to the
@@ -1487,6 +1529,8 @@ function renderTopicMastery() {
             return escapeHtml(topicDisplay(t)) + " (" + Math.round(t.ema * 100) + "%)";
         }).join(" · ") + "</p>";
     }
+
+    html += masteryRadarSvg(topics); // #6: gestalt radar above the detailed bars (>=3 topics)
 
     html += '<div class="mastery-list">';
     topics.forEach(function (t) {

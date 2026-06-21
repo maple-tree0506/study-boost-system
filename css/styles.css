@@ -651,4 +651,8 @@ details.answer-box > summary {
     input:not([type="checkbox"]):not([type="radio"]) { font-size: 16px; }
     .qa-card .mcq-options label { padding: 7px 0; margin-bottom: 4px; }
 }
+
+/* #6 Topic Mastery radar: hand-rolled SVG, centered above the detail bars */
+.mastery-radar { max-width: 280px; margin: 6px auto 16px; }
+.mastery-radar svg { display: block; height: auto; overflow: visible; }
     
