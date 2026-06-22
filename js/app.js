@@ -405,6 +405,35 @@ function normalizeQuestionType(typeValue) {
     return "short_answer";
 }
 
+// MCQ de-bias — fixes "the correct answer is always option A". Randomizes option
+// order and re-letters A/B/C/D so position no longer leaks the answer. Skipped when
+// the explanation names an option by letter (shuffling would desync that reference)
+// or when the answer can't be matched to an option (don't risk breaking grading).
+function explanationRefsOptionLetter(expl) {
+    return /\b(option|choice|answer)s?\s+[A-F]\b/i.test(String(expl || ""));
+}
+function shuffleMcqOptions(item) {
+    if (!item || !Array.isArray(item.options) || item.options.length < 2) return item;
+    if (explanationRefsOptionLetter(item.explanation)) return item;
+    const strip = function (s) { return String(s).replace(/^\s*[A-Fa-f][.)]\s*/, "").trim(); };
+    const bare = item.options.map(strip);
+    const ansBare = strip(item.answer);
+    const correctIdx = bare.indexOf(ansBare);
+    if (correctIdx < 0) return item; // answer not found among options — leave as-is
+    const order = bare.map(function (_, i) { return i; });
+    for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+    }
+    const letters = ["A", "B", "C", "D", "E", "F"];
+    const newOptions = order.map(function (origIdx, pos) { return letters[pos] + ". " + bare[origIdx]; });
+    const newCorrectPos = order.indexOf(correctIdx);
+    return Object.assign({}, item, {
+        options: newOptions,
+        answer: letters[newCorrectPos] + ". " + bare[correctIdx]
+    });
+}
+
 function normalizeAIQuestions(rawQuestions) {
     if (!Array.isArray(rawQuestions)) return [];
     return rawQuestions
@@ -1647,7 +1676,10 @@ async function generateQuiz() {
             q.topic = topic || "";
             q.topicKey = topicKey;
         });
-        return reviewItems.concat(newItems || []);
+        // De-bias MCQ option positions (no more "always A") for the whole set.
+        return reviewItems.concat(newItems || []).map(function (q) {
+            return (q && q.type === "Multiple Choice") ? shuffleMcqOptions(q) : q;
+        });
     };
 
     if (expected.mcq + expected.sa < 1) {
