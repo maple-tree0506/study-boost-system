@@ -655,4 +655,12 @@ details.answer-box > summary {
 /* #6 Topic Mastery radar: hand-rolled SVG, centered above the detail bars */
 .mastery-radar { max-width: 280px; margin: 6px auto 16px; }
 .mastery-radar svg { display: block; height: auto; overflow: visible; }
+
+/* B2 beta feedback link: persistent footer + completion-screen line. The footer
+   collapses to nothing until a form URL is configured (JS leaves it empty). */
+.feedback-footer { text-align: center; margin: 8px 0 28px; }
+.feedback-footer:empty { display: none; }
+.feedback-line { margin: 8px 0 0; font-size: 0.9em; color: var(--muted); }
+.feedback-link { color: var(--primary); text-decoration: none; font-weight: 600; }
+.feedback-link:hover { text-decoration: underline; }
     

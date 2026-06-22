@@ -6,6 +6,11 @@ const STORAGE_AI_RELIABILITY = "studyBoostAiReliabilityV1";
 const STORAGE_MASTERY = "studyBoostMasteryV1";
 const STORAGE_USER_ID = "studyBoostUserIdV1";
 
+// B2 beta feedback: paste your Google Form share link here (the only line to edit).
+// When set, a "Share feedback" link appears on the completion screen and in the
+// footer; left empty, no link is shown anywhere. e.g. "https://forms.gle/XXXXXXXX".
+const FEEDBACK_FORM_URL = "";
+
 const AP_SUBJECTS = [
     { id: "calc_ab", label: "AP Calculus AB" },
     { id: "calc_bc", label: "AP Calculus BC" },
@@ -891,6 +896,14 @@ function masteryGrowthHtml() {
         label + " mastery: " + MASTERY_LABEL[after] + " &middot; " + acc + "% recent accuracy</div>";
 }
 
+// B2: render a "Share feedback" anchor when a feedback form URL is configured;
+// returns "" otherwise so callers never show a dead link to beta users.
+function feedbackLinkHtml(cls, label) {
+    if (!FEEDBACK_FORM_URL) return "";
+    return '<a href="' + escapeHtml(FEEDBACK_FORM_URL) + '" target="_blank" rel="noopener"' +
+        (cls ? ' class="' + cls + '"' : "") + ">" + escapeHtml(label || "Share feedback") + "</a>";
+}
+
 // --- P0: completion screen — a state switch shown once a set is fully graded ---
 function maybeShowCompletion() {
     const total = generatedQuestions.length;
@@ -946,6 +959,8 @@ function enterCompletionMode() {
     html += '<button type="button" class="secondary" data-action="view-progress">View Progress</button>';
     html += '<button type="button" class="outline" data-action="show-questions">Show the questions</button>';
     html += "</div>";
+    const fb = feedbackLinkHtml("feedback-link");
+    if (fb) html += '<p class="feedback-line">' + fb + " — 1 minute, helps StudyBoost improve.</p>";
     card.innerHTML = html;
 
     // state switch: completion card becomes the main view; collapse the question pile
@@ -2108,5 +2123,11 @@ document.addEventListener("click", function (ev) {
         const subj = document.getElementById("apSubjectInput");
         if (subj) setTimeout(function () { try { subj.focus(); } catch (e) { /* ignore */ } }, 350);
     });
+}());
+// B2: populate the persistent footer feedback link if a form URL is configured.
+(function initFeedbackFooter() {
+    const el = document.getElementById("feedbackFooter");
+    if (!el) return;
+    el.innerHTML = feedbackLinkHtml("feedback-link", "Share feedback on StudyBoost");
 }());
     
