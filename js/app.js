@@ -9,7 +9,7 @@ const STORAGE_USER_ID = "studyBoostUserIdV1";
 // B2 beta feedback: paste your Google Form share link here (the only line to edit).
 // When set, a "Share feedback" link appears on the completion screen and in the
 // footer; left empty, no link is shown anywhere. e.g. "https://forms.gle/XXXXXXXX".
-const FEEDBACK_FORM_URL = "";
+const FEEDBACK_FORM_URL = "https://forms.gle/hCHPgHsJ7Qe4payV6";
 
 const AP_SUBJECTS = [
     { id: "calc_ab", label: "AP Calculus AB" },
