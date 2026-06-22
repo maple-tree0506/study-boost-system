@@ -510,11 +510,26 @@ async function proxyChat(messages, opts) {
     if (opts && opts.json) {
         payload.json = true;  // ask the proxy to enable provider JSON mode
     }
-    const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
+    // Bound the request so a hung provider can't leave the user staring at a
+    // spinner forever — abort after 30s and let callers fall back gracefully.
+    const controller = new AbortController();
+    const timer = setTimeout(function () { controller.abort(); }, 30000);
+    let res;
+    try {
+        res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        });
+    } catch (e) {
+        if (e && e.name === "AbortError") {
+            throw new Error("The AI took too long to respond (timed out).");
+        }
+        throw e;
+    } finally {
+        clearTimeout(timer);
+    }
     let data = {};
     try {
         data = await res.json();
@@ -1663,6 +1678,11 @@ async function generateQuiz() {
 
     setAIControlsBusy(true);
     quizBtn.setAttribute("aria-busy", "true"); // presentational: drives the busy spinner + SR state
+    // Reassure the user if generation runs long, so a slow request doesn't read as
+    // a freeze. Cleared in finally regardless of outcome.
+    const slowTimer = setTimeout(function () {
+        quizStatus.textContent = "The AI is taking longer than usual — hang tight; it'll fall back to the built-in question bank if it can't finish.";
+    }, 8000);
     try {
         let aiQuestions = await generateQuizWithAI(topic, difficulty, expected, apId, notesCtx);
         generatedQuestions = normalizeAIQuestions(aiQuestions);
@@ -1691,8 +1711,10 @@ async function generateQuiz() {
     } catch (err) {
         console.error("AI quiz generation failed:", err); // debug detail stays out of the UI
         recordAiResult("quiz", "failed");
-        tryDemo("The AI request didn't go through.");
+        const timedOut = /timed out|too long/i.test((err && err.message) || "");
+        tryDemo(timedOut ? "The AI timed out." : "The AI request didn't go through.");
     } finally {
+        clearTimeout(slowTimer);
         setAIControlsBusy(false);
         quizBtn.removeAttribute("aria-busy");
     }
