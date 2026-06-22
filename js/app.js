@@ -940,6 +940,9 @@ function enterCompletionMode() {
     if (wrong > 0) {
         html += '<button type="button" data-action="start-review">Review My Mistakes</button>';
     }
+    // Close the loop: an obvious "do it again" next step. Primary when the set was
+    // perfect (no Review CTA to compete with), secondary otherwise.
+    html += '<button type="button" data-action="new-set"' + (wrong > 0 ? ' class="secondary"' : "") + ">Start a new set</button>";
     html += '<button type="button" class="secondary" data-action="view-progress">View Progress</button>';
     html += '<button type="button" class="outline" data-action="show-questions">Show the questions</button>';
     html += "</div>";
@@ -1033,6 +1036,15 @@ function handleQuizClick(ev) {
         quizStatus.textContent = "Reviewing " + generatedQuestions.length +
             (generatedQuestions.length === 1 ? " item" : " items") + " due from your Mistake Log.";
         quizOutput.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+    }
+    if (saveAction === "new-set") {
+        const cc = document.getElementById("completionCard");
+        if (cc) cc.remove();
+        const panel = document.getElementById("quiz-title");
+        if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        const subj = document.getElementById("apSubjectInput");
+        if (subj) setTimeout(function () { try { subj.focus(); } catch (e) { /* ignore */ } }, 350);
         return;
     }
 
