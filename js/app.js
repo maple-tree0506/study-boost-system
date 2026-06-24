@@ -277,15 +277,6 @@ function getQuizNotesContext() {
     return { text: "", source: "none" };
 }
 
-function notesContextSeed(text) {
-    const s = String(text || "default");
-    let h = 0;
-    for (let i = 0; i < s.length; i++) {
-        h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-    }
-    return Math.abs(h);
-}
-
 function updateNotesContextUI() {
     const fromBox = !!sanitizeText(noteInput.value);
     const fromSummary = !!sanitizeText(lastNotesContext);
@@ -701,6 +692,32 @@ function summarizeNotesDemo(raw) {
     return { simplifiedSummary: summaryText || normalized, keyPointsHtml: listHtml };
 }
 
+// Offline regeneration variety (P1): remembers recently-served bank indices per
+// subject+tier+type so a second generated set offers DIFFERENT questions instead of
+// repeating the same ones. Returns `count` shuffled indices that avoid the recent
+// set; recent memory is capped to (poolLen - count) so there are always enough fresh
+// ones and the selection rotates through the whole tier pool across regenerations.
+const recentDemoIdx = {};
+function pickBankIndices(key, poolLen, count) {
+    if (poolLen <= 0) return [];
+    if (count > poolLen) count = poolLen;
+    const shuffle = function (a) {
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const t = a[i]; a[i] = a[j]; a[j] = t;
+        }
+        return a;
+    };
+    const all = [];
+    for (let i = 0; i < poolLen; i++) all.push(i);
+    if (poolLen <= count) return shuffle(all); // whole pool needed; variety impossible
+    const recent = recentDemoIdx[key] || [];
+    const fresh = all.filter(function (i) { return recent.indexOf(i) === -1; });
+    const chosen = shuffle(fresh).slice(0, count);
+    recentDemoIdx[key] = recent.concat(chosen).slice(-(poolLen - count));
+    return chosen;
+}
+
 // Returns an array of offline questions, or null when no bank exists for the
 // subject (so the caller can degrade honestly instead of showing wrong-subject items).
 function createMockQuestions(topic, apSubjectId, difficulty, expected, notesContext) {
@@ -718,9 +735,6 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected, notesCont
     const prefix = "[" + label + " · " + course + "] ";
     const fill = function (s) { return String(s || "").replace(/\{focus\}/g, focus); };
 
-    // Seed also depends on difficulty so rotation differs per level, on top of the
-    // genuinely tiered banks (basic/medium/challenge) selected above.
-    const notesSeed = notesContextSeed((difficulty || "medium") + "|" + (notesContext || topic || course));
     const notesLead = sanitizeText(notesContext).slice(0, 120);
     const notesPrefix = notesLead
         ? "[From your notes: \"" + notesLead + (notesLead.length >= 120 ? "…" : "") + "\"] "
@@ -728,31 +742,31 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected, notesCont
 
     const out = [];
     if (expected.mcq > 0 && pack.mcq.length) {
-        const mi = notesSeed % pack.mcq.length;
-        for (let i = 0; i < expected.mcq; i++) {
-            const item = pack.mcq[(mi + i) % pack.mcq.length];
+        const mcqIdx = pickBankIndices(apSubjectId + "|" + tier + "|mcq", pack.mcq.length, expected.mcq);
+        mcqIdx.forEach(function (idx, i) {
+            const item = pack.mcq[idx];
             out.push({
-                id: "mcq-demo-" + Date.now() + "-" + i + "-" + notesSeed,
+                id: "mcq-demo-" + Date.now() + "-" + i + "-" + idx,
                 type: "Multiple Choice",
                 question: notesPrefix + prefix + fill(item.q),
                 options: (item.o || []).slice(),
                 answer: item.a,
                 explanation: fill(item.e || "")
             });
-        }
+        });
     }
     if (expected.sa > 0 && pack.sa.length) {
-        const si = (notesSeed >> 4) % pack.sa.length;
-        for (let j = 0; j < expected.sa; j++) {
-            const item = pack.sa[(si + j) % pack.sa.length];
+        const saIdx = pickBankIndices(apSubjectId + "|" + tier + "|sa", pack.sa.length, expected.sa);
+        saIdx.forEach(function (idx, j) {
+            const item = pack.sa[idx];
             out.push({
-                id: "sa-demo-" + Date.now() + "-" + j + "-" + notesSeed,
+                id: "sa-demo-" + Date.now() + "-" + j + "-" + idx,
                 type: "Short Answer",
                 question: notesPrefix + fill(item.q),
                 answer: item.a,
                 explanation: fill(item.e || "")
             });
-        }
+        });
     }
     return out.length ? out : null;
 }
