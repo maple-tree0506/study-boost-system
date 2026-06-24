@@ -666,12 +666,35 @@ async function generateQuizWithAI(topic, difficulty, expected, apSubjectId, note
     throw new Error("Could not parse quiz JSON.");
 }
 
+// Turn raw notes into clean key-point strings for the offline summary. Notes are
+// usually line-structured, so split on LINES first (before whitespace is collapsed),
+// strip a leading list marker (1. / 2) / - / • / □), and drop meaningless fragments
+// (empty, pure numbers/punctuation, or under 3 chars) so the summary never shows a
+// bullet like "1" or ")". Falls back to sentence splitting only for a single
+// paragraph with no line breaks.
+function notesToKeyPoints(raw) {
+    const text = String(raw || "");
+    let lines = text.split(/\r?\n+/).map(function (l) { return l.trim(); }).filter(Boolean);
+    if (lines.length <= 1) {
+        lines = getSentences(sanitizeText(text)); // single paragraph: split into sentences
+    }
+    const points = [];
+    lines.forEach(function (line) {
+        const cleaned = sanitizeText(line.replace(/^\s*(?:\d+[.)]|[-•*▪◦‣·□☐]+)\s+/, ""));
+        if (!cleaned) return;
+        if (/^[\d\s.)(,:;•\-*□☐]+$/.test(cleaned)) return; // pure number / punctuation
+        if (cleaned.length < 3) return;
+        points.push(cleaned);
+    });
+    return points;
+}
+
 function summarizeNotesDemo(raw) {
     const normalized = sanitizeText(raw);
     if (!normalized) return null;
-    const sentences = getSentences(normalized);
-    const summaryText = sentences.slice(0, 2).join(" ");
-    const keyPoints = sentences.slice(0, 6);
+    const points = notesToKeyPoints(raw);
+    const summaryText = points.slice(0, 2).join(" ");
+    const keyPoints = points.length ? points.slice(0, 6) : [normalized];
     const listHtml = keyPoints.map(function (p) {
         return "<li>" + escapeHtml(p) + "</li>";
     }).join("");
