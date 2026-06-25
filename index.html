@@ -58,8 +58,15 @@
                 <h3 id="summary-title">AI Note Summary</h3>
                 <div class="field">
                     <label for="noteInput">Your notes</label>
+                    <div class="formula-bar" id="formulaBar" aria-label="Insert a formula at the cursor">
+                        <button type="button" class="formula-btn" data-insert="$\Delta x$">Δx</button>
+                        <button type="button" class="formula-btn" data-insert="$\Sigma F$">ΣF</button>
+                        <button type="button" class="formula-btn" data-insert="$v_f$">v_f</button>
+                        <button type="button" class="formula-btn" data-insert="$x^2$">x²</button>
+                        <button type="button" class="formula-btn" data-insert="$\frac{a}{b}$">a/b</button>
+                    </div>
                     <textarea id="noteInput" maxlength="12000" placeholder="Paste class notes, textbook excerpts, or your own draft summary."></textarea>
-                    <p class="hint">Up to 12,000 characters per request.</p>
+                    <p class="hint">Up to 12,000 characters per request. Tip: wrap formulas in $…$ to render them — e.g. $\Delta x$, $v_f$, $\frac{dv}{dt}$ — or tap a button above.</p>
                 </div>
                 <div class="actions">
                     <button id="summaryBtn" type="button">Generate Summary</button>

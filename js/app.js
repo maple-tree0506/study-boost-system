@@ -2199,4 +2199,32 @@ document.addEventListener("click", function (ev) {
     if (!el) return;
     el.innerHTML = feedbackLinkHtml("feedback-link", "Share feedback on StudyBoost");
 }());
+
+// P3a: insert a snippet at the textarea caret (replacing any selection), respecting
+// maxlength, then fire 'input' so the notes-context UI updates.
+function insertAtCursor(el, text) {
+    if (!el || !text) return;
+    const max = parseInt(el.getAttribute("maxlength"), 10) || Infinity;
+    const start = el.selectionStart != null ? el.selectionStart : el.value.length;
+    const end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+    const before = el.value.slice(0, start);
+    const after = el.value.slice(end);
+    const room = max - (before.length + after.length);
+    if (room <= 0) return;
+    const insert = text.length > room ? text.slice(0, room) : text;
+    el.value = before + insert + after;
+    el.focus();
+    const caret = start + insert.length;
+    try { el.setSelectionRange(caret, caret); } catch (e) { /* ignore */ }
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+}
+// Formula quick-insert bar: each button carries its $...$ snippet in data-insert.
+(function wireFormulaBar() {
+    const bar = document.getElementById("formulaBar");
+    if (!bar || !noteInput) return;
+    bar.addEventListener("click", function (ev) {
+        const btn = ev.target.closest("[data-insert]");
+        if (btn) insertAtCursor(noteInput, btn.getAttribute("data-insert"));
+    });
+}());
     

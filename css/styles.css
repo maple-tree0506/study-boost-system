@@ -656,6 +656,13 @@ details.answer-box > summary {
 .mastery-radar { max-width: 280px; margin: 6px auto 16px; }
 .mastery-radar svg { display: block; height: auto; overflow: visible; }
 
+/* P3a formula quick-insert bar above the notes box — taps insert a $...$ snippet
+   so non-LaTeX users can discover formula input. Buttons inherit the global 44px
+   mobile min-height for comfortable tap targets. */
+.formula-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.formula-btn { background: #fff; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 12px; font-size: 14px; cursor: pointer; }
+.formula-btn:hover { background: #eff6ff; border-color: var(--primary); }
+
 /* B2 beta feedback link: persistent footer + completion-screen line. The footer
    collapses to nothing until a form URL is configured (JS leaves it empty). */
 .feedback-footer { text-align: center; margin: 8px 0 28px; }
