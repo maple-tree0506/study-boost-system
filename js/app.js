@@ -2227,4 +2227,47 @@ function insertAtCursor(el, text) {
         if (btn) insertAtCursor(noteInput, btn.getAttribute("data-insert"));
     });
 }());
+
+// P3b: smart formula paste. Rich-text notes copied from the web/Word carry sub/sup
+// formatting that a plain textarea drops ("F_i" -> "Fi"). On paste we read the
+// clipboard's text/html, convert <sub>/<sup> (and common Unicode super/subscript
+// glyphs) to _{}/^{}, and wrap the affected tokens in $...$ so KaTeX renders them.
+const UNICODE_SUPER = { "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9", "ⁿ": "n", "⁺": "+", "⁻": "-" };
+const UNICODE_SUB = { "₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4", "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9", "ₐ": "a", "ₑ": "e", "ᵢ": "i", "ⱼ": "j", "ₙ": "n", "ₓ": "x", "₊": "+", "₋": "-" };
+function convertPastedFormulas(html, plainText) {
+    let text;
+    if (html) {
+        // DOMParser "text/html" yields an inert document: no scripts run, no
+        // resources load. We only read textContent, never inject the HTML.
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        doc.querySelectorAll("sub").forEach(function (el) { el.replaceWith("_{" + el.textContent + "}"); });
+        doc.querySelectorAll("sup").forEach(function (el) { el.replaceWith("^{" + el.textContent + "}"); });
+        text = (doc.body ? doc.body.textContent : "") || "";
+    } else {
+        text = plainText || "";
+    }
+    text = text
+        .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹ⁿ⁺⁻]+/g, function (run) {
+            return "^{" + run.split("").map(function (c) { return UNICODE_SUPER[c] || c; }).join("") + "}";
+        })
+        .replace(/[₀₁₂₃₄₅₆₇₈₉ₐₑᵢⱼₙₓ₊₋]+/g, function (run) {
+            return "_{" + run.split("").map(function (c) { return UNICODE_SUB[c] || c; }).join("") + "}";
+        });
+    // Wrap formula tokens (a word carrying _{}/^{} groups) in $...$ for KaTeX.
+    return text.replace(/[A-Za-z0-9]*(?:[_^]\{[^}]*\})+[A-Za-z0-9]*/g, function (m) { return "$" + m + "$"; });
+}
+(function wireSmartPaste() {
+    if (!noteInput) return;
+    noteInput.addEventListener("paste", function (ev) {
+        const cd = ev.clipboardData || window.clipboardData;
+        if (!cd) return;
+        const html = cd.getData("text/html");
+        const plain = cd.getData("text/plain");
+        const hasHtmlFormula = html && /<su[bp](\s|>)/i.test(html);
+        const hasUnicodeFormula = /[⁰¹²³⁴⁵⁶⁷⁸⁹ⁿ⁺⁻₀₁₂₃₄₅₆₇₈₉ₐₑᵢⱼₙₓ₊₋]/.test(plain || "");
+        if (!hasHtmlFormula && !hasUnicodeFormula) return; // nothing to fix: default paste
+        ev.preventDefault();
+        insertAtCursor(noteInput, convertPastedFormulas(hasHtmlFormula ? html : "", plain));
+    });
+}());
     
