@@ -212,6 +212,16 @@ def js_files(filename: str):
     return send_from_directory(os.path.join(APP_DIR, "js"), filename)
 
 
+@app.route("/assets/<path:filename>")
+def asset_files(filename: str):
+    """Static brand assets (the og:image social preview card, future icons).
+
+    Link-preview crawlers fetch these anonymously, so they must be reachable
+    without any app state.
+    """
+    return send_from_directory(os.path.join(APP_DIR, "assets"), filename)
+
+
 @app.route("/api/health")
 def health():
     return jsonify(

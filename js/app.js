@@ -37,6 +37,8 @@ let masteryMap = readMastery();
 // the completion screen can show movement (e.g. Developing -> Proficient) at the
 // motivation peak. Shape: { subject, topic, level } | null.
 let preSetMastery = null;
+// Growth: the share message built for the current completion screen (see buildShareText).
+let lastShareText = "";
 // H-F: errIds whose SM-2 schedule was already updated this browser session (dedup).
 const sessionReviewedErrIds = new Set();
 let showOnlyDue = false;
@@ -970,6 +972,84 @@ function feedbackLinkHtml(cls, label) {
         (cls ? ' class="' + cls + '"' : "") + ">" + escapeHtml(label || "Share feedback") + "</a>";
 }
 
+// Growth loop: a shareable one-liner about the set the student just finished.
+// Contains only their own score/level/streak — no personal data, no anonymous id.
+function buildShareText(stats) {
+    const subject = sanitizeText(stats.subject || "");
+    const what = subject ? subject + " practice" : "AP practice";
+    let line = "I just scored " + stats.correct + "/" + stats.total + " on " + what +
+        " — Level " + stats.level;
+    if (stats.streak > 1) line += ", " + stats.streak + "-day streak";
+    return line + ". StudyBoost turns your notes into adaptive AP practice with spaced repetition.";
+}
+
+// Briefly swap a button's label to confirm an action, then restore it.
+function flashLabel(btn, message) {
+    if (!btn) return;
+    const original = btn.textContent;
+    btn.textContent = message;
+    btn.disabled = true;
+    setTimeout(function () {
+        btn.textContent = original;
+        btn.disabled = false;
+    }, 2000);
+}
+
+// Share via the native sheet where available (mobile), else copy to the clipboard.
+// A cancelled share is a normal outcome, not an error, so it stays silent.
+async function shareProgress(btn) {
+    const url = window.location.origin + "/";
+    const text = lastShareText || "StudyBoost turns your notes into adaptive AP practice.";
+    if (typeof navigator.share === "function") {
+        try {
+            await navigator.share({ title: "StudyBoost", text: text, url: url });
+            return;
+        } catch (e) {
+            if (e && e.name === "AbortError") return; // user dismissed the sheet
+            // otherwise fall through to the clipboard path
+        }
+    }
+    const payload = text + " " + url;
+    try {
+        await navigator.clipboard.writeText(payload);
+        flashLabel(btn, "Copied — paste it anywhere");
+        return;
+    } catch (e) {
+        // Clipboard API missing or permission denied — fall back below.
+    }
+    flashLabel(btn, legacyCopy(payload) ? "Copied — paste it anywhere" : "Press Ctrl+C to copy");
+}
+
+// Pre-Clipboard-API copy path: select the text in an offscreen textarea and let
+// execCommand copy it. If that fails too, the textarea is deliberately LEFT in the
+// DOM, focused and selected, so the "Press Ctrl+C" prompt is actually true; it is
+// cleaned up shortly after.
+function legacyCopy(payload) {
+    const ta = document.createElement("textarea");
+    ta.value = payload;
+    ta.setAttribute("readonly", "");
+    ta.setAttribute("aria-hidden", "true");
+    ta.style.cssText = "position:fixed;top:0;left:-9999px;opacity:0";
+    document.body.appendChild(ta);
+    let ok = false;
+    try {
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, payload.length);
+        ok = document.execCommand("copy");
+    } catch (e) {
+        ok = false;
+    }
+    if (ok) {
+        document.body.removeChild(ta);
+    } else {
+        setTimeout(function () {
+            if (ta.parentNode) ta.parentNode.removeChild(ta);
+        }, 8000);
+    }
+    return ok;
+}
+
 // --- P0: completion screen — a state switch shown once a set is fully graded ---
 function maybeShowCompletion() {
     const total = generatedQuestions.length;
@@ -1025,6 +1105,16 @@ function enterCompletionMode() {
     html += '<button type="button" class="secondary" data-action="view-progress">View Progress</button>';
     html += '<button type="button" class="outline" data-action="show-questions">Show the questions</button>';
     html += "</div>";
+    // Growth loop: sharing sits on its own line so it never competes with the
+    // learning actions above it, but is still offered at the motivation peak.
+    lastShareText = buildShareText({
+        correct: s.correct,
+        total: total,
+        level: lvl.level,
+        streak: streak,
+        subject: (preSetMastery && preSetMastery.subject) || subjectLabelFromId(apSubjectInput.value)
+    });
+    html += '<p class="share-line"><button type="button" class="outline" data-action="share-progress">Share my progress</button></p>';
     const fb = feedbackLinkHtml("feedback-link");
     if (fb) html += '<p class="feedback-line">' + fb + " — 1 minute, helps StudyBoost improve.</p>";
     card.innerHTML = html;
@@ -1117,6 +1207,10 @@ function handleQuizClick(ev) {
         quizStatus.textContent = "Reviewing " + generatedQuestions.length +
             (generatedQuestions.length === 1 ? " item" : " items") + " due from your Mistake Log.";
         quizOutput.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+    }
+    if (saveAction === "share-progress") {
+        shareProgress(t);
         return;
     }
     if (saveAction === "new-set") {

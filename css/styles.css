@@ -667,6 +667,7 @@ details.answer-box > summary {
    collapses to nothing until a form URL is configured (JS leaves it empty). */
 .feedback-footer { text-align: center; margin: 8px 0 28px; }
 .feedback-footer:empty { display: none; }
+.share-line { margin: 14px 0 0; }
 .feedback-line { margin: 8px 0 0; font-size: 0.9em; color: var(--muted); }
 .feedback-link { color: var(--primary); text-decoration: none; font-weight: 600; }
 .feedback-link:hover { text-decoration: underline; }
