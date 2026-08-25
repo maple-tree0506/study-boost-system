@@ -130,7 +130,11 @@ def _init_db() -> None:
 
 _init_db()
 
-app = Flask(__name__, static_folder=APP_DIR)
+# static_folder=None disables Flask's built-in static route. It previously pointed
+# at APP_DIR, and Flask derives static_url_path from the folder's NAME, so the whole
+# project directory — including .env and studyboost.db — was downloadable at
+# /<project-dir-name>/<file>. Every asset the page needs has an explicit route below.
+app = Flask(__name__, static_folder=None)
 # No CORS: the page and the API are served from the same origin, so cross-origin
 # headers are unnecessary. Not enabling CORS prevents arbitrary sites from calling
 # this local proxy while the server is running.
