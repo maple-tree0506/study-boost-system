@@ -1,0 +1,8 @@
+# StudyBoost — public study demo. Crawling the app itself is welcome.
+User-agent: *
+Allow: /
+
+# The JSON API is useless to crawlers and /api/attempt writes rows.
+Disallow: /api/
+
+Sitemap: https://studyboostai.pythonanywhere.com/sitemap.xml

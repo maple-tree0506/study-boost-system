@@ -226,6 +226,18 @@ def asset_files(filename: str):
     return send_from_directory(os.path.join(APP_DIR, "assets"), filename)
 
 
+# SEO discovery files. These are declared as EXACT routes on purpose: APP_DIR also
+# holds .env and studyboost.db, so a catch-all root route would expose secrets.
+@app.route("/robots.txt")
+def robots_txt():
+    return send_from_directory(APP_DIR, "robots.txt", mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    return send_from_directory(APP_DIR, "sitemap.xml", mimetype="application/xml")
+
+
 @app.route("/api/health")
 def health():
     return jsonify(
