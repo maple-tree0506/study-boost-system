@@ -228,6 +228,23 @@ def asset_files(filename: str):
 
 # SEO discovery files. These are declared as EXACT routes on purpose: APP_DIR also
 # holds .env and studyboost.db, so a catch-all root route would expose secrets.
+# Trust pages. Clean URLs, one explicit route each — again deliberately not a
+# catch-all, so nothing outside pages/ can ever be reached.
+@app.route("/privacy")
+def privacy_page():
+    return send_from_directory(os.path.join(APP_DIR, "pages"), "privacy.html")
+
+
+@app.route("/terms")
+def terms_page():
+    return send_from_directory(os.path.join(APP_DIR, "pages"), "terms.html")
+
+
+@app.route("/about")
+def about_page():
+    return send_from_directory(os.path.join(APP_DIR, "pages"), "about.html")
+
+
 @app.route("/robots.txt")
 def robots_txt():
     return send_from_directory(APP_DIR, "robots.txt", mimetype="text/plain")
