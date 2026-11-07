@@ -39,8 +39,10 @@ avoiding a bare `$`, which KaTeX would treat as a math delimiter).
 
 - **Server**: SQLite `attempts` (one row per graded answer; anon `user_id`, `source`).
 - **Client**: `localStorage` — `studyBoostUserIdV1` (anon `u-`+uuid, no PII),
-  mistakes, mastery, `studyBoostUIPrefsV1`, and the versioned export/import backup
-  (`studyboost-backup` JSON).
+  mistakes, mastery, `studyBoostUIPrefsV1`, XP/streak/daily (`studyBoostXpV1`,
+  `studyBoostStreakV1`, `studyBoostDailyV1`), and the versioned export/import backup
+  (`studyboost-backup` JSON, version 2 since XP/streak/daily were added; `BACKUP_KEYS`
+  in `app.js` is the list).
 - **AI**: `.env` holds a **Groq** key used via `OPENAI_BASE_URL=https://api.groq.com/openai/v1`
   with a llama model. The deployed demo runs **keyless (offline mode)** so visitors
   never consume the quota.

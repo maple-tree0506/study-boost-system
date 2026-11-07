@@ -1427,11 +1427,16 @@ function getOrCreateUserId() {
 // (iOS evicts localStorage after ~7 days; clearing site data wipes it too).
 // Exports the durable, user-meaningful keys ONLY — NOT the offline attempt queue
 // (transient; re-importing would double-submit) or the AI-reliability counters.
+// Backups made before XP/streak were added simply lack those keys; restore skips
+// missing keys, so an old backup never wipes the current device's level.
 const BACKUP_KEYS = [
     STORAGE_KEY_ERRORS,   // mistake log + SM-2 schedule
     STORAGE_MASTERY,      // topic mastery
     STORAGE_USER_ID,      // anonymous id — kept so a restore on another device stays one user
-    STORAGE_UI            // UI prefs (harmless)
+    STORAGE_UI,           // UI prefs (harmless)
+    XP_KEY,               // total XP -> level
+    STREAK_KEY,           // { count, lastDay }; a stale lastDay resets naturally on next study
+    DAILY_KEY             // today's missions; getDaily() resets it if the day has passed
 ];
 
 function exportUserData() {
@@ -1448,7 +1453,7 @@ function exportUserData() {
     const payload = {
         app: "StudyBoost",
         type: "studyboost-backup",
-        version: 1,
+        version: 2, // 2 = adds XP, streak, daily. Restore ignores this field.
         exportedAt: new Date().toISOString(),
         data: data
     };
@@ -1484,7 +1489,11 @@ function importUserData(file) {
             return;
         }
         // Replace (not merge) — clear, predictable; the main use is restoring lost data.
-        const restoreMessage = "It replaces the mistake log and topic mastery currently stored in this browser.";
+        const hasProgress = Object.prototype.hasOwnProperty.call(parsed.data, XP_KEY) ||
+            Object.prototype.hasOwnProperty.call(parsed.data, STREAK_KEY);
+        const restoreMessage = "It replaces the mistake log" +
+            (hasProgress ? ", topic mastery, XP, and streak" : " and topic mastery") +
+            " currently stored in this browser.";
         const confirmed = window.Shell
             ? await window.Shell.confirm({ title: "Restore this backup?", body: restoreMessage, confirmLabel: "Restore backup" })
             : window.confirm("Restore this backup? " + restoreMessage);

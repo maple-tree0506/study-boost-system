@@ -15,8 +15,8 @@ summaries and AI-generated questions.
 browser, plus each question's subject, type, and whether it was answered correctly —
 to measure learning outcomes. No names, emails, or personal information are collected
 or requested. **Beta testers:** please use the live link above (results from a copy
-run locally with `python server.py` are not part of the study). Your mistake log and
-topic mastery live in your browser — use **Setup & connection → Download my data** to
+run locally with `python server.py` are not part of the study). Your mistake log, topic
+mastery, XP, and streak live in your browser — use **Setup & connection → Download my data** to
 back them up (browsers can clear local storage), and **Restore from file** to bring
 them back or move them to another device.
 
