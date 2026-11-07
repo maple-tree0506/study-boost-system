@@ -11,6 +11,24 @@ Newest entries first.
 
 ---
 
+## 2026-11 — Visual redesign (new identity, guided views)
+**Why:** the app worked, but it looked like a form. I wanted it to look designed, and to
+read as one product instead of a long page of panels.
+**What changed:** new visual identity inspired by modern JRPG interface design (flat blue
+fields, rotated poster type, diagonal cuts), with no game art or logos. The page is now six
+views with a nav rail, page wipes, and a real-data Home screen: daily missions, a next-step
+card, and a review orbit that plots each saved mistake by days until it returns. Fonts are
+self-hosted so the Privacy page stays accurate. No new dependencies: CSS and the Web
+Animations API only, since the project has no build step. See `docs/DESIGN-SYSTEM.md`.
+**Logic kept:** all IDs, API calls, storage keys, grading, SM-2, mastery, and export/restore.
+New logic lives in `js/home-summary.js` with its own tests.
+**Small behavior changes:** Forgot/Hard/Got it ratings now count toward "reviews today"
+(no XP), MCQ grading marks the right option in the list, the restore prompt is a themed
+dialog, and accuracy shows `–` instead of `0%` before anything is graded.
+**Bug found:** a component `display` rule overrode the `hidden` attribute, so short-answer
+self-grade buttons could show before the student submitted. Fixed with a global
+`[hidden]` rule.
+
 ## 2026-06 — AP authenticity bank: Statistics (Stage C)
 **Why:** seventh subject; completes the quantitative-STEM family. Same standard and validator.
 **What I did (content only — `OFFLINE_BANK.stats` MCQs):** replaced the 13 MCQs with **26**

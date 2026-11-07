@@ -93,11 +93,12 @@ unavailable, the raw text is shown instead — it degrades gracefully, never cra
 - **Backend (Python):** `py -m pip install -r requirements-dev.txt` then `pytest -q`.
   Tests use a temporary database (via the `STUDYBOOST_DB` env var) and never touch your
   real `studyboost.db`.
-- **Frontend (JS):** `node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tests/mastery-model.test.js tests/question-bank.test.js`
+- **Frontend (JS):** `node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tests/mastery-model.test.js tests/question-bank.test.js tests/home-summary.test.js`
   — unit tests for the SM-2 scheduler, the R1 practice-selection planner (due-review
   selection + explanation passthrough), the topic-mastery model (normalization, EMA
-  update math, volume-gated levels, summary ordering), and a structural validator for the
+  update math, volume-gated levels, summary ordering), a structural validator for the
   offline question bank (option/answer contract, KaTeX `$` balance, banned patterns),
+  and the Home logic (level progress, streaks, missions, next step, review orbit),
   using Node's built-in test runner (no dependencies; Node 18+).
 - Both suites run in CI on every push (see the badge above).
 
@@ -130,10 +131,13 @@ This is a **local, single-user** tool; the security model is scoped to that, and
   deployment would move it to a shared store (e.g. Redis) and add a hard usage cap.
 
 ## Project structure
-- `index.html`: page markup
-- `css/styles.css`: styling
+- `index.html`: page markup (six views in one document)
+- `css/styles.css`: design system and styling (see `docs/DESIGN-SYSTEM.md`)
 - `js/app.js`: application logic
+- `js/shell.js`: views, page transitions, navigation marker, dialog
+- `js/home-summary.js`: Home logic (pure and tested)
 - `js/question-bank.js`: offline question bank (all 14 AP subjects, 3 tiers)
+- `assets/fonts/`: self-hosted fonts with their licenses
 - `server.py`: API proxy + SQLite persistence
 - `studyboost.db`: local progress database (auto-created, git-ignored)
 - `tests/`: pytest suite (run with `pytest -q`; also runs in CI)

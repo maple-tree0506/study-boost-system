@@ -13,7 +13,15 @@ browser, `module.exports` for Node tests).
 | `js/spaced-repetition.js` | SM-2 scheduling for the Mistake Log (intervals, ease, due dates). |
 | `js/mastery-model.js` | Per subject+topic mastery via EMA (α=0.4), volume-gated levels (new/developing/proficient/mastered). |
 | `js/practice-selection.js` | Practice planner: injects due mistakes into a generated set (cap 3, provenance tags `review`/`generated`). |
-| `js/app.js` | UI glue (~1600 lines): rendering, generate, grading, mistake log, stats, export/import. Renders via `escapeHtml` then `innerHTML`, then `typesetMath` (KaTeX). |
+| `js/home-summary.js` | Home logic: level progress, live streak, daily missions, next-step choice, review-orbit geometry. Pure, tested. |
+| `js/shell.js` | Views and motion: hash routing, page wipe, nav marker, tooltips, themed confirm dialog. No learning logic and no data. |
+| `js/app.js` | UI glue: rendering, generate, grading, mistake log, stats, export/import. Renders via `escapeHtml` then `innerHTML`, then `typesetMath` (KaTeX). |
+
+The page is one document with six views (`home`, `notes`, `practice`, `review`,
+`progress`, `setup`), addressed by URL hash. All views stay in the DOM, so `app.js`
+keeps its element references and in-progress state while the student moves around;
+`shell.js` only toggles which view shows and fires `studyboost:view`. Visual rules
+are in [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md).
 
 KaTeX is loaded from CDN for math; question text is HTML-escaped before insertion,
 so code/markup in questions renders literally (the only authoring constraint is
@@ -40,7 +48,8 @@ avoiding a bare `$`, which KaTeX would treat as a math delimiter).
 ## Tests & CI
 
 - `node --test` over `tests/spaced-repetition.test.js`, `practice-selection.test.js`,
-  `mastery-model.test.js`, `question-bank.test.js` (explicit file list, never bare `tests/`).
+  `mastery-model.test.js`, `question-bank.test.js`, `home-summary.test.js` (explicit file
+  list, never bare `tests/`).
 - `pytest` (`conftest.py`) for the server.
 - GitHub Actions runs both on push.
 
