@@ -2056,9 +2056,21 @@ function removeErrorRecord(errorId) {
     refreshMistakeFilterOptions();
 }
 
-function clearErrorRecords() {
+async function clearErrorRecords() {
     if (!errorRecords.length) {
         errorStatus.textContent = "Your Mistake Log is already empty.";
+        return;
+    }
+    // Destructive and unrecoverable: the log and its review schedule live only here.
+    const count = errorRecords.length;
+    const clearMessage = "This permanently deletes all " + count + " saved " +
+        (count === 1 ? "mistake" : "mistakes") + " and their review schedule from this browser. " +
+        "It cannot be undone — use “Download my data” first if you want a backup.";
+    const confirmed = window.Shell
+        ? await window.Shell.confirm({ title: "Clear your Mistake Log?", body: clearMessage, confirmLabel: "Clear log", danger: true })
+        : window.confirm("Clear your Mistake Log? " + clearMessage);
+    if (!confirmed) {
+        errorStatus.textContent = "Clear cancelled. Nothing was deleted.";
         return;
     }
     errorRecords = [];
