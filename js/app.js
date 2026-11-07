@@ -86,6 +86,15 @@ const exportDataBtn = document.getElementById("exportDataBtn");
 const importDataBtn = document.getElementById("importDataBtn");
 const importDataInput = document.getElementById("importDataInput");
 const dataStatus = document.getElementById("dataStatus");
+const masteryCourseInput = document.getElementById("masteryCourseInput");
+
+// Move to another view through the shell. Falls back to a plain hash change if the
+// shell script failed to load, so navigation never dead-ends.
+function goToView(name) {
+    if (window.Shell) return window.Shell.go(name);
+    window.location.hash = name;
+    return Promise.resolve();
+}
 
 function sanitizeText(value) {
     return (value || "").trim().replace(/\s+/g, " ");
@@ -262,6 +271,11 @@ function populateSubjectSelects() {
     if (AP_SUBJECTS.some(function (s) { return s.id === "bio"; })) {
         apSubjectInput.value = "bio";
     }
+    // Topic Mastery lives on another view now, so it gets its own copy of the control.
+    if (masteryCourseInput) {
+        masteryCourseInput.innerHTML = apSubjectInput.innerHTML;
+        masteryCourseInput.value = apSubjectInput.value;
+    }
 }
 
 function getQuizNotesContext() {
@@ -285,11 +299,11 @@ function updateNotesContextUI() {
     const hasAny = fromBox || fromSummary;
     useNotesContextInput.disabled = false;
     if (!hasAny && useNotesContextInput.checked) {
-        notesContextHint.textContent = "Paste notes above, or generate a summary, to base questions on your material.";
+        notesContextHint.textContent = "Paste notes on the Notes page, or generate a summary, to base questions on your material.";
     } else if (fromBox) {
-        notesContextHint.textContent = "Using the notes in the box above. Edit them anytime, then generate again.";
+        notesContextHint.textContent = "Using the text on your Notes page. Edit it anytime, then generate again.";
     } else if (fromSummary) {
-        notesContextHint.textContent = "Using your last summary. Paste new notes above for different questions.";
+        notesContextHint.textContent = "Using your last summary. Paste new notes on the Notes page for different questions.";
     } else {
         notesContextHint.textContent = "Optional: paste notes to tailor questions to your material.";
     }
@@ -492,8 +506,29 @@ function isQuizQualityAcceptable(questions, topic, expected) {
     return mcqCount >= expected.mcq && shortCount >= expected.sa;
 }
 
+// Top-of-page connection chip, so the student always knows which mode they are in.
+function renderAiChip() {
+    const chip = document.getElementById("aiChip");
+    if (!chip) return;
+    let state = "down";
+    let text = "Server not connected";
+    if (!healthReady) {
+        state = "checking";
+        text = "Checking connection";
+    } else if (canUseLiveAI()) {
+        state = "ai";
+        text = "AI connected";
+    } else if (serverHealthy) {
+        state = "offline";
+        text = "Offline question bank";
+    }
+    chip.setAttribute("data-state", state);
+    chip.textContent = text;
+}
+
 async function fetchHealth() {
     healthReady = false;
+    renderAiChip();
     setAIControlsBusy(true);
     healthStatus.textContent = "Checking connection...";
     try {
@@ -514,6 +549,7 @@ async function fetchHealth() {
     } finally {
         healthReady = true;
         setAIControlsBusy(false);
+        renderAiChip();
     }
     if (serverHealthy) {
         await flushAttemptQueue();
@@ -528,7 +564,7 @@ function canUseLiveAI() {
 async function proxyChat(messages, opts) {
     const model = sanitizeText(modelInput.value);
     if (!model) {
-        throw new Error("Set a model in Connection & model (e.g. llama-3.3-70b-versatile).");
+        throw new Error("Set a model on the Setup page (e.g. llama-3.3-70b-versatile).");
     }
     if (!isProviderConfigured()) {
         throw new Error(providerKeyHint());
@@ -786,24 +822,27 @@ function scoreSummary() {
     return { answered: answered, correct: correct };
 }
 
-function renderScoreBanner() {
-    const total = generatedQuestions.length;
+// One cell per question in the set: empty until graded, then right or wrong.
+function scoreBannerInner() {
     const s = scoreSummary();
-    if (!total) return "";
-    return (
-        '<div class="score-banner" id="scoreBanner">' +
-        s.correct + " correct of " + s.answered + " graded · " + total + " in this set." +
-        "</div>"
-    );
+    const total = generatedQuestions.length;
+    const cells = generatedQuestions.map(function (q) {
+        const r = quizResults[q.id];
+        const state = r && r.done ? (r.correct ? " ok" : " bad") : "";
+        return '<i class="set-cell' + state + '"></i>';
+    }).join("");
+    return '<span class="score-text">' + s.correct + " correct of " + s.answered + " graded · " + total + " in this set.</span>" +
+        '<span class="set-cells" aria-hidden="true">' + cells + "</span>";
+}
+
+function renderScoreBanner() {
+    if (!generatedQuestions.length) return "";
+    return '<div class="score-banner" id="scoreBanner">' + scoreBannerInner() + "</div>";
 }
 
 function updateScoreBanner() {
     const el = document.getElementById("scoreBanner");
-    if (el) {
-        const s = scoreSummary();
-        const total = generatedQuestions.length;
-        el.textContent = s.correct + " correct of " + s.answered + " graded · " + total + " in this set.";
-    }
+    if (el) el.innerHTML = scoreBannerInner();
 }
 
 function renderQuestions() {
@@ -817,13 +856,14 @@ function renderQuestions() {
     generatedQuestions.forEach(function (item, index) {
         const isMcq = item.type === "Multiple Choice" && item.options && item.options.length;
         html += '<article class="qa-card" data-qid="' + escapeHtml(item.id) + '">';
-        html += '<div><span class="tag">' + escapeHtml(item.type) + "</span>";
+        html += '<div class="card-head"><strong class="qa-title">Question ' + (index + 1) + "</strong>";
+        html += '<span class="tag">' + escapeHtml(item.type) + "</span>";
         // R1: resurfaced due mistakes are added on top of the requested set — label
         // them so the (intentionally) larger count reads as the feature it is.
         if (item.source === "review") {
             html += '<span class="tag review">Review · from your Mistake Log</span>';
         }
-        html += "<strong>Question " + (index + 1) + "</strong></div>";
+        html += "</div>";
         html += '<p class="qa-q">' + escapeHtml(item.question) + "</p>";
 
         if (isMcq) {
@@ -863,8 +903,8 @@ function renderQuestions() {
         }
         html += "</div>";
 
-        html += '<div class="actions" style="margin-top:10px">';
-        html += '<button type="button" data-action="save-error" data-id="' + escapeHtml(item.id) + '">Add to Mistake Log</button>';
+        html += '<div class="actions card-foot">';
+        html += '<button type="button" class="text-btn" data-action="save-error" data-id="' + escapeHtml(item.id) + '">Add to Mistake Log</button>';
         html += "</div>";
 
         html += "</article>";
@@ -957,11 +997,11 @@ function masteryGrowthHtml() {
     const label = escapeHtml(rawTopic || preSetMastery.subject || "This topic");
     const acc = Math.round((cur.stat.ema || 0) * 100);
     if ((MASTERY_RANK[after] || 0) > (MASTERY_RANK[before] || 0)) {
-        return '<div style="margin:8px 0; font-size:1.05em; color:#2f855a; font-weight:600">' +
-            label + ": " + MASTERY_LABEL[before] + " &rarr; " + MASTERY_LABEL[after] + " &#9650; leveled up</div>";
+        return '<p class="cc-growth is-up">' +
+            label + ": " + MASTERY_LABEL[before] + " &rarr; " + MASTERY_LABEL[after] + " &#9650; leveled up</p>";
     }
-    return '<div style="margin:8px 0; font-size:0.95em; color:#555">' +
-        label + " mastery: " + MASTERY_LABEL[after] + " &middot; " + acc + "% recent accuracy</div>";
+    return '<p class="cc-growth">' +
+        label + " mastery: " + MASTERY_LABEL[after] + " &middot; " + acc + "% recent accuracy</p>";
 }
 
 // B2: render a "Share feedback" anchor when a feedback form URL is configured;
@@ -1083,19 +1123,26 @@ function enterCompletionMode() {
     const card = document.createElement("div");
     card.id = "completionCard";
     card.className = "completion-card";
-    card.setAttribute("style", "border:2px solid #2f855a; border-radius:12px; padding:22px; margin:4px 0 16px; text-align:center;");
+    const progress = window.HomeSummary ? window.HomeSummary.levelProgress(getXp(), XP_PER_LEVEL) : { pct: 0 };
     let html = "";
-    html += '<h3 style="margin:0 0 4px">Set complete</h3>';
-    html += '<p style="font-size:1.8em; font-weight:700; margin:4px 0">' + s.correct + " / " + total + "</p>";
-    html += '<p style="font-size:1.15em; font-weight:600; color:#2f855a; margin:2px 0">+' + setXp + " XP</p>";
-    html += '<p style="margin:2px 0">Level ' + lvl.level + " · " + lvl.toNext + " XP to Level " + (lvl.level + 1) + "</p>";
+    html += '<div class="cc-result">';
+    html += '<h3 class="cc-title">Set complete</h3>';
+    html += '<p class="cc-score">' + s.correct + '<span class="cc-of"> / ' + total + "</span></p>";
+    html += "</div>";
+    html += '<div class="cc-reward">';
+    html += '<p class="cc-xp">+<span id="ccXp">' + setXp + "</span> XP</p>";
+    html += '<p class="cc-level">Level ' + lvl.level + " · " + lvl.toNext + " XP to Level " + (lvl.level + 1) + "</p>";
+    html += '<span class="bar-track"><span class="bar-fill" style="width:' + progress.pct + '%"></span></span>';
+    html += "</div>";
+    html += '<div class="cc-detail">';
     html += masteryGrowthHtml(); // v2 #2: the growth signal, at the motivation peak
-    html += '<p style="margin:6px 0">' + (wrong === 0
+    html += "<p>" + (wrong === 0
         ? "Perfect set — nothing to review."
         : added + (added === 1 ? " question" : " questions") + " added to your review queue.") + "</p>";
-    html += '<div style="margin:8px 0; font-size:0.95em; color:#555">Today: ' + daily.questions + " questions · " + daily.reviews + " reviews · +" + daily.xp + " XP</div>";
-    html += '<p style="margin:2px 0 14px">Streak: Day ' + streak + "</p>";
-    html += '<div class="actions" style="justify-content:center; flex-wrap:wrap; gap:8px">';
+    html += "<p>Today: " + daily.questions + " questions · " + daily.reviews + " reviews · +" + daily.xp + " XP</p>";
+    html += "<p>Streak: Day " + streak + "</p>";
+    html += "</div>";
+    html += '<div class="actions cc-actions">';
     if (wrong > 0) {
         html += '<button type="button" data-action="start-review">Review My Mistakes</button>';
     }
@@ -1125,12 +1172,24 @@ function enterCompletionMode() {
     if (sb) sb.style.display = "none";
     quizOutput.querySelectorAll(".qa-card").forEach(function (c) { c.style.display = "none"; });
     card.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (window.Shell) window.Shell.countUp(document.getElementById("ccXp"), setXp);
+    refreshHud();
 }
 
 function findQuestionCard(qid) {
     if (typeof qid !== "string") return null;
     const esc = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(qid) : qid;
     return quizOutput.querySelector("[data-qid=\"" + esc + "\"]");
+}
+
+// After grading, mark the right option and the wrong pick directly in the list.
+function markMcqOptions(card, item) {
+    card.querySelectorAll(".mcq-options label").forEach(function (label) {
+        const input = label.querySelector("input");
+        if (!input) return;
+        if (isMcqAnswerCorrect(input.value, item.answer)) label.classList.add("is-answer");
+        else if (input.checked) label.classList.add("is-wrong");
+    });
 }
 
 // Reveal the model answer for a question (only called after check/submit).
@@ -1186,11 +1245,7 @@ function handleQuizClick(ev) {
         return;
     }
     if (saveAction === "view-progress") {
-        setGroupCollapsed("insights-group", false); // expand if collapsed for a new user
-        const rb = document.getElementById("refreshStatsBtn");
-        if (rb) rb.click();
-        const ins = document.getElementById("insights-label");
-        if (ins) ins.scrollIntoView({ behavior: "smooth", block: "start" });
+        goToView("progress"); // entering the view refreshes the stats
         return;
     }
     if (saveAction === "start-review") {
@@ -1251,6 +1306,7 @@ function handleQuizClick(ev) {
         fb.hidden = false;
         fb.className = ok ? "feedback ok" : "feedback bad";
         fb.textContent = ok ? "Correct." : "Incorrect. Compare with the suggested answer below.";
+        markMcqOptions(card, item);
         revealAnswer(card, qid);
         updateScoreBanner();
         recordAttempt(item, ok);
@@ -1415,7 +1471,7 @@ function exportUserData() {
 function importUserData(file) {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function () {
+    reader.onload = async function () {
         let parsed;
         try {
             parsed = JSON.parse(reader.result);
@@ -1428,7 +1484,11 @@ function importUserData(file) {
             return;
         }
         // Replace (not merge) — clear, predictable; the main use is restoring lost data.
-        if (!window.confirm("Restore this backup? It replaces the mistake log and topic mastery currently stored in this browser.")) {
+        const restoreMessage = "It replaces the mistake log and topic mastery currently stored in this browser.";
+        const confirmed = window.Shell
+            ? await window.Shell.confirm({ title: "Restore this backup?", body: restoreMessage, confirmLabel: "Restore backup" })
+            : window.confirm("Restore this backup? " + restoreMessage);
+        if (!confirmed) {
             dataStatus.textContent = "Restore cancelled.";
             return;
         }
@@ -1492,6 +1552,7 @@ function recordAttempt(item, correct) {
         saveMastery();
         renderTopicMastery(); // 2C: refresh the read-only panel after each graded outcome
     }
+    refreshHud();
 }
 
 async function postAttempt(payload) {
@@ -1597,7 +1658,8 @@ function renderStats(data, localOnly) {
     }
 
     html += '<div class="stat-cards">';
-    html += '<div class="stat-card"><span class="stat-num">' + pct(overall.accuracy) + '%</span><span class="stat-label">Overall accuracy</span></div>';
+    // No graded questions means no accuracy yet, which is not the same as 0%.
+    html += '<div class="stat-card"><span class="stat-num">' + (overall.answered ? pct(overall.accuracy) + "%" : "–") + '</span><span class="stat-label">Overall accuracy</span></div>';
     html += '<div class="stat-card"><span class="stat-num">' + overall.answered + '</span><span class="stat-label">Questions answered</span></div>';
     html += '<div class="stat-card"><span class="stat-num">' + overall.correct + '</span><span class="stat-label">Correct</span></div>';
     html += "</div>";
@@ -1621,13 +1683,18 @@ function renderStats(data, localOnly) {
     const daily = data.daily || [];
     const maxVol = daily.reduce(function (m, d) { return Math.max(m, d.answered); }, 0);
     html += "<h3>Last 14 days</h3>";
-    html += '<p class="hint">Bar height = questions answered · color = accuracy (red &lt;50%, amber 50–79%, green ≥80%).</p>';
+    html += '<p class="hint">Bar height shows questions answered. Color shows accuracy that day.</p>';
+    html += '<ul class="trend-legend">' +
+        '<li><i class="acc-high"></i>80% or higher</li>' +
+        '<li><i class="acc-mid"></i>50 to 79%</li>' +
+        '<li><i class="acc-low"></i>Under 50%</li>' +
+        "</ul>";
     html += '<div class="trend">';
     daily.forEach(function (d) {
         const heightPct = maxVol ? Math.max(6, Math.round((d.answered / maxVol) * 100)) : 0;
         const title = d.date + ": " + d.answered + " answered" + (d.answered ? ", " + pct(d.accuracy) + "% correct" : "");
         const label = d.date.slice(5);
-        html += '<div class="trend-col" title="' + escapeHtml(title) + '">';
+        html += '<div class="trend-col" data-tip="' + escapeHtml(title) + '">';
         html += '<span class="trend-bar-wrap">';
         if (d.answered) {
             html += '<span class="trend-bar ' + accuracyClass(d.accuracy, d.answered) + '" style="height:' + heightPct + '%"></span>';
@@ -1668,22 +1735,22 @@ function masteryRadarSvg(topics) {
     };
     let grid = "";
     [0.25, 0.5, 0.75, 1].forEach(function (frac) {
-        grid += '<polygon points="' + polyPoints(function () { return R * frac; }) + '" fill="none" stroke="#e5e7eb" stroke-width="1"/>';
+        grid += '<polygon class="radar-grid" points="' + polyPoints(function () { return R * frac; }) + '"/>';
     });
     let spokes = "", labels = "";
     for (let i = 0; i < n; i++) {
         const edge = ptAt(i, R);
-        spokes += '<line x1="' + cx + '" y1="' + cy + '" x2="' + edge[0].toFixed(1) + '" y2="' + edge[1].toFixed(1) + '" stroke="#e5e7eb" stroke-width="1"/>';
+        spokes += '<line class="radar-grid" x1="' + cx + '" y1="' + cy + '" x2="' + edge[0].toFixed(1) + '" y2="' + edge[1].toFixed(1) + '"/>';
         const ang = -Math.PI / 2 + (i / n) * TAU, dx = Math.cos(ang);
         const anchor = dx > 0.3 ? "start" : (dx < -0.3 ? "end" : "middle");
         const lp = ptAt(i, R + 12);
         const raw = topicDisplay(axes[i]);
-        const short = raw.length > 10 ? raw.slice(0, 9) + "..." : raw;
-        labels += '<text x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="' + anchor + '" dominant-baseline="middle" font-size="9" fill="#6b7280">' + escapeHtml(short) + "</text>";
+        const short = raw.length > 14 ? raw.slice(0, 13) + "..." : raw;
+        labels += '<text class="radar-label" x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="' + anchor + '" dominant-baseline="middle">' + escapeHtml(short) + "</text>";
     }
-    const dataPoly = '<polygon points="' + polyPoints(function (i) {
+    const dataPoly = '<polygon class="radar-shape" points="' + polyPoints(function (i) {
         return R * Math.max(0, Math.min(1, axes[i].ema || 0));
-    }) + '" fill="rgba(37,99,235,0.18)" stroke="#2563eb" stroke-width="2" stroke-linejoin="round"/>';
+    }) + '"/>';
     const summary = axes.map(function (t) { return topicDisplay(t) + " " + Math.round((t.ema || 0) * 100) + "%"; }).join(", ");
     return '<div class="mastery-radar"><svg viewBox="0 0 300 210" width="100%" role="img" aria-label="Topic mastery radar: ' +
         escapeHtml(summary) + '">' + grid + spokes + dataPoly + labels + "</svg></div>";
@@ -1695,7 +1762,7 @@ function masteryRadarSvg(topics) {
 // empty message if the module is missing or the map is unusable (error state).
 function renderTopicMastery() {
     if (!topicMasteryOutput) return;
-    const emptyMsg = '<p class="empty">No topic mastery yet — grade practice questions for this course to build it.</p>';
+    const emptyMsg = '<p class="empty">No topic mastery yet. Grade practice questions for this course to build it.</p>';
 
     if (!window.MasteryModel || !masteryMap || typeof masteryMap !== "object") {
         topicMasteryOutput.innerHTML = emptyMsg;
@@ -1713,7 +1780,6 @@ function renderTopicMastery() {
 
     // Topic Mastery levels are deliberately distinct from SM-2's new/learning/mastered.
     const LEVEL_LABEL = { "new": "New", developing: "Developing", proficient: "Proficient", mastered: "Mastered" };
-    const LEVEL_BAR_COLOR = { new: "#ef4444", developing: "#f97316", proficient: "#3b82f6", mastered: "#22c55e" };
     const masteredCount = topics.filter(function (t) {
         return window.MasteryModel.masteryLevel(t) === "mastered";
     }).length;
@@ -1738,17 +1804,20 @@ function renderTopicMastery() {
     topics.forEach(function (t) {
         const level = window.MasteryModel.masteryLevel(t);
         const pct = Math.round(t.ema * 100);
-        const barColor = LEVEL_BAR_COLOR[level] || "#9ca3af";
+        const rank = MASTERY_RANK[level] || 0;
         html += '<div class="mastery-row">';
         html += '<span class="mastery-topic">' + escapeHtml(topicDisplay(t)) + "</span>";
-        html += '<div style="flex:1 1 160px;min-width:0;display:flex;align-items:center;gap:8px">';
-        html += '<div style="flex:1;height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100" aria-label="' + escapeHtml(topicDisplay(t)) + ' mastery">';
-        html += '<div style="width:' + pct + "%;height:100%;background:" + barColor + ';border-radius:999px;transition:width .2s ease"></div>';
-        html += "</div>";
-        html += '<span style="font-size:13px;font-weight:600;flex-shrink:0">' + pct + "%</span>";
-        html += "</div>";
         html += '<span class="tag mastery-' + level + '">' + (LEVEL_LABEL[level] || level) + "</span>";
-        html += '<span class="mastery-meta" style="font-size:11px;flex-basis:100%">' + t.attempts + " graded</span>";
+        html += '<span class="rank-pips" aria-hidden="true">' + [1, 2, 3].map(function (n) {
+            return "<i" + (n <= rank ? ' class="on"' : "") + "></i>";
+        }).join("") + "</span>";
+        html += '<div class="mastery-meter">';
+        html += '<span class="bar-track" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100" aria-label="' + escapeHtml(topicDisplay(t)) + ' mastery">';
+        html += '<span class="bar-fill level-' + level + '" style="width:' + pct + '%"></span>';
+        html += "</span>";
+        html += '<span class="mastery-pct">' + pct + "%</span>";
+        html += "</div>";
+        html += '<span class="mastery-meta">' + t.attempts + " graded</span>";
         html += "</div>";
     });
     html += "</div>";
@@ -2002,6 +2071,7 @@ function clearErrorRecords() {
 
 function renderErrorRecords() {
     const RS = window.ReviewSystem;
+    refreshHud(); // every change to the log passes through here
 
     // Progress analytics over ALL records (independent of the current filter).
     let analytics = "";
@@ -2050,14 +2120,22 @@ function renderErrorRecords() {
         const days = RS ? RS.daysUntilDue(sr) : 0;
         const dueText = due ? "Due now" : (days === 1 ? "Next review in 1 day" : "Next review in " + days + " days");
         const id = escapeHtml(item.id);
+        // Show what each rating would schedule, so the choice has a visible result.
+        const ratingButton = function (quality, label) {
+            const next = RS ? RS.review(sr, quality).intervalDays : 0;
+            const when = next === 1 ? "1 day" : next + " days";
+            return '<button type="button" class="outline rate" data-action="review" data-q="' + quality + '" data-id="' + id + '"' +
+                (RS ? ' data-next="' + when + '" aria-label="' + label + ', next review in ' + when + '"' : "") + ">" + label + "</button>";
+        };
         return (
-            '<article class="error-card">' +
-            '<div><span class="tag subject">' + escapeHtml(item.subject || "Uncategorized") + "</span>" +
+            '<article class="error-card' + (due ? " is-due" : "") + '">' +
+            '<div class="card-head"><strong class="qa-title">Item ' + (index + 1) + "</strong>" +
+            '<span class="tag subject">' + escapeHtml(item.subject || "Uncategorized") + "</span>" +
             '<span class="tag">' + escapeHtml(item.type) + "</span>" +
             '<span class="tag status-' + status + '">' + (STATUS_LABEL[status] || status) + "</span>" +
             (due ? '<span class="tag due">Due</span>' : "") +
-            "<strong>Item " + (index + 1) + "</strong></div>" +
-            "<p>" + escapeHtml(item.question) + "</p>" +
+            "</div>" +
+            '<p class="qa-q">' + escapeHtml(item.question) + "</p>" +
             (item.userAnswer
                 ? '<p class="your-answer"><strong>Your answer:</strong> ' + escapeHtml(item.userAnswer) + "</p>"
                 : "") +
@@ -2068,10 +2146,10 @@ function renderErrorRecords() {
             '<p class="due-info">' + escapeHtml(dueText) + (sr && sr.reviews ? " · reviewed " + sr.reviews + "x" : "") + "</p>" +
             '<div class="actions review-actions">' +
             '<span class="selfgrade-q">How well did you recall it?</span>' +
-            '<button type="button" class="outline" data-action="review" data-q="2" data-id="' + id + '">Forgot</button>' +
-            '<button type="button" class="outline" data-action="review" data-q="3" data-id="' + id + '">Hard</button>' +
-            '<button type="button" class="outline" data-action="review" data-q="5" data-id="' + id + '">Got it</button>' +
-            '<button type="button" class="danger" data-action="remove-error" data-id="' + id + '">Delete</button>' +
+            ratingButton(2, "Forgot") +
+            ratingButton(3, "Hard") +
+            ratingButton(5, "Got it") +
+            '<button type="button" class="danger small" data-action="remove-error" data-id="' + id + '">Delete</button>' +
             "</div>" +
             "</article>"
         );
@@ -2081,11 +2159,25 @@ function renderErrorRecords() {
     typesetMath(errorOutput);
 }
 
+// One renderer for the AI and offline summaries, ending in the next step of the loop.
+function renderSummary(summaryText, listHtml) {
+    summaryOutput.innerHTML =
+        "<h3>Simplified Summary</h3><p>" + escapeHtml(summaryText) + "</p>" +
+        "<h3>Key Points</h3><ul>" + listHtml + "</ul>" +
+        '<div class="actions"><button type="button" data-action="practice-notes">Practice these notes</button></div>';
+    typesetMath(summaryOutput);
+}
+
+summaryOutput.addEventListener("click", function (ev) {
+    const btn = ev.target instanceof Element ? ev.target.closest('[data-action="practice-notes"]') : null;
+    if (btn) goToPracticeSetup();
+});
+
 summaryBtn.addEventListener("click", async function () {
     const raw = sanitizeText(noteInput.value);
     if (!raw) {
-        summaryStatus.textContent = "Paste your notes above first.";
-        summaryOutput.innerHTML = "<p class='empty'>Paste your notes above and generate a summary to get started.</p>";
+        summaryStatus.textContent = "Paste your notes first.";
+        summaryOutput.innerHTML = "<p class='empty'>Paste your notes and generate a summary to get started.</p>";
         return;
     }
     if (!healthReady) {
@@ -2097,10 +2189,7 @@ summaryBtn.addEventListener("click", async function () {
 
     if (!canUseLiveAI()) {
         const demo = summarizeNotesDemo(raw);
-        summaryOutput.innerHTML =
-            "<h3>Simplified Summary</h3><p>" + escapeHtml(demo ? demo.simplifiedSummary : raw) + "</p>" +
-            "<h3>Key Points</h3><ul>" + (demo ? demo.keyPointsHtml : "") + "</ul>";
-        typesetMath(summaryOutput);
+        renderSummary(demo ? demo.simplifiedSummary : raw, demo ? demo.keyPointsHtml : "");
         lastNotesContext = raw;
         summaryStatus.textContent = serverHealthy
             ? "Offline summary — add an API key in Setup & connection to enable AI summaries."
@@ -2116,10 +2205,7 @@ summaryBtn.addEventListener("click", async function () {
         const listHtml = (json.keyPoints || []).map(function (pt) {
             return "<li>" + escapeHtml(pt) + "</li>";
         }).join("");
-        summaryOutput.innerHTML =
-            "<h3>Simplified Summary</h3><p>" + escapeHtml(json.simplifiedSummary) + "</p>" +
-            "<h3>Key Points</h3><ul>" + listHtml + "</ul>";
-        typesetMath(summaryOutput);
+        renderSummary(json.simplifiedSummary, listHtml);
         lastNotesContext = json.simplifiedSummary + "\n" + (json.keyPoints || []).join("\n");
         summaryStatus.textContent = "Summary ready — your practice questions can now use these notes.";
         updateNotesContextUI();
@@ -2127,10 +2213,7 @@ summaryBtn.addEventListener("click", async function () {
         console.error("AI summary failed:", err); // debug detail stays out of the UI
         summaryStatus.textContent = "AI summary unavailable right now — showing an offline summary instead.";
         const demo = summarizeNotesDemo(raw);
-        summaryOutput.innerHTML =
-            "<h3>Simplified Summary</h3><p>" + escapeHtml(demo ? demo.simplifiedSummary : raw) + "</p>" +
-            "<h3>Key Points</h3><ul>" + (demo ? demo.keyPointsHtml : "") + "</ul>";
-        typesetMath(summaryOutput);
+        renderSummary(demo ? demo.simplifiedSummary : raw, demo ? demo.keyPointsHtml : "");
         lastNotesContext = raw;
         updateNotesContextUI();
     } finally {
@@ -2167,7 +2250,14 @@ errorOutput.addEventListener("click", function (event) {
     const id = target.getAttribute("data-id");
     if (!id) return;
     if (action === "review") {
+        // Count a rating toward today's reviews once. It earns no XP, so the XP totals
+        // are unchanged; resurfaced practice items are counted in recordAttempt instead.
+        const firstRating = !sessionReviewedErrIds.has(id);
         reviewMistake(id, parseInt(target.getAttribute("data-q"), 10));
+        if (firstRating) {
+            bumpDaily({ reviews: 1 });
+            refreshHud();
+        }
     } else if (action === "remove-error") {
         removeErrorRecord(id);
     }
@@ -2196,6 +2286,7 @@ if (window.location.protocol === "file:") {
         "Opened as a local file — styles may work, but AI needs the server. Run: py server.py, then open http://127.0.0.1:8765/";
     healthReady = true;
     serverHealthy = false;
+    renderAiChip();
 }
 
 noteInput.addEventListener("input", updateNotesContextUI);
@@ -2210,24 +2301,24 @@ updateNotesContextUI();
 renderErrorRecords();
 refreshMistakeFilterOptions();
 renderTopicMastery();
-// 2C: re-scope the Topic Mastery panel when the course selection changes.
-apSubjectInput.addEventListener("change", renderTopicMastery);
+// 2C: re-scope the Topic Mastery panel when the course selection changes. The
+// Progress page has its own course control, kept in step with the Practice one.
+apSubjectInput.addEventListener("change", function () {
+    if (masteryCourseInput) masteryCourseInput.value = apSubjectInput.value;
+    renderTopicMastery();
+});
+if (masteryCourseInput) {
+    masteryCourseInput.addEventListener("change", function () {
+        apSubjectInput.value = masteryCourseInput.value;
+        renderTopicMastery();
+    });
+}
 if (window.location.protocol === "file:") {
     loadStats();
 }
 
-// v2 Phase 1: Home front door — single Start CTA into Generate; Review/Insights
-// collapse to a "home base" for first-time visitors (collapse, not hide).
-function setGroupCollapsed(groupId, collapsed) {
-    const g = document.getElementById(groupId);
-    if (!g) return;
-    g.classList.toggle("collapsed", collapsed);
-    const btn = g.querySelector(".group-toggle");
-    if (btn) {
-        btn.textContent = collapsed ? "Show" : "Hide";
-        btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
-    }
-}
+// v2 Phase 1: Home front door. Start CTAs lead into Practice; the rest of the app is
+// one tap away in the navigation.
 function isReturningUser() {
     try {
         const m = localStorage.getItem(STORAGE_MASTERY);
@@ -2237,11 +2328,200 @@ function isReturningUser() {
     } catch (e) { /* ignore */ }
     return false;
 }
-(function initHomeFrontDoor() {
-    const collapsed = !isReturningUser();
-    setGroupCollapsed("review-group", collapsed);
-    setGroupCollapsed("insights-group", collapsed);
-}());
+
+// --- Home dashboard: real numbers only ---------------------------------------
+function goToPracticeSetup() {
+    goToView("practice").then(function () {
+        try { apSubjectInput.focus(); } catch (e) { /* ignore */ }
+    });
+}
+
+function reviewCounts() {
+    if (window.ReviewSystem) return window.ReviewSystem.summarize(errorRecords);
+    return { total: errorRecords.length, due: 0, learning: 0, mastered: 0, masteryPct: 0 };
+}
+
+function readStreak() {
+    let stored = {};
+    try { stored = JSON.parse(localStorage.getItem(STREAK_KEY)) || {}; } catch (e) { stored = {}; }
+    // Same UTC day boundaries as bumpStreak, so the two can never disagree.
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    return window.HomeSummary.activeStreak(stored, today, yesterday);
+}
+
+function dayCount(n) {
+    return n + (n === 1 ? " day" : " days");
+}
+
+function barHtml(pct, extraClass) {
+    return '<span class="bar-track"><span class="bar-fill' + (extraClass ? " " + extraClass : "") +
+        '" style="width:' + pct + '%"></span></span>';
+}
+
+function renderNextStep(counts) {
+    const el = document.getElementById("nextStep");
+    if (!el) return;
+    const weak = window.MasteryModel ? window.MasteryModel.summarizeMastery(masteryMap).weakest : [];
+    const step = window.HomeSummary.nextStep({
+        due: counts.due,
+        weakest: weak[0],
+        hasActivity: isReturningUser()
+    });
+    el.setAttribute("data-kind", step.kind);
+    el.innerHTML =
+        "<h2>" + escapeHtml(step.title) + "</h2>" +
+        "<p>" + escapeHtml(step.body) + "</p>" +
+        '<div class="actions"><button type="button" id="nextStepBtn">' + escapeHtml(step.cta) + "</button></div>";
+    document.getElementById("nextStepBtn").addEventListener("click", function () {
+        if (step.kind === "review") {
+            showOnlyDue = true;
+            renderErrorRecords();
+            errorStatus.textContent = "Showing items due for review.";
+            goToView("review");
+            return;
+        }
+        if (step.kind === "focus") {
+            const course = AP_SUBJECTS.find(function (s) { return s.label === step.subject; });
+            if (course) {
+                apSubjectInput.value = course.id;
+                apSubjectInput.dispatchEvent(new Event("change"));
+            }
+            topicInput.value = step.topic || "";
+        }
+        goToPracticeSetup();
+    });
+}
+
+function renderMissions(counts) {
+    const el = document.getElementById("missionList");
+    if (!el) return;
+    el.innerHTML = window.HomeSummary.missions({ daily: getDaily(), due: counts.due }).map(function (m) {
+        const count = m.state === "idle" ? m.note : m.value + " of " + m.target;
+        return '<li class="mission" data-state="' + m.state + '">' +
+            '<span class="mission-label">' + escapeHtml(m.label) + "</span>" +
+            '<span class="mission-count">' + escapeHtml(count) + "</span>" +
+            barHtml(m.pct) +
+            "</li>";
+    }).join("");
+}
+
+// Review orbit: each saved mistake is a dot, and its distance from the center is the
+// real number of days until SM-2 brings it back. Rings sit at the first SM-2 intervals.
+function renderOrbit(counts) {
+    const chart = document.getElementById("orbitChart");
+    const caption = document.getElementById("orbitCaption");
+    const HS = window.HomeSummary;
+    const RS = window.ReviewSystem;
+    if (!chart || !RS) return;
+
+    const C = 210;
+    const points = HS.orbitPoints(errorRecords.slice(0, 80), RS.daysUntilDue, RS.isDue);
+    const dots = points.map(function (p, i) {
+        const x = (C + p.r * Math.cos(p.angle)).toFixed(1);
+        const y = (C + p.r * Math.sin(p.angle)).toFixed(1);
+        const when = p.due ? "due now" : "back in " + dayCount(p.days);
+        return '<g class="orbit-dot' + (p.due ? " is-due" : "") + '" style="--i:' + Math.min(i, 24) + '" data-tip="' +
+            escapeHtml((p.subject || "Saved question") + ": " + when) + '">' +
+            '<circle class="orbit-hit" cx="' + x + '" cy="' + y + '" r="13"/>' +
+            '<circle class="orbit-mark" cx="' + x + '" cy="' + y + '" r="' + (p.due ? 5.5 : 6.5) + '"/>' +
+            "</g>";
+    }).join("");
+    const rings = HS.ORBIT_RINGS.map(function (days) {
+        const r = HS.orbitRadius(days).toFixed(1);
+        const a = -Math.PI / 4;
+        const lx = (C + HS.orbitRadius(days) * Math.cos(a)).toFixed(1);
+        const ly = (C + HS.orbitRadius(days) * Math.sin(a)).toFixed(1);
+        return '<circle class="orbit-ring" cx="' + C + '" cy="' + C + '" r="' + r + '"/>' +
+            '<text class="orbit-tick" x="' + lx + '" y="' + ly + '" text-anchor="middle" dominant-baseline="central">' + days + "d</text>";
+    }).join("");
+    const summary = counts.total
+        ? counts.total + " saved questions, " + counts.due + " due now"
+        : "No saved questions yet";
+    chart.innerHTML = '<svg viewBox="0 0 420 420" role="img" aria-label="Review schedule: ' + escapeHtml(summary) + '">' +
+        '<circle class="orbit-core" cx="' + C + '" cy="' + C + '" r="' + HS.ORBIT_CORE + '"/>' +
+        rings + dots + "</svg>";
+
+    if (!caption) return;
+    if (!counts.total) {
+        caption.textContent = "Your review schedule. Questions you miss land here, then move out as you remember them.";
+        return;
+    }
+    const lead = counts.due ? counts.due + " due now. " : "Nothing due now. ";
+    caption.textContent = lead + "Each dot is a saved question. Farther from the center means more days until it comes back.";
+}
+
+function renderHud() {
+    const HS = window.HomeSummary;
+    const progress = HS.levelProgress(getXp(), XP_PER_LEVEL);
+    const streak = readStreak();
+    const hud = document.getElementById("railHud");
+    if (hud) {
+        hud.innerHTML =
+            '<p class="hud-level">Level <b>' + progress.level + "</b></p>" +
+            barHtml(progress.pct) +
+            '<p class="hud-meta">' + progress.toNext + " XP to Level " + (progress.level + 1) + "</p>" +
+            '<p class="hud-meta">' + (streak.count ? "Streak: " + dayCount(streak.count) : "No active streak") + "</p>";
+    }
+    const counts = reviewCounts();
+    const badge = document.getElementById("navDueBadge");
+    if (badge) {
+        badge.hidden = !counts.due;
+        badge.textContent = counts.due;
+        badge.setAttribute("aria-label", counts.due + " due");
+    }
+    const daily = getDaily();
+    const stat = function (value, label) {
+        return '<div class="status-cell"><dt>' + label + "</dt><dd>" + value + "</dd></div>";
+    };
+    const levelBlock =
+        '<div class="status-level"><span class="status-lv">Level</span>' +
+        '<span class="status-num">' + progress.level + "</span>" +
+        '<div class="status-xp">' + barHtml(progress.pct) +
+        '<p class="hud-meta">' + getXp() + " XP total, " + progress.toNext + " to Level " + (progress.level + 1) + "</p></div></div>";
+    const strip = document.getElementById("statusStrip");
+    if (strip) {
+        strip.innerHTML = levelBlock + '<dl class="status-cells">' +
+            stat(streak.count ? dayCount(streak.count) : "None", "Streak") +
+            stat(daily.questions, "Questions today") +
+            stat(daily.reviews, "Reviews today") +
+            stat(counts.mastered + " of " + counts.total, "Mistakes mastered") +
+            "</dl>";
+    }
+    const sheet = document.getElementById("statusSheet");
+    if (sheet) {
+        sheet.innerHTML = levelBlock + '<dl class="status-cells">' +
+            stat(streak.count ? dayCount(streak.count) : "None", "Streak") +
+            "</dl>";
+    }
+}
+
+function renderHome() {
+    if (!window.HomeSummary) return;
+    // The welcome card is for people with no activity yet. It has done its job once
+    // they have answered something, even if they never dismissed it.
+    const welcome = document.getElementById("welcomeCard");
+    if (welcome && !welcome.hidden && isReturningUser()) welcome.hidden = true;
+    const counts = reviewCounts();
+    renderNextStep(counts);
+    renderMissions(counts);
+    renderOrbit(counts);
+}
+
+// Keep the level, streak, and due count current everywhere after any change.
+function refreshHud() {
+    if (!window.HomeSummary) return;
+    renderHud();
+    if (window.Shell && window.Shell.current() === "home") renderHome();
+}
+
+document.addEventListener("studyboost:view", function (ev) {
+    const view = ev.detail && ev.detail.view;
+    if (view === "home") renderHome();
+    if (view === "progress") loadStats();
+});
+renderHome();
+refreshHud();
 
 // v2 #4: first-run welcome card — walk a brand-new user through the 4-step spine
 // once. Shown only to users with no prior activity who haven't dismissed it; reuses
@@ -2263,28 +2543,15 @@ const ONBOARD_KEY = "studyBoostOnboardedV1";
     const start = document.getElementById("welcomeStart");
     if (start) start.addEventListener("click", function () {
         dismiss();
-        const panel = document.getElementById("quiz-title");
-        if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
-        const subj = document.getElementById("apSubjectInput");
-        if (subj) setTimeout(function () { try { subj.focus(); } catch (e) { /* ignore */ } }, 350);
+        goToPracticeSetup();
     });
 }());
-document.addEventListener("click", function (ev) {
-    const t = ev.target;
-    if (!(t instanceof HTMLElement)) return;
-    const gid = t.getAttribute("data-toggle-group");
-    if (!gid) return;
-    const g = document.getElementById(gid);
-    setGroupCollapsed(gid, !(g && g.classList.contains("collapsed")));
-});
 (function wireStartCta() {
     const cta = document.getElementById("startStudyingCta");
     if (!cta) return;
     cta.addEventListener("click", function (ev) {
-        const panel = document.getElementById("quiz-title");
-        if (panel) { ev.preventDefault(); panel.scrollIntoView({ behavior: "smooth", block: "start" }); }
-        const subj = document.getElementById("apSubjectInput");
-        if (subj) setTimeout(function () { try { subj.focus(); } catch (e) { /* ignore */ } }, 350);
+        ev.preventDefault();
+        goToPracticeSetup();
     });
 }());
 // B2: populate the persistent footer feedback link if a form URL is configured.
