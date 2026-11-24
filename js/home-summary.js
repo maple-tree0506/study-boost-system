@@ -10,7 +10,7 @@
  *   activeStreak(stored, today, yesterday)      -> { count, doneToday }
  *   dayPart(hour)                               -> "Morning" | ... | "Late night"
  *   missions({ daily, due })                    -> [{ id, label, value, target, pct, state, note }]
- *   nextStep({ due, weakest, hasActivity })     -> { kind, title, body, cta, view }
+ *   nextStep({ due, weakest, hasActivity, weakMistake }) -> { kind, title, body, cta, view }
  *   orbitRadius(days)                           -> radius in chart units
  *   orbitAngle(id)                              -> stable angle in radians
  *   orbitPoints(records, daysUntilDue, isDue)   -> [{ id, days, due, r, angle, ... }]
@@ -109,11 +109,14 @@
     }
 
     // What the student should do next, in priority order: due reviews beat weak
-    // topics, and weak topics beat a generic new set.
+    // topics, and weak topics beat a generic new set. A weak topic that has a saved
+    // mistake gets similar-question practice built from that mistake, which targets
+    // the specific misunderstanding better than a fresh, generic set.
     function nextStep(input) {
         var due = (input && input.due) || 0;
         var weakest = input && input.weakest;
         var hasActivity = !!(input && input.hasActivity);
+        var weakMistake = input && input.weakMistake;
 
         if (due > 0) {
             return {
@@ -122,6 +125,21 @@
                 body: "Recall them now, while the spacing still helps you remember.",
                 cta: "Start review",
                 view: "review"
+            };
+        }
+        if (weakMistake && weakMistake.id && typeof weakMistake.ema === "number" && weakMistake.ema < 0.7) {
+            var mTopic = String(weakMistake.topic || "").trim();
+            var where = mTopic ? mTopic + " in " + (weakMistake.subject || "this course") : (weakMistake.subject || "This course");
+            return {
+                kind: "variant",
+                title: "Try questions like one you missed",
+                body: where + " is at " + Math.round(weakMistake.ema * 100) + "% recent accuracy. " +
+                    "Similar questions built from that mistake show whether the idea now carries over.",
+                cta: "Practice similar questions",
+                view: "mistake",
+                errId: weakMistake.id,
+                subject: weakMistake.subject || "",
+                topic: mTopic
             };
         }
         if (weakest && typeof weakest.ema === "number" && weakest.ema < 0.7) {

@@ -142,3 +142,23 @@ test("orbitPoints puts due cards in the core and scheduled cards on their day", 
     assert.equal(points[1].days, 6);
     assert.equal(points[1].r, Home.orbitRadius(6));
 });
+
+test("nextStep: a weak topic with a saved mistake offers similar-question practice", () => {
+    const step = Home.nextStep({
+        due: 0,
+        weakest: { subject: "AP Calculus AB", topic: "Chain rule", ema: 0.4 },
+        weakMistake: { id: "err-9", subject: "AP Calculus AB", topic: "Chain rule", ema: 0.4 },
+        hasActivity: true
+    });
+    assert.equal(step.kind, "variant");
+    assert.equal(step.view, "mistake");
+    assert.equal(step.errId, "err-9");
+    assert.match(step.body, /Chain rule in AP Calculus AB is at 40%/);
+});
+
+test("nextStep: due reviews still come first, and a strong topic gets no variant step", () => {
+    const weakMistake = { id: "err-9", subject: "S", topic: "T", ema: 0.4 };
+    assert.equal(Home.nextStep({ due: 2, weakMistake: weakMistake }).kind, "review");
+    const strong = Home.nextStep({ due: 0, weakMistake: { id: "e", subject: "S", topic: "T", ema: 0.9 }, hasActivity: true });
+    assert.equal(strong.kind, "start");
+});

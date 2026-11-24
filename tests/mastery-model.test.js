@@ -224,3 +224,38 @@ test("updateMastery preserves unrelated entries by reference", () => {
     assert.strictEqual(next["S::keep"], keepRef); // untouched entry carried over by reference
     assert.ok(next["S::other"]);
 });
+
+// --- per-source counts (similar-question practice) ----------------------------------
+
+test("source-tagged outcomes are counted per source without changing the EMA math", () => {
+    let map = updateMastery({}, { subject: "S", topic: "T", correct: false, source: "generated" });
+    map = updateMastery(map, { subject: "S", topic: "T", correct: true, source: "review" });
+    map = updateMastery(map, { subject: "S", topic: "T", correct: true, source: "variant" });
+    map = updateMastery(map, { subject: "S", topic: "T", correct: false, source: "variant" });
+    const stat = getTopicStat(map, "S", "T");
+    assert.deepStrictEqual(stat.sources, {
+        generated: { attempts: 1, correct: 0 },
+        review: { attempts: 1, correct: 1 },
+        variant: { attempts: 2, correct: 1 }
+    });
+    // same EMA as an untagged sequence
+    const plain = feed({}, "S", "T", [false, true, true, false]);
+    approx(stat.ema, getTopicStat(plain, "S", "T").ema);
+    assert.strictEqual(stat.attempts, 4);
+});
+
+test("untagged outcomes keep the original stat shape; tagging later keeps old counts", () => {
+    const plain = updateMastery({}, { subject: "S", topic: "T", correct: true });
+    assert.strictEqual(getTopicStat(plain, "S", "T").sources, undefined);
+    const tagged = updateMastery(plain, { subject: "S", topic: "T", correct: true, source: "variant" });
+    assert.deepStrictEqual(getTopicStat(tagged, "S", "T").sources, { variant: { attempts: 1, correct: 1 } });
+    const before = updateMastery({}, { subject: "S", topic: "T", correct: true, source: "review", at: "t1" });
+    const snapshot = JSON.stringify(before);
+    updateMastery(before, { subject: "S", topic: "T", correct: false, source: "review", at: "t2" });
+    assert.strictEqual(JSON.stringify(before), snapshot, "sources must not be mutated");
+});
+
+test("variant practice alone still needs the volume gate: one correct is not mastered", () => {
+    const one = updateMastery({}, { subject: "S", topic: "T", correct: true, source: "variant" });
+    assert.strictEqual(masteryLevel(getTopicStat(one, "S", "T")), "developing");
+});

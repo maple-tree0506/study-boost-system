@@ -14,7 +14,7 @@
 <main class="container legal">
     <p class="legal-back"><a href="/">&larr; Back to StudyBoost</a></p>
     <h1>Privacy</h1>
-    <p class="legal-updated">Last updated: 2026-09-01</p>
+    <p class="legal-updated">Last updated: 2026-11-24</p>
 
     <p>StudyBoost has no accounts. You are never asked for a name, an email address,
     or a password, and there is nothing to sign up for.</p>
@@ -23,7 +23,7 @@
     <p>Almost everything. The following is kept in your browser's local storage and is
     never uploaded:</p>
     <ul>
-        <li>Your mistake log and its spaced-repetition schedule</li>
+        <li>Your mistake log, its spaced-repetition schedule, and the similar-question practice and analysis kept with each mistake</li>
         <li>Your topic-mastery estimates</li>
         <li>Your XP, level, streak, and daily totals</li>
         <li>Interface preferences and whether you have seen the welcome card</li>
@@ -41,12 +41,23 @@
         <li>whether the answer was correct</li>
         <li>a timestamp</li>
         <li>a random anonymous ID generated in your browser (for example <code>u-3f9c…</code>)</li>
-        <li>whether the question was newly generated or resurfaced for review</li>
+        <li>whether the question was newly generated, resurfaced for review, or a similar
+        question built from one of your saved mistakes</li>
     </ul>
     <p>The anonymous ID is a random value with no connection to your identity. It exists
-    so your own Progress panel can show your own results. <strong>The text of your notes,
-    your answers, and the questions themselves are never sent to or stored on our
-    server.</strong> This data is used only to understand whether the study loop works.</p>
+    so your own Progress panel can show your own results. This data is used only to
+    understand whether the study loop works.</p>
+    <p><strong>When you ask for similar questions.</strong> Pressing <strong>Practice similar
+    questions</strong> on a saved mistake sends that one question to our server: its text,
+    answer choices, correct answer, explanation, course and topic, and the answer you gave.
+    The server uses it to work out what the question tests and to build and check new
+    questions on the same idea. This text is processed in memory and <strong>is not
+    stored</strong>. For each request the server keeps one row of counts only: how many
+    questions were requested, produced, and machine-checked, how many AI calls and tokens
+    were used, whether it worked, a timestamp, and your anonymous ID. That row enforces a
+    daily limit on AI use and measures how reliable generation is.</p>
+    <p>Apart from that request, <strong>the text of your notes, your answers, and the
+    questions themselves are never stored on our server.</strong></p>
 
     <h2>Third parties</h2>
     <ul>
@@ -55,9 +66,11 @@
         web resource.</li>
         <li><strong>Google Forms</strong> is used only if you choose to open the feedback
         form. Nothing is sent unless you submit it.</li>
-        <li><strong>An AI provider</strong> receives your notes and topic <em>only</em> if an
-        API key has been configured on the server. The public demo runs without a key, so
-        it generates questions from a built-in offline bank and contacts no AI provider.</li>
+        <li><strong>An AI provider</strong> receives your notes and topic, and the saved
+        mistake described above when you ask for similar questions, <em>only</em> if an API
+        key has been configured on the server. The public demo runs without a key, so it
+        generates questions from a built-in offline bank, builds similar questions for
+        supported calculus skills with a built-in generator, and contacts no AI provider.</li>
     </ul>
 
     <h2>Students under 13</h2>

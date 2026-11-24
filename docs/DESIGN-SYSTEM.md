@@ -93,6 +93,12 @@ Only the ambient rings and the busy states run without a person acting.
 
 ## Data honesty
 
+On the mistake page (similar-question practice), labels make the same promise: an
+**Answer checked** tag appears only when a program recomputed the answer key; a
+quantitative question without that check says **Not machine-checked**; a likely error
+shows its confidence and its basis, or says "Not enough information to say". The
+knowledge point is the page's one poster-blue (`--field`) moment.
+
 Every number on screen comes from the student's own activity. Empty states say what
 to do, and no accuracy shows until something has been graded (`–`, not `0%`). Mission
 targets are fixed goals in `js/home-summary.js`. They award no XP and no achievements.

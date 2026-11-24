@@ -46,7 +46,7 @@ let mistakeSubjectFilter = "";
 let lastNotesContext = "";
 let serverHealthy = false;
 let healthReady = false;
-let healthConfig = { openai_configured: false };
+let healthConfig = { openai_configured: false, variants: null };
 
 let quizResults = {};
 
@@ -537,6 +537,7 @@ async function fetchHealth() {
         const data = await res.json();
         serverHealthy = !!data.ok;
         healthConfig.openai_configured = !!data.openai_configured;
+        healthConfig.variants = data.variants || null;
         const o = healthConfig.openai_configured ? "AI features available" : "no API key yet";
         healthStatus.textContent = "Connected — " + o + ".";
         if (!isProviderConfigured()) {
@@ -545,6 +546,7 @@ async function fetchHealth() {
     } catch (e) {
         serverHealthy = false;
         healthConfig.openai_configured = false;
+        healthConfig.variants = null;
         healthStatus.textContent = "Not connected. Start the local server (server.py), then open http://127.0.0.1:8765/.";
     } finally {
         healthReady = true;
@@ -555,6 +557,7 @@ async function fetchHealth() {
         await flushAttemptQueue();
     }
     loadStats();
+    if (window.Shell && window.Shell.current() === "mistake") renderMistakeDetail(window.Shell.param());
 }
 
 function canUseLiveAI() {
@@ -1302,6 +1305,7 @@ function handleQuizClick(ev) {
         }
 
         const ok = isMcqAnswerCorrect(sel.value, item.answer);
+        item.userAnswer = sel.value; // saved with the mistake: the student's own answer
         quizResults[qid] = { done: true, correct: ok };
         fb.hidden = false;
         fb.className = ok ? "feedback ok" : "feedback bad";
@@ -1543,7 +1547,8 @@ function recordAttempt(item, correct) {
         // Beta: anonymous user + R1 provenance (review vs newly generated). The
         // server whitelists source and ignores unknown values.
         userId: getOrCreateUserId(),
-        source: item.source === "review" ? "review" : "generated"
+        // new question, scheduled review of a saved mistake, or a similar question built from one
+        source: item.source === "review" ? "review" : (item.source === "variant" ? "variant" : "generated")
     };
     sendAttempt(payload);
 
@@ -1556,7 +1561,8 @@ function recordAttempt(item, correct) {
             subject: payload.subject,
             topic: item.topic,
             correct: !!correct,
-            at: payload.ts
+            at: payload.ts,
+            source: payload.source
         });
         saveMastery();
         renderTopicMastery(); // 2C: refresh the read-only panel after each graded outcome
@@ -1611,7 +1617,12 @@ function computeLocalStats(queue) {
 
     const subjMap = {};
     const dayMap = {};
+    const sourceMap = {};
     queue.forEach(function (a) {
+        const src = a.source === "generated" || a.source === "review" || a.source === "variant" ? a.source : "other";
+        if (!sourceMap[src]) sourceMap[src] = { answered: 0, correct: 0 };
+        sourceMap[src].answered++;
+        sourceMap[src].correct += a.correct ? 1 : 0;
         const subj = a.subject || "Uncategorized";
         if (!subjMap[subj]) subjMap[subj] = { answered: 0, correct: 0 };
         subjMap[subj].answered++;
@@ -1639,9 +1650,15 @@ function computeLocalStats(queue) {
         daily.push({ date: key, answered: e.answered, correct: e.correct, accuracy: e.answered ? e.correct / e.answered : 0 });
     }
 
+    const bySource = ["generated", "review", "variant", "other"].filter(function (k) { return sourceMap[k]; }).map(function (k) {
+        const v = sourceMap[k];
+        return { source: k, answered: v.answered, correct: v.correct, accuracy: v.answered ? v.correct / v.answered : 0 };
+    });
+
     return {
         overall: { answered: total, correct: correctTotal, accuracy: total ? correctTotal / total : 0 },
         bySubject: bySubject,
+        bySource: bySource,
         daily: daily
     };
 }
@@ -1682,6 +1699,23 @@ function renderStats(data, localOnly) {
         bySubject.forEach(function (s) {
             html += '<div class="subject-row">';
             html += '<span class="subject-name">' + escapeHtml(s.subject) + "</span>";
+            html += '<span class="bar-track"><span class="bar-fill ' + accuracyClass(s.accuracy, s.answered) + '" style="width:' + pct(s.accuracy) + '%"></span></span>';
+            html += '<span class="subject-meta">' + pct(s.accuracy) + "% (" + s.correct + "/" + s.answered + ")</span>";
+            html += "</div>";
+        });
+        html += "</div>";
+    }
+
+    // Practice type: new questions, scheduled reviews of saved mistakes, and similar
+    // questions built from mistakes are recorded separately.
+    const bySource = data.bySource || [];
+    if (bySource.length) {
+        const SOURCE_LABEL = { generated: "New questions", review: "Reviews of saved mistakes", variant: "Similar questions", other: "Earlier (untagged)" };
+        html += "<h3>By practice type</h3>";
+        html += '<div class="subject-bars">';
+        bySource.forEach(function (s) {
+            html += '<div class="subject-row">';
+            html += '<span class="subject-name">' + escapeHtml(SOURCE_LABEL[s.source] || s.source) + "</span>";
             html += '<span class="bar-track"><span class="bar-fill ' + accuracyClass(s.accuracy, s.answered) + '" style="width:' + pct(s.accuracy) + '%"></span></span>';
             html += '<span class="subject-meta">' + pct(s.accuracy) + "% (" + s.correct + "/" + s.answered + ")</span>";
             html += "</div>";
@@ -1826,7 +1860,8 @@ function renderTopicMastery() {
         html += "</span>";
         html += '<span class="mastery-pct">' + pct + "%</span>";
         html += "</div>";
-        html += '<span class="mastery-meta">' + t.attempts + " graded</span>";
+        const similar = t.sources && t.sources.variant ? t.sources.variant.attempts : 0;
+        html += '<span class="mastery-meta">' + t.attempts + " graded" + (similar ? " · " + similar + " similar" : "") + "</span>";
         html += "</div>";
     });
     html += "</div>";
@@ -1884,6 +1919,7 @@ async function generateQuiz() {
             q.reason = "generator:new";
             q.topic = topic || "";
             q.topicKey = topicKey;
+            q.difficulty = difficulty; // similar-question practice starts from the original's level
         });
         // De-bias MCQ option positions (no more "always A") for the whole set.
         return reviewItems.concat(newItems || []).map(function (q) {
@@ -2014,7 +2050,13 @@ function addErrorRecord(questionId) {
         question: found.question,
         answer: found.answer,
         explanation: found.explanation || "",
-        userAnswer: found.userAnswer || "",
+        // A question saved by hand after a CORRECT pick has no wrong answer to analyse.
+        userAnswer: found.userAnswer && !(found.type === "Multiple Choice" && isMcqAnswerCorrect(found.userAnswer, found.answer))
+            ? found.userAnswer : "",
+        // The original choices and level: needed to show the mistake in full and to
+        // build similar questions at the same difficulty.
+        options: Array.isArray(found.options) && found.options.length ? found.options.slice() : undefined,
+        difficulty: found.difficulty || "",
         sr: window.ReviewSystem ? window.ReviewSystem.initReview() : null,
         subject: subj,
         // R2: copy the question's OWN topic (set at finalizeSet), never the live
@@ -2128,7 +2170,8 @@ function renderErrorRecords() {
         const emptyMsg = errorRecords.length
             ? "No items match this filter."
             : "Questions you miss are saved here automatically for spaced review.";
-        errorOutput.innerHTML = analytics + "<p class='empty'>" + emptyMsg + "</p>";
+        errorOutput.innerHTML = analytics + (errorRecords.length ? practiceRecommendationsHtml() : "") +
+            "<p class='empty'>" + emptyMsg + "</p>";
         return;
     }
 
@@ -2155,6 +2198,7 @@ function renderErrorRecords() {
             '<span class="tag">' + escapeHtml(item.type) + "</span>" +
             '<span class="tag status-' + status + '">' + (STATUS_LABEL[status] || status) + "</span>" +
             (due ? '<span class="tag due">Due</span>' : "") +
+            variantTagHtml(item) +
             "</div>" +
             '<p class="qa-q">' + escapeHtml(item.question) + "</p>" +
             (item.userAnswer
@@ -2170,13 +2214,14 @@ function renderErrorRecords() {
             ratingButton(2, "Forgot") +
             ratingButton(3, "Hard") +
             ratingButton(5, "Got it") +
+            '<button type="button" class="similar-btn" data-action="open-mistake" data-id="' + id + '">Practice similar</button>' +
             '<button type="button" class="danger small" data-action="remove-error" data-id="' + id + '">Delete</button>' +
             "</div>" +
             "</article>"
         );
     }).join("");
 
-    errorOutput.innerHTML = analytics + cards;
+    errorOutput.innerHTML = analytics + practiceRecommendationsHtml() + cards;
     typesetMath(errorOutput);
 }
 
@@ -2264,6 +2309,18 @@ mistakeSubjectFilterEl.addEventListener("change", function () {
     renderErrorRecords();
 });
 
+// A Forgot / Hard / Got it rating, from the Mistake Log or a mistake's own page.
+function rateMistake(id, quality) {
+    // Count a rating toward today's reviews once. It earns no XP, so the XP totals
+    // are unchanged; resurfaced practice items are counted in recordAttempt instead.
+    const firstRating = !sessionReviewedErrIds.has(id);
+    reviewMistake(id, quality);
+    if (firstRating) {
+        bumpDaily({ reviews: 1 });
+        refreshHud();
+    }
+}
+
 errorOutput.addEventListener("click", function (event) {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -2271,16 +2328,11 @@ errorOutput.addEventListener("click", function (event) {
     const id = target.getAttribute("data-id");
     if (!id) return;
     if (action === "review") {
-        // Count a rating toward today's reviews once. It earns no XP, so the XP totals
-        // are unchanged; resurfaced practice items are counted in recordAttempt instead.
-        const firstRating = !sessionReviewedErrIds.has(id);
-        reviewMistake(id, parseInt(target.getAttribute("data-q"), 10));
-        if (firstRating) {
-            bumpDaily({ reviews: 1 });
-            refreshHud();
-        }
+        rateMistake(id, parseInt(target.getAttribute("data-q"), 10));
     } else if (action === "remove-error") {
         removeErrorRecord(id);
+    } else if (action === "open-mistake") {
+        goToView("mistake/" + id);
     }
 });
 
@@ -2338,6 +2390,612 @@ if (window.location.protocol === "file:") {
     loadStats();
 }
 
+// --- Similar-question practice: the mistake page ------------------------------------------
+// One saved mistake, what it tests, and new questions on the same idea. The adaptive rules
+// (difficulty staircase, evidence of mastery, SM-2 nudge) live in js/variant-practice.js,
+// which is pure and tested. Generating and checking questions happens on the server
+// (/api/variants). This section renders, grades, and keeps the mistake record current.
+const mistakeOriginalEl = document.getElementById("mistakeOriginal");
+const mistakeAnalysisEl = document.getElementById("mistakeAnalysis");
+const variantDrillEl = document.getElementById("variantDrill");
+const drillEvidenceEl = document.getElementById("drillEvidence");
+const variantStatusEl = document.getElementById("variantStatus");
+const variantAreaEl = document.getElementById("variantArea");
+const variantResultEl = document.getElementById("variantResult");
+
+// The open mistake and the similar question on screen (if any).
+let variantSession = { errId: "", item: null, answered: false, busy: false, retryAt: 0, unavailable: "" };
+
+const LEVEL_NAME = { basic: "Basic", medium: "Medium", challenge: "Challenge" };
+const RELATION_NAME = { easier: "One step easier", same: "Same level", harder: "One step harder" };
+const EVIDENCE_NAME = {
+    not_started: "Not started",
+    building: "Building evidence",
+    struggling: "Needs more work",
+    likely_mastered: "Likely mastered"
+};
+const STEP_REASON = {
+    start: "the same level as the original",
+    holding: "one more right in a row steps it up",
+    stepped_up: "stepped up after two right in a row",
+    stepped_down: "stepped down after a miss",
+    at_ceiling: "the hardest level for this question",
+    at_floor: "the easiest level for this question"
+};
+
+function findErrorRecord(id) {
+    return errorRecords.find(function (r) { return r.id === id; }) || null;
+}
+
+// Replace one mistake record and persist. Storage can be full; say so instead of failing.
+function replaceErrorRecord(updated) {
+    errorRecords = errorRecords.map(function (r) { return r.id === updated.id ? updated : r; });
+    try {
+        saveErrorRecords();
+        return true;
+    } catch (e) {
+        if (variantStatusEl) variantStatusEl.textContent = "Couldn't save to this browser's storage (it may be full). Download a backup in Setup.";
+        return false;
+    }
+}
+
+function variantState(record) {
+    const VP = window.VariantPractice;
+    const original = VP.originalLevel(record);
+    const history = VP.practiceState(record).history;
+    return {
+        original: original,
+        history: history,
+        evidence: VP.evidence({ originalLevel: original, history: history }),
+        target: VP.nextTarget({ originalLevel: original, history: history })
+    };
+}
+
+// Weakest-topic-first list of mistakes worth practising (likely-mastered ones excluded).
+// Similar questions can be made for any course with the AI; without it only the built-in
+// AP Calculus skills work, so other courses are not recommended there.
+function canPracticeSimilar(record) {
+    return canUseLiveAI() || /calculus/i.test((record && record.subject) || "");
+}
+
+function rankedPractice(limit) {
+    if (!window.VariantPractice || !window.MasteryModel) return [];
+    return window.VariantPractice.rankForPractice(errorRecords.filter(canPracticeSimilar), masteryMap, {
+        getTopicStat: window.MasteryModel.getTopicStat,
+        isDue: window.ReviewSystem ? window.ReviewSystem.isDue : null,
+        limit: limit
+    });
+}
+
+function mistakeLabel(record) {
+    const topic = (record.topic || "").trim();
+    return topic ? topic + " · " + (record.subject || "") : (record.subject || "Saved question");
+}
+
+// Mistake Log card tag: how similar-question practice on this mistake is going.
+function variantTagHtml(record) {
+    if (!window.VariantPractice) return "";
+    const history = window.VariantPractice.practiceState(record).history;
+    if (!history.length) return "";
+    const st = variantState(record);
+    if (st.evidence.status === "likely_mastered") return '<span class="tag similar-done">Similar: likely mastered</span>';
+    return '<span class="tag similar">Similar ' + st.evidence.correct + "/" + st.evidence.attempts + "</span>";
+}
+
+// Mistake Log: which mistakes to practise next, weakest topic first.
+function practiceRecommendationsHtml() {
+    const ranked = rankedPractice(3).filter(function (r) {
+        return r.reasons.indexOf("weak_topic") >= 0 || r.reasons.indexOf("struggling") >= 0 || r.reasons.indexOf("in_progress") >= 0;
+    });
+    if (!ranked.length) return "";
+    let html = '<section class="recommend" aria-labelledby="recommend-title">';
+    html += '<h3 id="recommend-title">Practice similar questions next</h3><ul class="recommend-list">';
+    ranked.forEach(function (r) {
+        const why = r.reasons.indexOf("struggling") >= 0 ? "Missed the last similar questions"
+            : r.reasons.indexOf("weak_topic") >= 0 ? "Weak topic: " + Math.round(r.ema * 100) + "% recent accuracy"
+                : "In progress, " + r.evidence.correct + " of " + r.evidence.attempts + " right";
+        html += "<li>";
+        html += '<span class="rec-topic">' + escapeHtml(mistakeLabel(r.record)) + "</span>";
+        html += '<span class="rec-why">' + escapeHtml(why) + "</span>";
+        html += '<button type="button" class="outline small" data-action="open-mistake" data-id="' + escapeHtml(r.record.id) + '">Practice similar</button>';
+        html += "</li>";
+    });
+    html += "</ul></section>";
+    return html;
+}
+
+function optionLetter(option) {
+    const m = /^\s*([A-F])[.)]/.exec(option || "");
+    return m ? m[1] : "";
+}
+
+// --- the original question ---
+function renderMistakeOriginal(record) {
+    const RS = window.ReviewSystem;
+    const sr = record.sr;
+    const due = RS ? RS.isDue(sr) : false;
+    const status = RS ? RS.status(sr) : "new";
+    const days = RS ? RS.daysUntilDue(sr) : 0;
+    const STATUS_LABEL = { "new": "New", learning: "Learning", mastered: "Mastered" };
+    const picked = record.userAnswer || "";
+    const options = Array.isArray(record.options) ? record.options : [];
+
+    let html = '<div class="card-head"><h3 class="sheet-title">The question you missed</h3></div>';
+    html += '<div class="tag-row">';
+    html += '<span class="tag subject">' + escapeHtml(record.subject || "Uncategorized") + "</span>";
+    html += '<span class="tag">' + escapeHtml(record.type || "Question") + "</span>";
+    if ((record.topic || "").trim()) html += '<span class="tag">' + escapeHtml(record.topic) + "</span>";
+    html += '<span class="tag status-' + status + '">' + (STATUS_LABEL[status] || status) + "</span>";
+    if (due) html += '<span class="tag due">Due</span>';
+    html += "</div>";
+    html += '<p class="qa-q">' + escapeHtml(record.question) + "</p>";
+
+    let answer = "";
+    if (options.length) {
+        answer += '<ul class="static-options">';
+        options.forEach(function (opt) {
+            const isAnswer = isMcqAnswerCorrect(opt, record.answer);
+            const isPick = !isAnswer && picked && isMcqAnswerCorrect(opt, picked);
+            answer += '<li class="' + (isAnswer ? "is-answer" : isPick ? "is-wrong" : "") + '">' +
+                '<span class="opt-text">' + escapeHtml(opt) + "</span>" +
+                (isAnswer ? '<span class="opt-mark">Correct answer</span>' : isPick ? '<span class="opt-mark">Your pick</span>' : "") +
+                "</li>";
+        });
+        answer += "</ul>";
+        if (!picked) answer += '<p class="hint">Your pick was not recorded for this question (it was saved before StudyBoost kept picks).</p>';
+    } else {
+        answer += picked
+            ? '<p class="your-answer"><strong>Your answer:</strong> ' + escapeHtml(picked) + "</p>"
+            : '<p class="hint">No written answer was saved for this question.</p>';
+        answer += '<div class="answer-box"><h4>Suggested answer</h4><p>' + escapeHtml(record.answer) + "</p></div>";
+    }
+    if (record.explanation) {
+        answer += '<details class="answer-box"><summary>Why</summary><p>' + escapeHtml(record.explanation) + "</p></details>";
+    }
+
+    if (due) {
+        // Due for spaced review: keep the answer folded so the review still starts from recall.
+        html += '<p class="due-note">This question is due for its spaced review. Recall the answer first, then rate yourself.</p>';
+        html += '<details class="reveal"><summary>Show the answer and explanation</summary>' + answer + "</details>";
+        html += '<div class="actions review-actions"><span class="selfgrade-q">How well did you recall it?</span>' +
+            [[2, "Forgot"], [3, "Hard"], [5, "Got it"]].map(function (q) {
+                const next = RS ? RS.review(sr, q[0]).intervalDays : 0;
+                const when = next === 1 ? "1 day" : next + " days";
+                return '<button type="button" class="outline rate" data-action="review" data-q="' + q[0] + '" data-id="' +
+                    escapeHtml(record.id) + '" data-next="' + when + '" aria-label="' + q[1] + ", next review in " + when + '">' + q[1] + "</button>";
+            }).join("") + "</div>";
+    } else {
+        html += answer;
+        html += '<p class="due-info">Next spaced review ' + (days <= 1 ? "tomorrow" : "in " + days + " days") +
+            (sr && sr.nudgedAt ? " (moved up after a missed similar question)" : "") + ".</p>";
+    }
+    mistakeOriginalEl.innerHTML = html;
+    typesetMath(mistakeOriginalEl);
+}
+
+// --- what it tests ---
+function renderMistakeAnalysis(record) {
+    const a = record.analysis;
+    let html = '<h3 class="sheet-title" id="analysis-title">What it tests</h3>';
+    if (!a || !a.coreConcept) {
+        const fallback = (record.topic || "").trim() || record.subject || "This course";
+        html += '<p class="kp"><span class="kp-label">Knowledge point</span><span class="kp-name">' + escapeHtml(fallback) + "</span></p>";
+        html += '<p class="hint">' + ((record.topic || "").trim() ? "From the topic you entered." : "No topic was entered for this question.") +
+            " The full analysis (the concept, how to solve it, and what likely went wrong) appears when you start similar practice.</p>";
+        mistakeAnalysisEl.innerHTML = html;
+        return;
+    }
+    html += '<p class="kp"><span class="kp-label">Knowledge point</span><span class="kp-name">' + escapeHtml(a.coreConcept) + "</span></p>";
+    html += '<div class="tag-row"><span class="tag level-' + escapeHtml(a.difficulty || "medium") + '">' +
+        escapeHtml(LEVEL_NAME[a.difficulty] || "Medium") + " difficulty</span></div>";
+    if (a.solutionMethod) {
+        html += '<div class="analysis-row"><h4>How to solve it</h4><p>' + escapeHtml(a.solutionMethod) + "</p></div>";
+    }
+    const d = a.diagnosis || {};
+    if (d.status === "diagnosed" && d.likelyError) {
+        const pips = { high: 3, medium: 2, low: 1 }[d.confidence] || 1;
+        let basis;
+        if (d.source === "explanation") basis = "Your pick matches a trap named in the question's explanation.";
+        else if (d.grounded && d.evidence) basis = "Based on your answer: “" + d.evidence + "”";
+        else basis = "A possible cause, not confirmed by your answer.";
+        html += '<div class="analysis-row diag"><h4>Likely error</h4><p>' + escapeHtml(d.likelyError) + "</p>";
+        html += '<p class="diag-meta"><span class="rank-pips" aria-hidden="true">' + [1, 2, 3].map(function (n) {
+            return "<i" + (n <= pips ? ' class="on"' : "") + "></i>";
+        }).join("") + "</span>" + escapeHtml((d.confidence || "low").replace(/^./, function (c) { return c.toUpperCase(); }) +
+            " confidence. " + basis) + "</p></div>";
+    } else {
+        html += '<div class="analysis-row diag is-unknown"><h4>Likely error</h4><p>Not enough information to say.</p>';
+        if (d.reason) html += '<p class="diag-meta">' + escapeHtml(d.reason) + "</p>";
+        html += "</div>";
+    }
+    const SOURCE = {
+        ai: "Analysis by the AI from this question and your answer.",
+        template: "Analysis from the built-in calculus skill map.",
+        offline: "Based on the topic you entered; the AI connection gives a fuller analysis."
+    };
+    html += '<p class="hint">' + escapeHtml(SOURCE[a.source] || SOURCE.offline) + "</p>";
+    mistakeAnalysisEl.innerHTML = html;
+    typesetMath(mistakeAnalysisEl);
+}
+
+// --- the practice strip ---
+function renderDrillHeader(record) {
+    const st = variantState(record);
+    const ev = st.evidence;
+    let html = '<span class="ev-status" data-status="' + ev.status + '">' + EVIDENCE_NAME[ev.status] + "</span>";
+    if (st.history.length) {
+        html += '<span class="set-cells" aria-hidden="true">' + st.history.slice(-12).map(function (h) {
+            return '<i class="set-cell ' + (h.correct ? "ok" : "bad") + '"></i>';
+        }).join("") + "</span>";
+        html += '<span class="ev-count">' + ev.correct + " of " + ev.attempts + " right</span>";
+    }
+    drillEvidenceEl.innerHTML = html;
+}
+
+function variantCapabilityText() {
+    if (canUseLiveAI()) {
+        return "The AI writes each question; computable answer keys are recomputed before you see them, and questions that fail the checks are never shown.";
+    }
+    return "Offline mode: the built-in generator covers AP Calculus derivative, integral, and limit rules. Other topics need the AI connection (Setup).";
+}
+
+function renderDrillIdle(record) {
+    const st = variantState(record);
+    let html = '<div class="drill-start">';
+    if (variantSession.unavailable) {
+        // No generator for this topic without the AI: say so once, and offer real next steps.
+        html += "<p>" + escapeHtml(variantSession.unavailable) + "</p>";
+        html += '<div class="actions">';
+        html += '<button type="button" class="secondary" data-action="practice-course">Practice a new ' + escapeHtml(record.subject || "") + " set</button>";
+        html += '<button type="button" class="outline" data-action="back-to-log">Back to Mistake Log</button>';
+        html += "</div>";
+        html += '<p class="hint">A new set is general practice for the course, not questions built from this mistake. This mistake stays in spaced review either way.</p>';
+        html += "</div>";
+        variantAreaEl.innerHTML = html;
+        return;
+    }
+    if (st.evidence.status === "likely_mastered") {
+        html += "<p>You have answered " + st.evidence.correct + " of " + st.evidence.attempts +
+            " similar questions correctly, including the last one. The spaced review of the original question will confirm it has stuck.</p>";
+        html += '<div class="actions"><button type="button" class="secondary" data-action="variant-start">Practice one more anyway</button></div>';
+    } else {
+        html += '<p class="drill-next">Next question: <strong>' + LEVEL_NAME[st.target.level] + "</strong>, " +
+            escapeHtml(STEP_REASON[st.target.reason] || RELATION_NAME[st.target.relation]) + ".</p>";
+        html += '<div class="actions"><button type="button" data-action="variant-start">' +
+            (st.history.length ? "Next similar question" : "Practice similar questions") + "</button></div>";
+        if (!st.history.length) {
+            html += "<p class=\"hint\">Each question tests the same idea with new numbers or a new setup. Getting several right in a row, not just one, is what counts as evidence you have it.</p>";
+        }
+    }
+    html += '<p class="hint">' + escapeHtml(variantCapabilityText()) + "</p>";
+    html += "</div>";
+    variantAreaEl.innerHTML = html;
+}
+
+function renderVariantCard(item) {
+    let html = '<article class="qa-card variant-card" data-qid="' + escapeHtml(item.id) + '">';
+    html += '<div class="card-head"><strong class="qa-title">Similar question</strong>';
+    html += '<span class="tag level-' + item.level + '">' + LEVEL_NAME[item.level] + "</span>";
+    html += '<span class="tag">' + RELATION_NAME[item.relation] + "</span>";
+    if (item.verification.status === "verified") {
+        html += '<span class="tag checked" data-tip="' + escapeHtml("Answer key recomputed: " + (item.verification.method || "checked numerically")) + '">Answer checked</span>';
+    } else if (item.verification.status === "unverified") {
+        html += '<span class="tag unchecked">Not machine-checked</span>';
+    }
+    if (item.generator === "template") html += '<span class="tag">Built-in generator</span>';
+    html += "</div>";
+    if (item.changes.length) {
+        html += '<p class="variant-changes"><span>Same idea, new setup:</span> ' + escapeHtml(item.changes.join(" · ")) + "</p>";
+    }
+    html += '<p class="qa-q">' + escapeHtml(item.question) + "</p>";
+    html += '<div class="mcq-options" data-role="mcq">';
+    item.options.forEach(function (opt) {
+        html += "<label>";
+        html += '<input type="radio" name="variant-' + escapeHtml(item.id) + '" value="' + escapeHtml(opt) + '" /> ';
+        html += "<span>" + escapeHtml(opt) + "</span>";
+        html += "</label>";
+    });
+    html += "</div>";
+    html += '<div class="actions"><button type="button" class="secondary" data-action="variant-check">Check answer</button></div>';
+    html += '<div class="feedback" role="status" data-variant-feedback hidden></div>';
+    html += '<div class="answer-box" data-variant-answer hidden><h4>Answer</h4><p>' + escapeHtml(item.answer) + "</p>";
+    if (item.explanation) {
+        html += '<details class="explanation" data-variant-why><summary>Why</summary><p>' + escapeHtml(item.explanation) + "</p></details>";
+    }
+    html += "</div></article>";
+    variantAreaEl.innerHTML = html;
+    typesetMath(variantAreaEl);
+}
+
+function showVariant(item) {
+    variantSession.item = item;
+    variantSession.answered = false;
+    variantResultEl.innerHTML = "";
+    renderVariantCard(item);
+    const card = variantAreaEl.querySelector(".variant-card");
+    if (card) card.scrollIntoView({ behavior: window.Shell && window.Shell.reducedMotion() ? "auto" : "smooth", block: "start" });
+}
+
+function variantErrorMessage(data, status) {
+    const code = data && data.code;
+    if (code === "too_many_requests") {
+        return "That's a lot of requests in one minute. Try again in about " + (data.retryAfter || 60) + " seconds.";
+    }
+    if (code === "rate_limited") {
+        return "The AI is busy right now." + (data.retryAfter ? " Try again in about " + data.retryAfter + " seconds." : " Try again shortly.");
+    }
+    if (code === "timeout") return "The AI took too long to respond. Try again.";
+    if (code === "invalid_output") return "The AI's questions did not pass the quality checks (for example, an answer key did not match the math), so none were shown. Try again.";
+    if (data && data.error) return data.error;
+    return "Could not create similar questions right now (error " + status + ").";
+}
+
+async function startVariant() {
+    const sess = variantSession;
+    if (sess.busy) return;
+    const VP = window.VariantPractice;
+    let record = findErrorRecord(sess.errId);
+    if (!record || !VP) return;
+    if (Date.now() < sess.retryAt) {
+        variantStatusEl.textContent = "Please wait " + Math.ceil((sess.retryAt - Date.now()) / 1000) + " more seconds before trying again.";
+        return;
+    }
+    variantStatusEl.textContent = "";
+    const st = variantState(record);
+    // Questions already generated for this level are used first: no new AI call.
+    const queued = VP.pickPending(record, st.target.level);
+    if (queued) {
+        showVariant(queued);
+        return;
+    }
+    if (window.location.protocol === "file:" || !serverHealthy) {
+        variantStatusEl.textContent = "Similar-question practice needs the StudyBoost server. Start server.py and open http://127.0.0.1:8765/.";
+        return;
+    }
+
+    sess.busy = true;
+    const buttons = variantDrillEl.querySelectorAll('[data-action="variant-start"]');
+    buttons.forEach(function (b) { b.disabled = true; b.setAttribute("aria-busy", "true"); });
+    variantStatusEl.textContent = (canUseLiveAI() ? "Writing and checking similar questions at " : "Building similar questions at ") +
+        LEVEL_NAME[st.target.level] + " level...";
+    const slowTimer = setTimeout(function () {
+        variantStatusEl.textContent = "Still working. Each question is checked before you see it, which can take a few seconds.";
+    }, 8000);
+    const payload = VP.buildRequest(record, {
+        userId: getOrCreateUserId(),
+        model: sanitizeText(modelInput.value) || undefined,
+        count: 2,
+        level: st.target.level
+    });
+    const controller = new AbortController();
+    const abortTimer = setTimeout(function () { controller.abort(); }, 60000);
+    try {
+        const res = await fetch("/api/variants", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        });
+        let data = {};
+        try { data = await res.json(); } catch (e) { data = {}; }
+        record = findErrorRecord(sess.errId);
+        if (!record) return; // the mistake was deleted while we waited
+        // The student may have opened another mistake meanwhile: keep the results on
+        // THIS mistake's record, but only draw them if its page is still the one showing.
+        const onScreen = variantSession === sess;
+        if (data && data.analysis && typeof data.analysis === "object") {
+            record = Object.assign({}, record, { analysis: data.analysis });
+        }
+        if (!res.ok) {
+            replaceErrorRecord(record);
+            if (!onScreen) return;
+            renderMistakeAnalysis(record);
+            if (data.retryAfter) sess.retryAt = Date.now() + data.retryAfter * 1000;
+            if (canUseLiveAI() && data.code !== "too_many_requests") recordAiResult("variant", "failed");
+            if (data.code === "no_generator" || data.code === "daily_limit") {
+                sess.unavailable = data.error || "Similar questions for this topic need the AI connection.";
+                variantStatusEl.textContent = "";
+                renderDrillIdle(record);
+                return;
+            }
+            variantStatusEl.textContent = variantErrorMessage(data, res.status);
+            return;
+        }
+        const accepted = VP.acceptVariants(data.variants);
+        if (!accepted.length) {
+            variantStatusEl.textContent = "No usable questions came back. Try again.";
+            return;
+        }
+        record = VP.storeBatch(record, { variants: accepted, analysis: data.analysis || null });
+        replaceErrorRecord(record);
+        if (canUseLiveAI()) recordAiResult("variant", data.generator === "ai" ? "ok" : "failed");
+        if (!onScreen) return;
+        renderMistakeAnalysis(record);
+        variantStatusEl.textContent = data.notice || "";
+        const next = VP.pickPending(record, st.target.level) || VP.practiceState(record).pending[0];
+        if (!next) {
+            // Every question in the batch repeated one already answered: nothing new to show.
+            variantStatusEl.textContent = "Those questions repeated ones you've already answered. Try again for new ones.";
+            return;
+        }
+        showVariant(next);
+    } catch (err) {
+        console.error("Similar-question request failed:", err);
+        if (variantSession !== sess) return;
+        variantStatusEl.textContent = err && err.name === "AbortError"
+            ? "That took too long. Try again."
+            : "Could not reach the server. Check the connection and try again.";
+    } finally {
+        clearTimeout(slowTimer);
+        clearTimeout(abortTimer);
+        sess.busy = false;
+        variantDrillEl.querySelectorAll('[data-action="variant-start"]').forEach(function (b) {
+            b.disabled = false;
+            b.removeAttribute("aria-busy");
+        });
+    }
+}
+
+function checkVariant() {
+    const sess = variantSession;
+    const item = sess.item;
+    if (!item || sess.answered) return;
+    const VP = window.VariantPractice;
+    const card = variantAreaEl.querySelector(".variant-card");
+    if (!card) return;
+    const sel = card.querySelector('input[type="radio"]:checked');
+    const fb = card.querySelector("[data-variant-feedback]");
+    if (!sel) {
+        fb.hidden = false;
+        fb.className = "feedback bad";
+        fb.textContent = "Select an option first.";
+        return;
+    }
+    let record = findErrorRecord(sess.errId);
+    if (!record) return;
+
+    const ok = isMcqAnswerCorrect(sel.value, item.answer);
+    sess.answered = true;
+    card.querySelectorAll('input[type="radio"]').forEach(function (i) { i.disabled = true; });
+    const checkBtn = card.querySelector('[data-action="variant-check"]');
+    if (checkBtn) checkBtn.disabled = true;
+    const idx = item.options.indexOf(sel.value);
+    const note = item.optionNotes && idx >= 0 ? item.optionNotes[idx] : "";
+    fb.hidden = false;
+    fb.className = ok ? "feedback ok" : "feedback bad";
+    fb.textContent = ok ? "Correct." : "Not quite." + (note && !/^\s*correct\b/i.test(note) ? " Your pick: " + note : "");
+    markMcqOptions(card, item);
+    const ab = card.querySelector("[data-variant-answer]");
+    if (ab) ab.hidden = false;
+    const why = card.querySelector("[data-variant-why]");
+    if (why && !ok) why.open = true; // after a miss the explanation opens; after a hit it is one click away
+    typesetMath(card);
+
+    // The learning record: topic mastery (tagged "variant"), the graded attempt, the
+    // variant history on the mistake, and (after a miss) an earlier spaced review.
+    const before = currentMastery(record.subject, record.topic);
+    recordAttempt({
+        id: item.id, type: "Multiple Choice", subject: record.subject, topic: record.topic,
+        topicKey: record.topicKey, source: "variant"
+    }, ok);
+    const after = currentMastery(record.subject, record.topic);
+    record = VP.recordOutcome(record, { variant: item, correct: ok, chosen: optionLetter(sel.value), at: new Date().toISOString() });
+    const nudge = VP.nudgeSchedule(record.sr, { correct: ok });
+    if (nudge.changed) record = Object.assign({}, record, { sr: nudge.sr });
+    replaceErrorRecord(record);
+    renderErrorRecords();
+    renderDrillHeader(record);
+    if (nudge.changed) renderMistakeOriginal(record);
+    renderVariantResult(record, { ok: ok, before: before, after: after, nudged: nudge.changed });
+}
+
+function renderVariantResult(record, r) {
+    const VP = window.VariantPractice;
+    const st = variantState(record);
+    const suggestions = VP.followUp({ evidence: st.evidence, target: st.target, originalLevel: st.original, sr: record.sr, nudged: r.nudged });
+    const beforeStat = r.before && r.before.stat;
+    const afterStat = r.after && r.after.stat;
+    const afterLevel = r.after ? r.after.level : "new";
+    const afterPct = afterStat ? Math.round(afterStat.ema * 100) : 0;
+    const beforeText = beforeStat ? MASTERY_LABEL[r.before.level] + " " + Math.round(beforeStat.ema * 100) + "%" : "Not tracked yet";
+    const topicName = (record.topic || "").trim() || (record.subject || "This course") + " (general)";
+
+    let html = '<div class="result-strip">';
+    html += '<div class="result-cell"><span class="rc-label">Topic mastery: ' + escapeHtml(topicName) + "</span>";
+    html += '<span class="rc-value">' + escapeHtml(beforeText) + " &rarr; " + MASTERY_LABEL[afterLevel] + " " + afterPct + "%</span>";
+    html += barHtml(afterPct, "level-" + afterLevel) + "</div>";
+    html += '<div class="result-cell"><span class="rc-label">This idea</span>';
+    html += '<span class="rc-value">' + EVIDENCE_NAME[st.evidence.status] + "</span>";
+    html += '<span class="rc-meta">' + st.evidence.correct + " of " + st.evidence.attempts + " similar questions right" +
+        (st.evidence.status !== "likely_mastered" && st.evidence.needed
+            ? "; " + st.evidence.needed + " more in a row at " + LEVEL_NAME[st.original] + " level would show mastery" : "") + "</span></div>";
+    html += "</div>";
+    if (suggestions.length) {
+        html += '<ul class="next-list">' + suggestions.map(function (s) {
+            return '<li data-kind="' + escapeHtml(s.kind) + '">' + escapeHtml(s.text) + "</li>";
+        }).join("") + "</ul>";
+    }
+    html += '<div class="actions">';
+    if (st.evidence.status === "likely_mastered") {
+        const other = rankedPractice(4).filter(function (x) { return x.record.id !== record.id; })[0];
+        if (other) {
+            html += '<button type="button" data-action="open-mistake" data-id="' + escapeHtml(other.record.id) + '">Next: ' +
+                escapeHtml(mistakeLabel(other.record)) + "</button>";
+        }
+        html += '<button type="button" class="secondary" data-action="variant-start">Practice one more anyway</button>';
+    } else {
+        html += '<button type="button" data-action="variant-start">Next similar question (' + LEVEL_NAME[st.target.level] + ")</button>";
+    }
+    html += '<button type="button" class="outline" data-action="back-to-log">Back to Mistake Log</button>';
+    html += "</div>";
+    variantResultEl.innerHTML = html;
+}
+
+function renderMistakeDetail(errId) {
+    if (!mistakeOriginalEl || !window.VariantPractice) return;
+    if (variantSession.errId !== errId) {
+        variantSession = { errId: errId, item: null, answered: false, busy: false, retryAt: 0, unavailable: "" };
+    }
+    const record = findErrorRecord(errId);
+    if (!record) {
+        mistakeOriginalEl.innerHTML = '<p class="empty">This mistake is no longer in your Mistake Log.</p>' +
+            '<div class="actions"><button type="button" data-action="back-to-log">Back to Mistake Log</button></div>';
+        mistakeAnalysisEl.innerHTML = "";
+        variantDrillEl.hidden = true;
+        return;
+    }
+    variantDrillEl.hidden = false;
+    renderMistakeOriginal(record);
+    renderMistakeAnalysis(record);
+    renderDrillHeader(record);
+    if (!variantSession.busy) variantStatusEl.textContent = "";
+    if (variantSession.item && !variantSession.answered) {
+        variantResultEl.innerHTML = "";
+        renderVariantCard(variantSession.item);
+    } else if (!variantResultEl.innerHTML || !variantSession.answered) {
+        variantResultEl.innerHTML = "";
+        renderDrillIdle(record);
+    }
+}
+
+function handleMistakePageClick(ev) {
+    const t = ev.target instanceof Element ? ev.target.closest("[data-action]") : null;
+    if (!t || t.disabled) return;
+    const action = t.getAttribute("data-action");
+    if (action === "variant-start") {
+        startVariant();
+    } else if (action === "variant-check") {
+        checkVariant();
+    } else if (action === "back-to-log") {
+        goToView("review");
+    } else if (action === "practice-course") {
+        const record = findErrorRecord(variantSession.errId);
+        const course = record && AP_SUBJECTS.find(function (c) { return c.label === record.subject; });
+        if (course) {
+            apSubjectInput.value = course.id;
+            apSubjectInput.dispatchEvent(new Event("change"));
+        }
+        if (record) topicInput.value = record.topic || "";
+        goToPracticeSetup();
+    } else if (action === "open-mistake") {
+        goToView("mistake/" + t.getAttribute("data-id"));
+    } else if (action === "review") {
+        const id = t.getAttribute("data-id");
+        rateMistake(id, parseInt(t.getAttribute("data-q"), 10));
+        const record = findErrorRecord(id);
+        if (record) renderMistakeOriginal(record);
+        variantStatusEl.textContent = errorStatus.textContent;
+    }
+}
+
+if (variantDrillEl) {
+    document.getElementById("view-mistake").addEventListener("click", handleMistakePageClick);
+}
+document.addEventListener("studyboost:view", function (ev) {
+    if (ev.detail && ev.detail.view === "mistake") renderMistakeDetail(ev.detail.param);
+});
+if (window.Shell && window.Shell.current() === "mistake") renderMistakeDetail(window.Shell.param());
+
 // v2 Phase 1: Home front door. Start CTAs lead into Practice; the rest of the app is
 // one tap away in the navigation.
 function isReturningUser() {
@@ -2384,9 +3042,14 @@ function renderNextStep(counts) {
     const el = document.getElementById("nextStep");
     if (!el) return;
     const weak = window.MasteryModel ? window.MasteryModel.summarizeMastery(masteryMap).weakest : [];
+    const top = rankedPractice(1)[0];
+    const weakMistake = top && typeof top.ema === "number"
+        ? { id: top.record.id, topic: top.record.topic || "", subject: top.record.subject || "", ema: top.ema }
+        : null;
     const step = window.HomeSummary.nextStep({
         due: counts.due,
         weakest: weak[0],
+        weakMistake: weakMistake,
         hasActivity: isReturningUser()
     });
     el.setAttribute("data-kind", step.kind);
@@ -2395,6 +3058,10 @@ function renderNextStep(counts) {
         "<p>" + escapeHtml(step.body) + "</p>" +
         '<div class="actions"><button type="button" id="nextStepBtn">' + escapeHtml(step.cta) + "</button></div>";
     document.getElementById("nextStepBtn").addEventListener("click", function () {
+        if (step.kind === "variant") {
+            goToView("mistake/" + step.errId);
+            return;
+        }
         if (step.kind === "review") {
             showOnlyDue = true;
             renderErrorRecords();

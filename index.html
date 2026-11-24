@@ -327,6 +327,29 @@
             </div>
         </section>
 
+        <!-- MISTAKE: one saved mistake, what it tests, and similar questions =========
+             Reached from the Mistake Log (#mistake/<id>); the nav keeps Review marked. -->
+        <section class="view" id="view-mistake" data-view="mistake" aria-labelledby="mistake-title" hidden>
+            <header class="view-head">
+                <a class="back-link" href="#review">Back to Mistake Log</a>
+                <h2 id="mistake-title" tabindex="-1">Practice Similar Questions</h2>
+                <p>A question you missed, the idea it tests, and new questions on that same idea with different numbers and setups. The spaced review of the original stays on its schedule.</p>
+            </header>
+            <div class="mistake-grid">
+                <section class="panel mistake-original" id="mistakeOriginal" aria-label="The question you missed"></section>
+                <section class="panel mistake-analysis" id="mistakeAnalysis" aria-labelledby="analysis-title"></section>
+            </div>
+            <section class="drill" id="variantDrill" aria-labelledby="drill-title">
+                <div class="drill-head">
+                    <h3 id="drill-title">Similar questions</h3>
+                    <div class="drill-evidence" id="drillEvidence"></div>
+                </div>
+                <div class="status" id="variantStatus" aria-live="polite"></div>
+                <div class="output" id="variantArea"></div>
+                <div class="drill-result" id="variantResult" aria-live="polite"></div>
+            </section>
+        </section>
+
         <!-- PROGRESS ====================================================== -->
         <section class="view" id="view-progress" data-view="progress" aria-labelledby="insights-label" hidden>
             <header class="view-head">
@@ -353,7 +376,7 @@
                         <label for="masteryCourseInput">Course</label>
                         <select id="masteryCourseInput"></select>
                     </div>
-                    <p class="hint">Estimated per topic from your quiz grades: recent accuracy plus a minimum number of attempts. It counts <strong>practice quiz grading only</strong>, not your Forgot, Hard, or Got it ratings in Review.</p>
+                    <p class="hint">Estimated per topic from your graded questions (new practice, resurfaced reviews, and similar questions built from your mistakes): recent accuracy plus a minimum number of attempts. It does not count your Forgot, Hard, or Got it ratings in Review.</p>
                     <div class="output" id="topicMasteryOutput" aria-live="polite">
                         <p class="empty">No topic mastery yet. Grade practice questions for this course to build it.</p>
                     </div>
@@ -419,6 +442,7 @@
     <script src="js/practice-selection.js" defer></script>
     <script src="js/mastery-model.js" defer></script>
     <script src="js/home-summary.js" defer></script>
+    <script src="js/variant-practice.js" defer></script>
     <script src="js/shell.js" defer></script>
     <script src="js/app.js" defer></script>
 </body>

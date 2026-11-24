@@ -1061,6 +1061,173 @@ button.welcome-dismiss:not(:disabled):hover { color: var(--cyan); }
     font-size: 14px;
 }
 
+/* --- Mistake page: one mistake, what it tests, similar questions -------------------- */
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 36px;
+    margin-bottom: 10px;
+    color: var(--cyan);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+}
+.back-link::before {
+    content: "";
+    width: 15px;
+    height: 11px;
+    background: currentColor;
+    clip-path: polygon(0 50%, 48% 0, 48% 32%, 100% 32%, 100% 68%, 48% 68%, 48% 100%);
+}
+.back-link:hover { color: var(--white); }
+
+.mistake-grid { display: grid; gap: 18px; margin-bottom: 18px; }
+.mistake-grid > .panel { margin-bottom: 0; min-width: 0; }
+@media (min-width: 1180px) {
+    .mistake-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+    body[data-view="mistake"] { --measure: 1180px; }
+}
+.sheet-title { font-size: 28px; margin-bottom: 10px; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.mistake-original { border-left: 4px solid var(--bad); }
+
+.static-options { display: grid; gap: 6px; margin: 0 0 10px; padding: 0; list-style: none; }
+.static-options li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 9px 12px;
+    border: 1px solid var(--line);
+    background: var(--navy);
+}
+.static-options li.is-answer { border-color: var(--good); }
+.static-options li.is-wrong { border-color: var(--bad); }
+.opt-text { flex: 1; min-width: 0; }
+.opt-mark { flex: none; font-size: 13px; font-weight: 700; line-height: 1.8; }
+.is-answer .opt-mark { color: var(--good); }
+.is-wrong .opt-mark { color: var(--bad); }
+
+.due-note { margin: 0 0 8px; padding: 8px 12px; border-left: 3px solid var(--warn); background: var(--navy); font-size: 14px; }
+details.reveal > summary { padding: 8px 0; color: var(--cyan); font-weight: 700; cursor: pointer; }
+details.reveal[open] > summary { margin-bottom: 6px; }
+
+/* The knowledge point is the page's one poster-blue moment: black type on --field. */
+.kp {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 0 0 12px;
+    padding: 12px 16px 14px;
+    background: var(--field);
+    color: var(--black);
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+}
+.kp-label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.kp-name { font: 700 clamp(28px, 3vw, 38px)/1.02 var(--display); overflow-wrap: anywhere; }
+.analysis-row { margin-top: 12px; }
+.analysis-row h4 { margin-bottom: 4px; font-size: 20px; color: var(--cyan); }
+.analysis-row p { margin: 0 0 4px; }
+.diag { padding: 10px 12px; border-left: 3px solid var(--warn); background: var(--navy); }
+.diag.is-unknown { border-left-color: var(--mute); }
+.diag-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 9px; font-size: 13px; color: var(--mute); }
+
+.drill {
+    position: relative;
+    margin-bottom: 18px;
+    padding: 22px 26px;
+    background: var(--panel);
+    clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+}
+.drill-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+}
+.drill-head h3 { font-size: 32px; }
+.drill-evidence { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 14px; }
+.ev-status {
+    padding: 4px 13px;
+    background: var(--line);
+    font-size: 13px;
+    font-weight: 700;
+    clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+.ev-status[data-status="building"] { background: var(--field); color: var(--black); }
+.ev-status[data-status="struggling"] { background: var(--warn); color: var(--black); }
+.ev-status[data-status="likely_mastered"] { background: var(--good); color: var(--black); }
+.ev-count { color: var(--mute); }
+.drill .output { margin-top: 0; }
+.drill-start { padding-top: 12px; }
+.drill-start > p:first-child { max-width: 62ch; }
+
+.variant-card { margin-top: 14px; background: var(--navy); }
+.variant-card .mcq-options label { background: var(--ink); }
+.variant-changes { margin: -2px 0 12px; font-size: 14px; color: var(--mute); }
+.variant-changes span { color: var(--cyan); font-weight: 700; }
+details.explanation > summary { color: var(--cyan); font-weight: 700; cursor: pointer; }
+details.explanation[open] > summary { margin-bottom: 4px; }
+.tag.checked { background: var(--good); color: var(--black); }
+.tag.unchecked { background: var(--raise); color: var(--mute); }
+.tag.level-basic { background: var(--raise); }
+.tag.level-medium { background: var(--royal); }
+.tag.level-challenge { background: var(--electric); color: var(--black); }
+.tag.similar { background: var(--raise); }
+.tag.similar-done { background: var(--good); color: var(--black); }
+
+.drill-result:empty { display: none; }
+.result-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 2px; margin: 16px 0 12px; }
+.result-cell { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px 14px; background: var(--black); }
+.rc-label { font-size: 13px; color: var(--mute); }
+.rc-value { font: 700 26px/1.05 var(--display); }
+.rc-meta { font-size: 13px; color: var(--mute); }
+.next-list { display: grid; gap: 6px; margin: 0 0 6px; padding: 0; list-style: none; }
+.next-list li { position: relative; padding: 8px 12px 8px 30px; background: var(--navy); font-size: 15px; }
+.next-list li::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 1.05em;
+    width: 9px;
+    height: 9px;
+    background: var(--cyan);
+    transform: skewX(-18deg);
+}
+.next-list li[data-kind="review_moved"]::before, .next-list li[data-kind="step_back"]::before { background: var(--warn); }
+.next-list li[data-kind="spaced_review"]::before { background: var(--good); }
+
+/* Mistake Log: the way in, and what to practise next */
+button.similar-btn { --btn-fill: var(--field); --btn-ink: var(--black); min-height: 52px; }
+.recommend { margin-bottom: 16px; padding: 14px 16px; border-left: 4px solid var(--field); background: var(--panel); }
+.output .recommend h3 { margin: 0 0 10px; font-size: 24px; }
+.output ul.recommend-list { display: grid; gap: 10px; margin: 0; }
+.output ul.recommend-list > li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px 14px;
+    margin: 0;
+    padding: 0;
+}
+.output ul.recommend-list > li::before { display: none; }
+.rec-topic { font-weight: 700; }
+.rec-why { grid-column: 1; font-size: 13px; color: var(--mute); }
+.recommend-list button { grid-column: 2; grid-row: 1 / span 2; }
+
+@media (max-width: 719px) {
+    .drill { padding: 18px 16px; }
+    .drill-head h3 { font-size: 28px; }
+    .result-strip { grid-template-columns: minmax(0, 1fr); }
+    .static-options li { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .output ul.recommend-list > li { grid-template-columns: minmax(0, 1fr); }
+    .recommend-list button { grid-column: 1; grid-row: auto; justify-self: start; }
+    .drill .actions button, .mistake-original .actions button { flex: 1 1 auto; }
+}
+
 /* --- Footer ----------------------------------------------------------------------- */
 .scene-foot { max-width: var(--measure); margin-top: 26px; font-size: 14px; color: var(--mute); }
 .feedback-footer { margin-bottom: 6px; }

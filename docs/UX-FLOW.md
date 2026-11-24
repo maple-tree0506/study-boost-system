@@ -58,6 +58,14 @@ front door.
 | **4 Review** | due SM-2 items, started immediately by the CTA (no second click). | back to spine / Progress | **Shipped** (Review CTA auto-loads due). |
 | **5 Progress** | Topic Mastery progress bars + streak + daily/total XP. | back to Home base | **Shipped** (progress bars). |
 
+**Branch from Review: similar-question practice.** Each saved mistake has its own page
+(`#mistake/<id>`, "Practice similar" on the card, recommended weakest-topic-first above the
+log, and offered as Home's next step when no review is due). It shows the original with the
+student's pick, what it tests, and a practice strip: similar questions whose difficulty
+follows a 2-up/1-down staircase, immediate feedback naming the misconception behind the pick,
+the topic-mastery change, and what happens next (the original's spaced review stays on
+schedule, moved up after a miss). See [VARIANT-PRACTICE.md](VARIANT-PRACTICE.md).
+
 **Home base** = today's dashboard, reframed: the place to see everything and jump
 to any panel. Default landing for a *returning* user who just wants to resume;
 first-time / fresh-session users get the spine.

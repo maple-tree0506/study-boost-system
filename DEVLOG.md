@@ -11,6 +11,42 @@ Newest entries first.
 
 ---
 
+## 2026-11 — Similar-question practice (adaptive error-based practice)
+**Why:** the Mistake Log only re-showed the exact question a student missed. Re-answering
+the same item can be memorized; it doesn't show the idea transfers. A missed chain-rule
+question should lead to a *new* chain-rule question, not a random calculus one.
+**Audit first:** mistakes were stored client-side (the privacy page promises question text
+is never stored on the server), multiple-choice picks were **not saved at all**, there was
+no mistake detail page, and AI output was shape-checked but never answer-checked.
+**What I built:**
+- A mistake page (`#mistake/<id>`, "Practice similar" in Review): the question with your
+  pick, what it tests (knowledge point, method, likely error), and a practice strip.
+- `/api/variants`: one AI call returns the analysis plus 2 variants as JSON, then every
+  variant must pass schema, knowledge-point, duplicate, and math gates. For computable math,
+  `mathcheck.py` (a small parser, no `eval`) recomputes the answer key, rejects ambiguous or
+  duplicate distractors, and the options shown are typeset from what was checked. Rejected
+  variants get one targeted repair call. Provider 429s, timeouts, and bad output map to codes
+  the UI explains.
+- A built-in generator (`variant_templates.py`) for seven AP Calculus skills, so the keyless
+  demo still works for those topics; each distractor encodes a named misconception.
+- Adaptive rules (`js/variant-practice.js`): 2-up/1-down difficulty staircase, a Beta-posterior
+  "likely mastered" rule (never from one answer), weakest-topic-first recommendations, and an
+  SM-2 coupling that can only bring a review *forward* after a miss.
+**Decisions:** keep the local-first data model (mistakes, analysis, and variant history live on
+the mistake record, so backups include them); the server processes the one mistake and stores
+only a counts row (`ai_generation_log`), and the privacy page now says exactly that. Variant
+attempts are a third `source` (`variant`), so the pre-registered Review Recovery Rate is untouched.
+Diagnosis is never invented: no recorded answer means "not enough information", and an AI
+diagnosis whose quote isn't in the student's answer is shown as unconfirmed.
+**Bugs caught by the tests while building:** duplicate distractors passed verification (only
+options vs. the key were compared), a sign-dropping normalizer treated `-6x sin` and `6x sin` as
+the same option, and `\pi x` printed as the unknown KaTeX command `\pix`.
+**Verified:** pytest 16 → 237 (math engine, templates, engine gates, endpoint with a mocked
+provider, legacy-DB migration, "no question text in the DB" dump check); JS 67 → 93; a Playwright
+end-to-end suite (offline loop to likely-mastered, honest no-generator path, mocked AI path with
+a rate limit, key never reaches the browser, phone width); KaTeX rendered 85 generated formulas
+with 0 parse errors.
+
 ## 2026-11 — Visual redesign (new identity, guided views)
 **Why:** the app worked, but it looked like a form. I wanted it to look designed, and to
 read as one product instead of a long page of panels.

@@ -6,7 +6,7 @@
  * recency-weighted accuracy (EMA) and a volume-gated mastery level. Callers feed
  * it real graded attempts and read summaries; persistence/UI live elsewhere.
  *
- *   updateMastery(map, { subject, topic, correct, at }) -> newMap   (immutable)
+ *   updateMastery(map, { subject, topic, correct, at, source }) -> newMap   (immutable)
  *   getTopicStat(map, subject, topic)                   -> stat | null
  *   masteryLevel(stat)                                  -> "new"|"developing"|"proficient"|"mastered"
  *   summarizeMastery(map, { subject } = {})             -> { topics, weakest }
@@ -14,7 +14,13 @@
  *
  * Map key: subject + "::" + topicKey. A blank topic normalizes to "" and
  * represents the subject-general bucket. Stat shape:
- *   { subject, topic, topicKey, attempts, correct, ema, lastAttemptAt }
+ *   { subject, topic, topicKey, attempts, correct, ema, lastAttemptAt, sources? }
+ *
+ * `sources` (optional, additive) splits the counts by where the outcome came from:
+ *   { generated: {attempts, correct}, review: {...}, variant: {...} }
+ * so a new question, a scheduled review of a saved mistake, and a similar question
+ * built from a mistake stay distinguishable. All three feed the same EMA, and the
+ * volume gates in masteryLevel still apply, so one lucky answer never reads as mastered.
  *
  * Browser: window.MasteryModel. Node: module.exports.
  */
@@ -54,6 +60,20 @@
         var correct = (isFirst ? 0 : prev.correct) + outcome;
         var ema = isFirst ? outcome : (EMA_ALPHA * outcome + (1 - EMA_ALPHA) * prev.ema);
 
+        // Per-source counts, copied (never mutated) from the previous stat.
+        var prevSources = (!isFirst && prev.sources && typeof prev.sources === "object") ? prev.sources : null;
+        var sources = null;
+        if (prevSources || (typeof event.source === "string" && event.source)) {
+            sources = {};
+            for (var sk in prevSources) {
+                if (Object.prototype.hasOwnProperty.call(prevSources, sk)) sources[sk] = prevSources[sk];
+            }
+            if (typeof event.source === "string" && event.source) {
+                var bucket = sources[event.source] || { attempts: 0, correct: 0 };
+                sources[event.source] = { attempts: bucket.attempts + 1, correct: bucket.correct + outcome };
+            }
+        }
+
         var nextStat = {
             subject: subject,
             // Keep the most recently seen display label; key stays stable.
@@ -64,6 +84,7 @@
             ema: ema,
             lastAttemptAt: at
         };
+        if (sources) nextStat.sources = sources;
 
         // Shallow clone the map; replace only the affected entry.
         var next = {};

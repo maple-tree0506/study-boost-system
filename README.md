@@ -67,6 +67,23 @@ questions are typeset rather than shown as plain ASCII. If KaTeX (loaded from a 
 unavailable, the raw text is shown instead — it degrades gracefully, never crashes.
 (The built-in offline question bank is still plain text; converting it to LaTeX is a follow-up.)
 
+## Similar-question practice (from your mistakes)
+Open any saved mistake (**Review → Practice similar**) to see the question with your pick,
+what it tests (knowledge point, how to solve it, and the likely error, or an honest
+"not enough information"), and new multiple-choice questions on the same idea with
+different numbers or setups.
+- **Checked before shown.** AI output is validated (schema, knowledge point, duplicates),
+  and for computable math the answer key is recomputed with a safe expression engine; a
+  variant whose key disagrees with the math is rejected and repaired, never shown.
+- **Adaptive.** Difficulty follows a 2-up/1-down staircase around the original level;
+  "likely mastered" needs several right in a row (a Beta-posterior rule), never one.
+- **Wired into the loop.** Results feed Topic Mastery (tagged as similar questions), a miss
+  brings the original's SM-2 review forward, and Progress shows practice by type. SM-2
+  stays in charge of review timing.
+- **Works without a key** for seven AP Calculus skills via a built-in generator; other topics
+  need the AI connection and say so.
+Details: [docs/VARIANT-PRACTICE.md](docs/VARIANT-PRACTICE.md).
+
 ## Practice & answers
 - **Answers are gated (Khan-style):** the suggested answer stays hidden until you
   act — multiple-choice reveals after "Check answer"; short-answer/FRQ reveals
@@ -87,20 +104,26 @@ unavailable, the raw text is shown instead — it degrades gracefully, never cra
 
 ### API
 - `POST /api/attempt` — body `{ subject, type, correct, ts, userId, source }`; stores one graded result.
-- `GET /api/stats?userId=<id>` — returns `{ overall, bySubject, daily }` for that user; omitting `userId` returns empty stats.
+  `source` is `generated`, `review`, or `variant` (a similar question built from a mistake).
+- `GET /api/stats?userId=<id>` — returns `{ overall, bySubject, bySource, daily }` for that user; omitting `userId` returns empty stats.
+- `POST /api/variants` — similar questions for one saved mistake (see
+  [docs/VARIANT-PRACTICE.md](docs/VARIANT-PRACTICE.md)). The question text is processed, never stored.
 
 ## Testing
 - **Backend (Python):** `py -m pip install -r requirements-dev.txt` then `pytest -q`.
   Tests use a temporary database (via the `STUDYBOOST_DB` env var) and never touch your
   real `studyboost.db`.
-- **Frontend (JS):** `node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tests/mastery-model.test.js tests/question-bank.test.js tests/home-summary.test.js`
+- **Frontend (JS):** `node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tests/mastery-model.test.js tests/question-bank.test.js tests/home-summary.test.js tests/variant-practice.test.js`
   — unit tests for the SM-2 scheduler, the R1 practice-selection planner (due-review
   selection + explanation passthrough), the topic-mastery model (normalization, EMA
   update math, volume-gated levels, summary ordering), a structural validator for the
   offline question bank (option/answer contract, KaTeX `$` balance, banned patterns),
   and the Home logic (level progress, streaks, missions, next step, review orbit),
   using Node's built-in test runner (no dependencies; Node 18+).
-- Both suites run in CI on every push (see the badge above).
+- **End to end (browser):** `node --test tests/e2e/variant-flow.e2e.js` — starts two copies of
+  `server.py` (no key, and a scripted mock AI provider) and drives Chromium through the
+  similar-question loop. Needs the `playwright` package with Chromium.
+- All three run in CI on every push (see the badge above).
 
 ## AI output reliability
 LLM responses are treated as an unreliable input that must be validated:
@@ -137,6 +160,10 @@ This is a **local, single-user** tool; the security model is scoped to that, and
 - `js/shell.js`: views, page transitions, navigation marker, dialog
 - `js/home-summary.js`: Home logic (pure and tested)
 - `js/question-bank.js`: offline question bank (all 14 AP subjects, 3 tiers)
+- `js/variant-practice.js`: similar-question adaptive rules (pure and tested)
+- `mathcheck.py`: safe math expressions for verifying answer keys (no `eval`)
+- `variant_templates.py`: built-in generator for AP Calculus similar questions
+- `variant_engine.py`: similar-question pipeline (prompts, validation, quality gates, fallback)
 - `assets/fonts/`: self-hosted fonts with their licenses
 - `server.py`: API proxy + SQLite persistence
 - `studyboost.db`: local progress database (auto-created, git-ignored)

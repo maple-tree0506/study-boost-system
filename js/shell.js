@@ -5,18 +5,23 @@
  * while the student moves around. This file only decides which view is showing and
  * how the change looks. It holds no learning logic and no data.
  *
- *   Shell.go(name)            -> Promise, resolves once the view is on screen
+ *   Shell.go(name)            -> Promise, resolves once the view is on screen.
+ *                                A view can carry one parameter: Shell.go("mistake/err-123")
  *   Shell.current()           -> name of the visible view
+ *   Shell.param()             -> the current view's parameter ("" when none)
  *   Shell.confirm(options)    -> Promise<boolean>, themed replacement for window.confirm
  *   Shell.countUp(el, to)     -> animate a number, respecting reduced motion
  *   Shell.reducedMotion()     -> true if the student asked for less motion
  *
- * Fires "studyboost:view" on document with detail { view } after each change.
+ * Fires "studyboost:view" on document with detail { view, param } after each change,
+ * including a parameter change on the same view (one mistake to another).
  */
 (function () {
     "use strict";
 
-    var VIEWS = ["home", "notes", "practice", "review", "progress", "setup"];
+    var VIEWS = ["home", "notes", "practice", "review", "progress", "setup", "mistake"];
+    // Sub-pages keep their parent's place in the navigation.
+    var NAV_PARENT = { mistake: "review" };
     // Old in-page anchors keep working (e.g. a shared link to #quiz-title).
     var LEGACY_HASHES = {
         "quiz-title": "practice",
@@ -30,14 +35,16 @@
         practice: { word: "PRACTICE", step: "2" },
         review: { word: "REVIEW", step: "3" },
         progress: { word: "PROGRESS", step: "4" },
-        setup: { word: "SETUP", step: "" }
+        setup: { word: "SETUP", step: "" },
+        mistake: { word: "MISTAKE", step: "3" }
     };
     var TITLES = {
         notes: "Notes",
         practice: "Practice",
         review: "Review",
         progress: "Progress",
-        setup: "Setup"
+        setup: "Setup",
+        mistake: "Practice similar questions"
     };
     var HOME_TITLE = document.title;
 
@@ -57,15 +64,29 @@
     var links = Array.prototype.slice.call(document.querySelectorAll(".nav-link"));
 
     var current = null;
+    var currentParam = "";
     var busy = false;
-    var pending = null;
+    var pending = null;     // { name, param } requested while a transition runs
     var waiters = [];
     var scrollMemory = {};
 
-    function viewFromHash() {
-        var hash = window.location.hash.replace(/^#\/?/, "");
-        if (VIEWS.indexOf(hash) !== -1) return hash;
-        return LEGACY_HASHES[hash] || "home";
+    // "#mistake/err-12" -> { view: "mistake", param: "err-12" }. A sub-page without
+    // its parameter falls back to its parent (a bare "#mistake" shows the Review list).
+    function parseTarget(text) {
+        var raw = String(text || "").replace(/^#\/?/, "");
+        var slash = raw.indexOf("/");
+        var base = slash === -1 ? raw : raw.slice(0, slash);
+        var param = "";
+        if (slash !== -1) {
+            try { param = decodeURIComponent(raw.slice(slash + 1)); } catch (e) { param = ""; }
+        }
+        if (VIEWS.indexOf(base) === -1) return { view: LEGACY_HASHES[raw] || "home", param: "" };
+        if (NAV_PARENT[base] && !param) return { view: NAV_PARENT[base], param: "" };
+        return { view: base, param: NAV_PARENT[base] ? param : "" };
+    }
+
+    function hashFor(view, param) {
+        return view + (param ? "/" + encodeURIComponent(param) : "");
     }
 
     // Slide the active marker to the current link. Offsets (not getBoundingClientRect)
@@ -87,14 +108,19 @@
         el.classList.add(className);
     }
 
-    function showView(name) {
+    function announce(name, param) {
+        document.dispatchEvent(new CustomEvent("studyboost:view", { detail: { view: name, param: param || "" } }));
+    }
+
+    function showView(name, param) {
+        var navName = NAV_PARENT[name] || name;
         views.forEach(function (v) {
             var on = v.getAttribute("data-view") === name;
             v.hidden = !on;
             if (on) restartAnimation(v, "is-entering");
         });
         links.forEach(function (a) {
-            if (a.getAttribute("data-link") === name) a.setAttribute("aria-current", "page");
+            if (a.getAttribute("data-link") === navName) a.setAttribute("aria-current", "page");
             else a.removeAttribute("aria-current");
         });
         body.setAttribute("data-view", name);
@@ -109,9 +135,11 @@
         if (bandStripes) bandStripes.hidden = !band.step;
 
         current = name;
+        currentParam = param || "";
         placeIndicator();
-        window.scrollTo({ top: scrollMemory[name] || 0, behavior: "instant" });
-        document.dispatchEvent(new CustomEvent("studyboost:view", { detail: { view: name } }));
+        // A sub-page always opens at the top: it shows a different item each time.
+        window.scrollTo({ top: NAV_PARENT[name] ? 0 : (scrollMemory[name] || 0), behavior: "instant" });
+        announce(name, currentParam);
     }
 
     function focusHeading(name) {
@@ -129,10 +157,10 @@
     function finish() {
         busy = false;
         placeIndicator();
-        if (pending && pending !== current) {
+        if (pending && (pending.name !== current || pending.param !== currentParam)) {
             var next = pending;
             pending = null;
-            transitionTo(next, true);
+            transitionTo(next.name, true, next.param);
             return;
         }
         pending = null;
@@ -141,14 +169,28 @@
 
     // Three slanted panels sweep in, the view changes while they cover it, and they
     // sweep out. The whole gesture stays under 0.6s so it never slows studying down.
-    function transitionTo(name, moveFocus) {
-        if (name === current) { settle(); return; }
-        if (busy) { pending = name; return; }
+    function transitionTo(name, moveFocus, param) {
+        param = param || "";
+        if (name === current) {
+            // Same page, different item (one mistake to another): no wipe, just a new item.
+            if (param !== currentParam && !busy) {
+                currentParam = param;
+                window.scrollTo({ top: 0, behavior: "instant" });
+                announce(name, param);
+                if (moveFocus) focusHeading(name);
+            } else if (busy) {
+                pending = { name: name, param: param };
+                return;
+            }
+            settle();
+            return;
+        }
+        if (busy) { pending = { name: name, param: param }; return; }
         if (current) scrollMemory[current] = window.scrollY;
 
         var bands = wipe ? Array.prototype.slice.call(wipe.children) : [];
         if (reducedMotion() || !bands.length || typeof bands[0].animate !== "function") {
-            showView(name);
+            showView(name, param);
             if (moveFocus) focusHeading(name);
             settle();
             return;
@@ -164,7 +206,7 @@
         });
 
         Promise.all(covers.map(function (a) { return a.finished; })).then(function () {
-            showView(name);
+            showView(name, param);
             if (moveFocus) focusHeading(name);
             var reveals = bands.map(function (band, i) {
                 return band.animate(
@@ -175,7 +217,7 @@
             return Promise.all(reveals.map(function (a) { return a.finished; }));
         }).catch(function () {
             // An interrupted animation is not an error; fall through and clean up.
-            if (current !== name) showView(name);
+            if (current !== name) showView(name, param);
         }).then(function () {
             bands.forEach(function (band) {
                 band.getAnimations().forEach(function (a) { a.cancel(); });
@@ -186,20 +228,22 @@
     }
 
     function go(name) {
-        var target = VIEWS.indexOf(name) !== -1 ? name : "home";
+        var target = parseTarget(name);
+        var hash = hashFor(target.view, target.param);
         return new Promise(function (resolve) {
-            if (target === current && !busy) { resolve(); return; }
+            if (target.view === current && target.param === currentParam && !busy) { resolve(); return; }
             waiters.push(resolve);
-            if (viewFromHash() !== target || window.location.hash.replace(/^#\/?/, "") !== target) {
-                window.location.hash = target;
+            if (window.location.hash.replace(/^#\/?/, "") !== hash) {
+                window.location.hash = hash;
             } else {
-                transitionTo(target, true);
+                transitionTo(target.view, true, target.param);
             }
         });
     }
 
     window.addEventListener("hashchange", function () {
-        transitionTo(viewFromHash(), true);
+        var target = parseTarget(window.location.hash);
+        transitionTo(target.view, true, target.param);
     });
 
     window.addEventListener("resize", placeIndicator);
@@ -278,7 +322,8 @@
     }
 
     // --- First paint ---------------------------------------------------------
-    showView(viewFromHash());
+    var first = parseTarget(window.location.hash);
+    showView(first.view, first.param);
     // Clear the entrance class with the boot class. Otherwise the hero would fall back
     // to the normal view entrance and replay it the moment "boot" comes off.
     window.setTimeout(function () {
@@ -289,6 +334,7 @@
     window.Shell = {
         go: go,
         current: function () { return current; },
+        param: function () { return currentParam; },
         confirm: confirmDialog,
         countUp: countUp,
         reducedMotion: reducedMotion

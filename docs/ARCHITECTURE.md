@@ -14,11 +14,13 @@ browser, `module.exports` for Node tests).
 | `js/mastery-model.js` | Per subject+topic mastery via EMA (α=0.4), volume-gated levels (new/developing/proficient/mastered). |
 | `js/practice-selection.js` | Practice planner: injects due mistakes into a generated set (cap 3, provenance tags `review`/`generated`). |
 | `js/home-summary.js` | Home logic: level progress, live streak, daily missions, next-step choice, review-orbit geometry. Pure, tested. |
+| `js/variant-practice.js` | Similar-question rules: difficulty staircase, Beta-posterior mastery evidence, SM-2 forward nudge, weakest-topic ranking, request/response handling. Pure, tested. |
 | `js/shell.js` | Views and motion: hash routing, page wipe, nav marker, tooltips, themed confirm dialog. No learning logic and no data. |
 | `js/app.js` | UI glue: rendering, generate, grading, mistake log, stats, export/import. Renders via `escapeHtml` then `innerHTML`, then `typesetMath` (KaTeX). |
 
 The page is one document with six views (`home`, `notes`, `practice`, `review`,
-`progress`, `setup`), addressed by URL hash. All views stay in the DOM, so `app.js`
+`progress`, `setup`) plus one sub-page, `mistake` (`#mistake/<id>`, a saved mistake and
+its similar questions; the nav keeps Review marked), addressed by URL hash. All views stay in the DOM, so `app.js`
 keeps its element references and in-progress state while the student moves around;
 `shell.js` only toggles which view shows and fires `studyboost:view`. Visual rules
 are in [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md).
@@ -31,13 +33,17 @@ avoiding a bare `$`, which KaTeX would treat as a math delimiter).
 
 | File | Responsibility |
 |---|---|
-| `server.py` | Flask app. `/api/chat` (Groq, OpenAI-compatible), `/api/health`, `/api/attempt`, `/api/stats`. SQLite `attempts` table (nullable `user_id` + `source`). |
-| `metrics_beta.py` | Read-only metrics (Review Recovery Rate), stdlib only, `--since/--until`. |
+| `server.py` | Flask app. `/api/chat` (Groq, OpenAI-compatible), `/api/health`, `/api/attempt`, `/api/stats`, `/api/variants`. SQLite `attempts` table (nullable `user_id` + `source` ∈ generated/review/variant) and `ai_generation_log` (counts only). |
+| `variant_engine.py` | Similar-question pipeline: input bounds, prompts, schema validation, quality gates, diagnosis rules, one repair call, fallback. LLM injected for tests. |
+| `variant_templates.py` | Built-in generator for seven AP Calculus skills, each distractor a named misconception; skill classifier. |
+| `mathcheck.py` | Safe ASCII-math parser and checks (derivative, antiderivative, definite integral, limit, value) and a LaTeX printer. No `eval`. |
+| `metrics_beta.py` | Read-only metrics (Review Recovery Rate, similar-question accuracy, generation reliability), stdlib only, `--since/--until`. |
 | `reset_demo.py` | Wipe + reseed demo data (refuses without `DEMO_SEED=1`). |
 
 ## Data & storage
 
-- **Server**: SQLite `attempts` (one row per graded answer; anon `user_id`, `source`).
+- **Server**: SQLite `attempts` (one row per graded answer; anon `user_id`, `source`) and
+  `ai_generation_log` (one row per similar-question request: counts, codes, tokens; no text).
 - **Client**: `localStorage` — `studyBoostUserIdV1` (anon `u-`+uuid, no PII),
   mistakes, mastery, `studyBoostUIPrefsV1`, XP/streak/daily (`studyBoostXpV1`,
   `studyBoostStreakV1`, `studyBoostDailyV1`), and the versioned export/import backup
@@ -50,15 +56,17 @@ avoiding a bare `$`, which KaTeX would treat as a math delimiter).
 ## Tests & CI
 
 - `node --test` over `tests/spaced-repetition.test.js`, `practice-selection.test.js`,
-  `mastery-model.test.js`, `question-bank.test.js`, `home-summary.test.js` (explicit file
-  list, never bare `tests/`).
-- `pytest` (`conftest.py`) for the server.
-- GitHub Actions runs both on push.
+  `mastery-model.test.js`, `question-bank.test.js`, `home-summary.test.js`,
+  `variant-practice.test.js` (explicit file list, never bare `tests/`).
+- `pytest` (`conftest.py`) for the server, the math engine, the templates, and the variant engine.
+- `tests/e2e/variant-flow.e2e.js`: Playwright end-to-end run of similar-question practice.
+- GitHub Actions runs all three on push.
 
 ## Deploy
 
 PythonAnywhere (free tier), keyless offline mode, ~0.5s load. Update path: PA
 `git pull` + Web-tab Reload (the only step not delegated to Claude). See
 [PRODUCT-ROADMAP.md](PRODUCT-ROADMAP.md) for what's next, [UX-FLOW.md](UX-FLOW.md)
-for the user journey, and [QUESTION-BANK-STANDARD.md](QUESTION-BANK-STANDARD.md)
-for question authoring rules.
+for the user journey, [QUESTION-BANK-STANDARD.md](QUESTION-BANK-STANDARD.md)
+for question authoring rules, and [VARIANT-PRACTICE.md](VARIANT-PRACTICE.md) for
+similar-question practice.
