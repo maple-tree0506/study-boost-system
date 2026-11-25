@@ -8,7 +8,7 @@ student never has to look for their next task. Evidence and decisions:
 
 | Screen | First thing on screen | The one action (signal) | Also there |
 |---|---|---|---|
-| **Home, first visit** | "Turn your notes into adaptive practice." | Start studying | Welcome card (the 4-step loop), empty orbit with a caption |
+| **Home, first visit** | "Practice that brings back what you miss." (the subline says where questions come from: the built-in bank, or your notes when the AI is connected) | Start studying | Welcome card (the 4-step loop), empty orbit with a caption |
 | **Home, returning** | The real next task: "4 questions are due" with the due list, or a weak topic's recent accuracy, or days to the next review | Start review / Practice similar questions / Practice this / Start a new set | A quieter second move (the weak topic after the reviews), the passive orbit (links to Review), missions ledger, Coming up (reviews per day, 7 days) |
 | **Practice, setup** | Course, format, difficulty, topic, notes toggle | Generate Practice Questions | Status line says where questions come from (AI, built-in bank, due reviews) and whether notes were used |
 | **Practice, focus** | One question; the band shows "02 / 07" | Check answer, then Next question | Set bar (meta, numbered cells that navigate, score, Change set); keys A–D / 1–4, Enter, N |
