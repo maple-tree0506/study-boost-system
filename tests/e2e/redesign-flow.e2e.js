@@ -32,13 +32,13 @@ function freePort() {
     });
 }
 
-async function startServer() {
+async function startServer(extraEnv) {
     const port = await freePort();
     const db = path.join(os.tmpdir(), "studyboost-redesign-e2e-" + port + ".db");
     fs.rmSync(db, { force: true });
     const child = spawn(PYTHON, ["server.py"], {
         cwd: ROOT,
-        env: Object.assign({}, process.env, { PORT: String(port), STUDYBOOST_DB: db, OPENAI_API_KEY: "", ATTEMPT_RATE_LIMIT_PER_MIN: "1000" }),
+        env: Object.assign({}, process.env, { PORT: String(port), STUDYBOOST_DB: db, OPENAI_API_KEY: "", ATTEMPT_RATE_LIMIT_PER_MIN: "1000" }, extraEnv || {}),
         stdio: ["ignore", "ignore", "pipe"]
     });
     let log = "";
@@ -155,10 +155,31 @@ test("Home: a first visit keeps the product promise and the welcome card", async
     await page.evaluate(() => localStorage.clear());
     await open(page, server.base, "home");
     await page.waitForSelector('#nextStep[data-state="first"]');
-    assert.match(await page.textContent("#home-title"), /Turn your notes into adaptive practice/);
+    assert.match(await page.textContent("#home-title"), /Practice that brings back what you miss/);
+    // Without an AI connection nothing on Home may promise questions built from notes.
+    assert.match(await page.textContent("#commandDek"), /built-in bank/);
+    assert.match(await page.textContent("#welcomeStepGenerate"), /built-in bank/);
     assert.equal(await page.isVisible("#welcomeCard"), true);
     assert.deepEqual(page.errors, []);
     await page.close();
+});
+
+test("Home: with an AI connection the first visit may promise questions from notes", async () => {
+    // A key is configured but never used here: Home only reads /api/health.
+    const ai = await startServer({ OPENAI_API_KEY: "e2e-dummy-key", OPENAI_BASE_URL: "http://127.0.0.1:9/v1" });
+    try {
+        const page = await newPage(browser);
+        await page.goto(ai.base + "robots.txt");
+        await page.evaluate(() => localStorage.clear());
+        await open(page, ai.base, "home");
+        await page.waitForFunction(() => /your own notes/.test(document.getElementById("commandDek").textContent));
+        assert.match(await page.textContent("#welcomeStepGenerate"), /from your own notes/);
+        assert.deepEqual(page.errors, []);
+        await page.close();
+    } finally {
+        ai.child.kill();
+        fs.rmSync(ai.db, { force: true });
+    }
 });
 
 test("Practice: one question at a time, keyboard answers, then the result sequence", async () => {

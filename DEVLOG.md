@@ -11,6 +11,18 @@ Newest entries first.
 
 ---
 
+## 2026-11 — First-visit Home says what this server can do
+**Why:** after the redesign went live, a review of the public site (which runs without an AI
+key) noted that the first-visit headline still promised "Turn your notes into adaptive
+practice", while every question there comes from the built-in bank and never reads notes.
+**Change:** the headline is now true in both modes ("Practice that brings back what you
+miss."); the subline, the welcome card's first step, and "Why it works" say "built-in bank"
+offline and mention notes only when `/api/health` reports a usable AI connection. The page
+ships the offline wording, so the public site never swaps text after load. End-to-end tests
+cover both modes.
+
+---
+
 ## 2026-11 — Flagship redesign ("Signal Blue")
 **Why:** a returning student's real next task sat below the fold (Home led with the
 marketing headline at every visit), a practice set started behind a full-screen form, the

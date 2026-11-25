@@ -71,13 +71,13 @@ def main():
     x = 214
     y = 44
     f_head = display(100)
-    for line in ("TURN YOUR NOTES", "INTO ADAPTIVE", "AP PRACTICE."):
+    for line in ("PRACTICE THAT", "BRINGS BACK", "WHAT YOU MISS."):
         d.text(px(x, y), line, font=f_head, fill=BLACK)
         y += 96
 
     f_body = text_font(28)
-    d.text(px(x, y + 20), "Missed questions come back", font=f_body, fill=BLACK)
-    d.text(px(x, y + 58), "until they stick.", font=f_body, fill=BLACK)
+    d.text(px(x, y + 20), "AP-style questions for 14 courses,", font=f_body, fill=BLACK)
+    d.text(px(x, y + 58), "on a spaced review schedule.", font=f_body, fill=BLACK)
 
     # Diagonal black floor with the wordmark, the same cut as the Home hero.
     d.polygon(px(0, H, 0, 566, W, 478, W, H), fill=BLACK)

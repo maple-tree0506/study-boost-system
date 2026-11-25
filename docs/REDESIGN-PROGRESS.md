@@ -370,7 +370,8 @@ the three prototypes).
 ## Manual verification steps
 
 1. `python server.py`, open <http://127.0.0.1:8765/> (or `start.bat` on Windows).
-2. First visit: Home shows "Turn your notes into adaptive practice." and the welcome card.
+2. First visit: Home shows "Practice that brings back what you miss." and the welcome card;
+   without an AI key nothing on Home promises questions built from notes.
 3. Practice: AP Calculus AB, "5 multiple choice only", Generate. The setup folds into the
    set bar ("Built-in question bank"), the band shows 01 / 05. Press a letter, Enter (check),
    Enter (next). Miss one on purpose. On the last question: "See results", then "See the

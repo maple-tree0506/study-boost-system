@@ -606,6 +606,7 @@ async function fetchHealth() {
         await flushAttemptQueue();
     }
     loadStats();
+    renderFirstVisitCopy(); // the connection decides what the first-visit Home can promise
     if (window.Shell && window.Shell.current() === "mistake") renderMistakeDetail(window.Shell.param());
 }
 
@@ -3951,8 +3952,8 @@ function renderNextStep(counts) {
     if (!returning) {
         kicker.textContent = "Adaptive AP practice";
         figure.hidden = true;
-        title.textContent = "Turn your notes into adaptive practice.";
-        dek.textContent = "Paste your notes, answer AP-style questions, and the ones you miss come back until they stick.";
+        title.textContent = "Practice that brings back what you miss.";
+        renderFirstVisitCopy();
         list.hidden = true;
         list.innerHTML = "";
         btn.textContent = "Start studying";
@@ -3989,6 +3990,31 @@ function renderNextStep(counts) {
         const where = currentAlt.topic || currentAlt.subject || "your weakest topic";
         altBtn.textContent = (currentAlt.kind === "variant" ? "Then: similar questions on " : "Then: practice ") + where +
             (typeof currentAlt.pct === "number" ? " (" + currentAlt.pct + "%)" : "");
+    }
+}
+
+// First-visit promises must match what this server can do: questions come from the
+// student's notes only with a live AI connection; otherwise from the built-in bank.
+// index.html ships the bank wording, so the offline site never swaps text after load.
+function renderFirstVisitCopy() {
+    const ai = canUseLiveAI();
+    const dek = document.getElementById("commandDek");
+    if (dek && document.getElementById("nextStep").getAttribute("data-state") === "first") {
+        dek.textContent = ai
+            ? "AP-style questions from your own notes or any of 14 courses. The ones you miss come back on a spaced schedule until they stick."
+            : "AP-style questions from a built-in bank for 14 courses. The ones you miss come back on a spaced schedule until they stick.";
+    }
+    const step = document.getElementById("welcomeStepGenerate");
+    if (step) {
+        step.innerHTML = "<strong>Generate</strong> " + (ai
+            ? "AP-style questions from a course, topic, and difficulty, or from your own notes."
+            : "AP-style questions for a course, topic, and difficulty from the built-in bank. With an AI connection, from your own notes too.");
+    }
+    const why = document.getElementById("whyQuestions");
+    if (why) {
+        why.textContent = ai
+            ? "AI generates practice from your own notes"
+            : "A built-in AP question bank for 14 courses; with an AI connection, questions from your own notes";
     }
 }
 
