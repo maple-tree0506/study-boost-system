@@ -9,14 +9,15 @@ browser, `module.exports` for Node tests).
 
 | Module | Responsibility |
 |---|---|
-| `js/question-bank.js` | `window.OFFLINE_BANK`: 14 subjects, each `{basic, medium, challenge}` × `{mcq, sa}`. Powers keyless offline practice. |
+| `js/question-bank.js` | `window.OFFLINE_BANK`: 14 subjects, each `{basic, medium, challenge}` × `{mcq, sa}`. Powers keyless offline practice. Not in the initial page load (~250 KB): `ensureQuestionBank()` in `app.js` injects it when a set first needs it and prefetches it when the browser is idle. |
 | `js/spaced-repetition.js` | SM-2 scheduling for the Mistake Log (intervals, ease, due dates). |
 | `js/mastery-model.js` | Per subject+topic mastery via EMA (α=0.4), volume-gated levels (new/developing/proficient/mastered). |
 | `js/practice-selection.js` | Practice planner: injects due mistakes into a generated set (cap 3, provenance tags `review`/`generated`). |
-| `js/home-summary.js` | Home logic: level progress, live streak, daily missions, next-step choice, review-orbit geometry. Pure, tested. |
+| `js/home-summary.js` | Home logic: level progress, live streak, daily missions, next-step choice (with the weak topic's `pct`), Progress top line (`weekTopLine`), legacy orbit geometry. Pure, tested. |
+| `js/review-orbit.js` | Review Orbit and Mistake Library rules: record → item, time buckets (due / next 7 days / later), one filter (course, bucket, LaTeX-insensitive search), sorts, deterministic chart layout (course sectors × SM-2 days, due core), reviews per day (`upcoming`), formula-safe `snippet`, `shortCourse`. Pure, tested. |
 | `js/variant-practice.js` | Similar-question rules: difficulty staircase, Beta-posterior mastery evidence, SM-2 forward nudge, weakest-topic ranking, request/response handling. Pure, tested. |
-| `js/shell.js` | Views and motion: hash routing, page wipe, nav marker, tooltips, themed confirm dialog. No learning logic and no data. |
-| `js/app.js` | UI glue: rendering, generate, grading, mistake log, stats, export/import. Renders via `escapeHtml` then `innerHTML`, then `typesetMath` (KaTeX). |
+| `js/shell.js` | Views and motion: hash routing, page wipe, nav marker, tooltips, themed confirm dialog, the band's number (`Shell.setBand`), reduced motion (device setting or the student's choice). No learning logic and no data. |
+| `js/app.js` | UI glue: Home command center, Practice focus mode and result sequence, Review Orbit SVG and Mistake Library, mistake page, stats, settings, export/import. Renders via `escapeHtml` then `innerHTML`, then `typesetMath` (KaTeX). |
 
 The page is one document with six views (`home`, `notes`, `practice`, `review`,
 `progress`, `setup`) plus one sub-page, `mistake` (`#mistake/<id>`, a saved mistake and
@@ -57,7 +58,10 @@ avoiding a bare `$`, which KaTeX would treat as a math delimiter).
 
 - `node --test` over `tests/spaced-repetition.test.js`, `practice-selection.test.js`,
   `mastery-model.test.js`, `question-bank.test.js`, `home-summary.test.js`,
-  `variant-practice.test.js` (explicit file list, never bare `tests/`).
+  `variant-practice.test.js`, `review-orbit.test.js` (explicit file list, never bare `tests/`).
+- `tests/visual/capture.js` + `tests/visual/fixtures.js`: screenshots, console errors,
+  overflow at seven sizes, axe-core, and lab timings against labelled fixture data (a
+  review tool, not part of CI; needs Playwright, and `KATEX_DIST` / `AXE_JS` paths).
 - `pytest` (`conftest.py`) for the server, the math engine, the templates, and the variant engine.
 - `tests/e2e/variant-flow.e2e.js`: Playwright end-to-end run of similar-question practice.
 - GitHub Actions runs all three on push.

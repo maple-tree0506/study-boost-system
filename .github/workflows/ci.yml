@@ -39,12 +39,13 @@ jobs:
 
       - name: Run JS unit tests
         # Explicit files (bare `tests/` mis-handles the dir under newer Node).
-        run: node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tests/mastery-model.test.js tests/question-bank.test.js tests/home-summary.test.js tests/variant-practice.test.js
+        run: node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tests/mastery-model.test.js tests/question-bank.test.js tests/home-summary.test.js tests/variant-practice.test.js tests/review-orbit.test.js
 
   e2e:
-    # Similar-question practice in a real browser: two copies of server.py (one with
-    # no key, one wired to a scripted mock provider) driven by Playwright. No real AI
-    # provider is contacted.
+    # Real-browser runs driven by Playwright. Similar-question practice: two copies of
+    # server.py (one with no key, one wired to a scripted mock provider). Redesigned
+    # flows: Home command center, Practice focus mode and keys, results, Review Orbit
+    # and library, Notes, the motion setting, phone width. No real AI provider is contacted.
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -67,5 +68,5 @@ jobs:
           npm install --no-save --no-package-lock playwright@1.49.1
           npx playwright install --with-deps chromium
 
-      - name: Run the end-to-end test
-        run: node --test tests/e2e/variant-flow.e2e.js
+      - name: Run the end-to-end tests
+        run: node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js

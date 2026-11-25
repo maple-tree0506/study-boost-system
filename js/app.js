@@ -41,8 +41,19 @@ let preSetMastery = null;
 let lastShareText = "";
 // H-F: errIds whose SM-2 schedule was already updated this browser session (dedup).
 const sessionReviewedErrIds = new Set();
-let showOnlyDue = false;
-let mistakeSubjectFilter = "";
+// Practice focus mode: the question on screen, whether the setup form is open over a
+// running set, whether the result sequence is showing, and what the set is.
+let practiceIndex = 0;
+let practiceSetupOpen = false;
+let resultsShown = false;
+let currentSetMeta = null; // { subject, topic, difficulty, origin: "ai" | "bank" | "review" }
+// Review: one filter for the orbit and the library, the selected mistake, chart or list.
+let reviewFilter = { when: "all", course: "", query: "", sort: "due" };
+let orbitSelectedId = "";
+let orbitView = "chart";
+// Home: what the main button and the quieter second button do right now.
+let currentStep = null;
+let currentAlt = null;
 let lastNotesContext = "";
 let serverHealthy = false;
 let healthReady = false;
@@ -176,27 +187,62 @@ function getSentences(text) {
         .filter(Boolean);
 }
 
+// UI preferences: { model, motion }. "motion" is the student's own choice ("system" follows
+// the device, "reduce" always reduces); index.html applies it before the first paint.
 function readUIPrefs() {
     try {
         const raw = localStorage.getItem(STORAGE_UI);
-        if (!raw) return { model: "" };
-        const p = JSON.parse(raw);
-        return { model: typeof p.model === "string" ? p.model : "" };
+        if (!raw) return { model: "", motion: "system" };
+        const p = JSON.parse(raw) || {};
+        return {
+            model: typeof p.model === "string" ? p.model : "",
+            motion: p.motion === "reduce" ? "reduce" : "system"
+        };
     } catch (e) {
-        return { model: "" };
+        return { model: "", motion: "system" };
+    }
+}
+
+function writeUIPrefs(patch) {
+    const prefs = Object.assign(readUIPrefs(), patch || {});
+    try {
+        localStorage.setItem(STORAGE_UI, JSON.stringify(prefs));
+        return true;
+    } catch (e) {
+        return false;
     }
 }
 
 function saveUIPrefs() {
-    const prefs = { model: sanitizeText(modelInput.value) };
-    localStorage.setItem(STORAGE_UI, JSON.stringify(prefs));
-    uiPrefsStatus.textContent = "Preferences saved.";
+    const ok = writeUIPrefs({ model: sanitizeText(modelInput.value) });
+    uiPrefsStatus.textContent = ok ? "Preferences saved." : "Couldn't save: this browser's storage is full or blocked.";
+}
+
+function applyMotionPref(value) {
+    if (value === "reduce") document.documentElement.setAttribute("data-motion", "reduce");
+    else document.documentElement.removeAttribute("data-motion");
 }
 
 function applyUIPrefs() {
     const p = readUIPrefs();
     modelInput.value = p.model || defaultModelPlaceholder();
+    applyMotionPref(p.motion);
+    document.querySelectorAll('input[name="motionPref"]').forEach(function (r) { r.checked = r.value === p.motion; });
 }
+
+document.querySelectorAll('input[name="motionPref"]').forEach(function (radio) {
+    radio.addEventListener("change", function () {
+        if (!radio.checked) return;
+        applyMotionPref(radio.value);
+        const ok = writeUIPrefs({ motion: radio.value });
+        const status = document.getElementById("motionStatus");
+        if (status) {
+            status.textContent = !ok ? "Couldn't save this choice: this browser's storage is full or blocked."
+                : radio.value === "reduce" ? "Motion reduced. Every change still shows; the movement is gone."
+                    : "Following your device's motion setting.";
+        }
+    });
+});
 
 function defaultModelPlaceholder() {
     return "llama-3.3-70b-versatile";
@@ -324,6 +370,9 @@ function refreshMistakeFilterOptions() {
     });
     if (current && subjects[current]) {
         mistakeSubjectFilterEl.value = current;
+    } else if (reviewFilter.course && !subjects[reviewFilter.course]) {
+        // The filtered course has no mistakes left: fall back to all courses.
+        reviewFilter.course = "";
     }
 }
 
@@ -761,6 +810,33 @@ function pickBankIndices(key, poolLen, count) {
 
 // Returns an array of offline questions, or null when no bank exists for the
 // subject (so the caller can degrade honestly instead of showing wrong-subject items).
+// The offline bank is large (~250 KB), so it is not part of the first page load. It is
+// fetched the first time a set needs it, and prefetched once the browser is idle.
+let bankPromise = null;
+function ensureQuestionBank() {
+    if (window.OFFLINE_BANK) return Promise.resolve(true);
+    if (bankPromise) return bankPromise;
+    bankPromise = new Promise(function (resolve) {
+        const tag = document.createElement("script");
+        tag.src = "js/question-bank.js";
+        tag.async = true;
+        tag.onload = function () { resolve(!!window.OFFLINE_BANK); };
+        tag.onerror = function () {
+            bankPromise = null; // allow a retry
+            tag.remove();
+            resolve(false);
+        };
+        document.head.appendChild(tag);
+    });
+    return bankPromise;
+}
+(function prefetchQuestionBank() {
+    const go = function () { ensureQuestionBank(); };
+    if (window.Shell && window.Shell.current() === "practice") { go(); return; }
+    if ("requestIdleCallback" in window) window.requestIdleCallback(go, { timeout: 4000 });
+    else window.setTimeout(go, 2500);
+}());
+
 function createMockQuestions(topic, apSubjectId, difficulty, expected, notesContext) {
     const allBanks = (typeof window !== "undefined" && window.OFFLINE_BANK) || {};
     const subjectBank = allBanks[apSubjectId];
@@ -770,16 +846,11 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected, notesCont
     const pack = subjectBank[tier] || subjectBank.medium || subjectBank.basic || subjectBank.challenge;
     if (!pack || !Array.isArray(pack.mcq) || !Array.isArray(pack.sa)) return null;
 
-    const label = { basic: "Basic", medium: "Medium", challenge: "Challenge" }[difficulty] || "Medium";
+    // Bank questions are fixed, AP-style items: they are not written from the student's
+    // notes, so they never claim to be (the status line says the notes were not used).
     const course = subjectLabelFromId(apSubjectId);
     const focus = sanitizeText(topic) || course;
-    const prefix = "[" + label + " · " + course + "] ";
     const fill = function (s) { return String(s || "").replace(/\{focus\}/g, focus); };
-
-    const notesLead = sanitizeText(notesContext).slice(0, 120);
-    const notesPrefix = notesLead
-        ? "[From your notes: \"" + notesLead + (notesLead.length >= 120 ? "…" : "") + "\"] "
-        : "";
 
     const out = [];
     if (expected.mcq > 0 && pack.mcq.length) {
@@ -789,7 +860,7 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected, notesCont
             out.push({
                 id: "mcq-demo-" + Date.now() + "-" + i + "-" + idx,
                 type: "Multiple Choice",
-                question: notesPrefix + prefix + fill(item.q),
+                question: fill(item.q),
                 options: (item.o || []).slice(),
                 answer: item.a,
                 explanation: fill(item.e || "")
@@ -803,7 +874,7 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected, notesCont
             out.push({
                 id: "sa-demo-" + Date.now() + "-" + j + "-" + idx,
                 type: "Short Answer",
-                question: notesPrefix + fill(item.q),
+                question: fill(item.q),
                 answer: item.a,
                 explanation: fill(item.e || "")
             });
@@ -825,17 +896,93 @@ function scoreSummary() {
     return { answered: answered, correct: correct };
 }
 
-// One cell per question in the set: empty until graded, then right or wrong.
+// --- Practice focus mode: one question at a time -----------------------------------------
+// Every card of a set is rendered once; only the current one is shown. The set bar's cells
+// are both the score and the navigation. The band shows the question number.
+const DIFFICULTY_NAME = { basic: "Basic", medium: "Medium", challenge: "Challenge" };
+const ORIGIN_NAME = {
+    ai: "AI-generated",
+    bank: "Built-in question bank",
+    review: "Due reviews from your Mistake Log"
+};
+
+// The result kicker stays short: course and level only (the set bar has the rest).
+function resultKicker() {
+    const m = currentSetMeta || {};
+    const parts = [m.origin === "review" ? "Review set" : (m.subject || "Practice set")];
+    if (DIFFICULTY_NAME[m.difficulty]) parts.push(DIFFICULTY_NAME[m.difficulty]);
+    return parts.join(" · ");
+}
+
+function snippetOf(text, max) {
+    return window.ReviewOrbit ? window.ReviewOrbit.snippet(text, max) : String(text || "");
+}
+
+// Multiple-choice options with a key badge (A-D) the keyboard shortcuts refer to. The
+// radio stays in the label, invisible over the badge, so clicks, keys and tests still use it.
+function mcqOptionsHtml(groupName, options) {
+    let html = '<div class="mcq-options" data-role="mcq">';
+    (options || []).forEach(function (opt, oi) {
+        const letter = optionLetter(opt);
+        const shown = letter ? String(opt).replace(/^\s*[A-F][.)]\s*/, "") : opt;
+        html += "<label>";
+        html += '<input type="radio" name="' + escapeHtml(groupName) + '" value="' + escapeHtml(opt) + '" /> ';
+        html += '<span class="opt-key">' + (letter || String.fromCharCode(65 + oi)) + "</span>";
+        html += '<span class="opt-text">' + escapeHtml(shown) + "</span>";
+        html += "</label>";
+    });
+    return html + "</div>";
+}
+
+// What this set is, in words: course, topic, level, and where the questions came from
+// (live AI, the built-in bank, or saved mistakes coming back for review).
+function setMetaText() {
+    const m = currentSetMeta;
+    if (!m) return "";
+    const reviews = generatedQuestions.filter(function (q) { return q.source === "review"; }).length;
+    const parts = [];
+    if (m.subject) parts.push(m.subject);
+    if (m.topic) parts.push(m.topic);
+    if (DIFFICULTY_NAME[m.difficulty]) parts.push(DIFFICULTY_NAME[m.difficulty]);
+    let origin = ORIGIN_NAME[m.origin] || "";
+    if (m.origin !== "review" && reviews) origin += " + " + reviews + (reviews === 1 ? " due review" : " due reviews");
+    if (origin) parts.push(origin);
+    return parts.join(" · ");
+}
+
+function firstOpenIndex() {
+    for (let i = 0; i < generatedQuestions.length; i++) {
+        const r = quizResults[generatedQuestions[i].id];
+        if (!r || !r.done) return i;
+    }
+    return -1;
+}
+
+function isSetComplete() {
+    return generatedQuestions.length > 0 && firstOpenIndex() === -1;
+}
+
+// One cell per question in the set: empty until graded, then right or not yet. Each cell
+// opens its question.
 function scoreBannerInner() {
     const s = scoreSummary();
     const total = generatedQuestions.length;
-    const cells = generatedQuestions.map(function (q) {
+    const cells = generatedQuestions.map(function (q, i) {
         const r = quizResults[q.id];
         const state = r && r.done ? (r.correct ? " ok" : " bad") : "";
-        return '<i class="set-cell' + state + '"></i>';
+        const current = i === practiceIndex && !resultsShown;
+        const label = "Question " + (i + 1) + (r && r.done ? (r.correct ? ", right" : ", not yet right") : ", not answered");
+        return '<button type="button" class="set-cell' + state + (current ? " is-current" : "") + '" data-goto="' + i + '"' +
+            ' aria-label="' + label + '"' + (current ? ' aria-current="step"' : "") + ">" + (i + 1) + "</button>";
     }).join("");
-    return '<span class="score-text">' + s.correct + " correct of " + s.answered + " graded · " + total + " in this set.</span>" +
-        '<span class="set-cells" aria-hidden="true">' + cells + "</span>";
+    const complete = isSetComplete();
+    return '<p class="set-meta">' + escapeHtml(setMetaText()) + "</p>" +
+        '<div class="set-cells" role="group" aria-label="Questions in this set">' + cells + "</div>" +
+        '<span class="score-text">' + s.correct + " correct of " + s.answered + " graded · " + total + " in this set.</span>" +
+        '<span class="set-tools">' +
+        (complete ? '<button type="button" class="small set-results" data-action="show-results">See results</button>' : "") +
+        '<button type="button" class="secondary small set-change" data-action="change-set">' +
+        (practiceSetupOpen ? "Hide setup" : "Change set") + "</button></span>";
 }
 
 function renderScoreBanner() {
@@ -849,17 +996,24 @@ function updateScoreBanner() {
 }
 
 function renderQuestions() {
+    resultsShown = false;
+    practiceSetupOpen = false;
+    practiceIndex = 0;
     if (!generatedQuestions.length) {
         quizOutput.innerHTML = "<p class='empty'>Choose a course and generate questions to begin.</p>";
+        setPracticeMode();
         return;
     }
 
+    const total = generatedQuestions.length;
     let html = renderScoreBanner();
 
     generatedQuestions.forEach(function (item, index) {
         const isMcq = item.type === "Multiple Choice" && item.options && item.options.length;
-        html += '<article class="qa-card" data-qid="' + escapeHtml(item.id) + '">';
-        html += '<div class="card-head"><strong class="qa-title">Question ' + (index + 1) + "</strong>";
+        const qid = escapeHtml(item.id);
+        html += '<article class="qa-card" data-qid="' + qid + '" data-index="' + index + '" aria-labelledby="qt-' + index + '" hidden>';
+        html += '<div class="card-head"><h3 class="qa-title" id="qt-' + index + '" tabindex="-1">Question ' + (index + 1) +
+            '<span class="qa-of"> of ' + total + "</span></h3>";
         html += '<span class="tag">' + escapeHtml(item.type) + "</span>";
         // R1: resurfaced due mistakes are added on top of the requested set — label
         // them so the (intentionally) larger count reads as the feature it is.
@@ -870,52 +1024,227 @@ function renderQuestions() {
         html += '<p class="qa-q">' + escapeHtml(item.question) + "</p>";
 
         if (isMcq) {
-            html += '<div class="mcq-options" data-role="mcq">';
-            item.options.forEach(function (opt) {
-                html += "<label>";
-                html += '<input type="radio" name="mcq-' + escapeHtml(item.id) + '" value="' + escapeHtml(opt) + '" /> ';
-                html += "<span>" + escapeHtml(opt) + "</span>";
-                html += "</label>";
-            });
-            html += "</div>";
-            html += '<div class="actions"><button type="button" class="secondary check-mcq" data-qid="' + escapeHtml(item.id) + '">Check answer</button></div>';
-            html += '<div class="feedback" role="status" data-feedback="' + escapeHtml(item.id) + '" hidden></div>';
+            html += mcqOptionsHtml("mcq-" + item.id, item.options);
+            html += '<div class="actions qa-actions"><button type="button" class="check-mcq" data-qid="' + qid + '">Check answer</button>' +
+                '<span class="key-hint" aria-hidden="true">Keys: A–' + String.fromCharCode(64 + Math.min(item.options.length, 6)) +
+                " or 1–" + Math.min(item.options.length, 6) + " choose · Enter checks · N next</span></div>";
+            html += '<div class="feedback" role="status" data-feedback="' + qid + '" hidden></div>';
         } else {
             html += '<div class="field">';
-            html += '<textarea class="sa-input" data-sa-input="' + escapeHtml(item.id) + '" aria-label="Your answer" placeholder="Type your answer, then submit to see the suggested answer."></textarea>';
+            html += '<textarea class="sa-input" data-sa-input="' + qid + '" aria-label="Your answer" placeholder="Type your answer, then submit to see the suggested answer."></textarea>';
             html += "</div>";
-            html += '<div class="actions"><button type="button" class="secondary submit-sa" data-qid="' + escapeHtml(item.id) + '">Submit answer</button></div>';
-            html += '<div class="feedback" role="status" data-feedback="' + escapeHtml(item.id) + '" hidden></div>';
+            html += '<div class="actions qa-actions"><button type="button" class="submit-sa" data-qid="' + qid + '">Submit answer</button></div>';
+            html += '<div class="feedback" role="status" data-feedback="' + qid + '" hidden></div>';
             // Self-grade buttons appear only AFTER the student submits their answer.
-            html += '<div class="short-actions" data-selfgrade="' + escapeHtml(item.id) + '" hidden>';
+            html += '<div class="short-actions" data-selfgrade="' + qid + '" hidden>';
             html += '<span class="selfgrade-q">Compare with the suggested answer below. Did you get it right?</span>';
-            html += '<button type="button" class="outline self-correct" data-qid="' + escapeHtml(item.id) + '" data-correct="1">I was right</button>';
-            html += '<button type="button" class="outline self-wrong" data-qid="' + escapeHtml(item.id) + '" data-correct="0">I was wrong</button>';
+            html += '<button type="button" class="outline self-correct" data-qid="' + qid + '" data-correct="1">I was right</button>';
+            html += '<button type="button" class="outline self-wrong" data-qid="' + qid + '" data-correct="0">I was wrong</button>';
             html += "</div>";
         }
 
         // Khan-style: the answer stays hidden until the student checks/submits.
-        html += '<div class="answer-box" data-answer="' + escapeHtml(item.id) + '" hidden>';
+        html += '<div class="answer-box" data-answer="' + qid + '" hidden>';
         html += "<h4>Suggested answer</h4>";
         html += "<p>" + escapeHtml(item.answer) + "</p>";
         if (item.explanation) {
             // Remediation explanation: hidden until an INCORRECT response reveals it.
-            html += '<div class="explanation" data-explanation="' + escapeHtml(item.id) + '" hidden>';
+            html += '<div class="explanation" data-explanation="' + qid + '" hidden>';
             html += "<h4>Why</h4><p>" + escapeHtml(item.explanation) + "</p>";
             html += "</div>";
         }
         html += "</div>";
 
-        html += '<div class="actions card-foot">';
-        html += '<button type="button" class="text-btn" data-action="save-error" data-id="' + escapeHtml(item.id) + '">Add to Mistake Log</button>';
-        html += "</div>";
+        html += '<div class="card-foot">';
+        html += '<button type="button" class="text-btn" data-action="save-error" data-id="' + qid + '">Add to Mistake Log</button>';
+        html += '<span class="q-nav">';
+        html += '<button type="button" class="outline small q-prev" data-action="q-prev">Previous</button>';
+        html += '<button type="button" class="secondary q-next" data-action="q-next">Next question</button>';
+        html += "</span></div>";
 
         html += "</article>";
     });
 
     quizOutput.innerHTML = html;
     typesetMath(quizOutput);
+    showQuestion(0, false);
+    setPracticeMode();
 }
+
+// Setup form, focused set, or result sequence: one data attribute drives the layout.
+function setPracticeMode() {
+    const view = document.getElementById("view-practice");
+    const active = generatedQuestions.length > 0;
+    const mode = !active ? "setup" : resultsShown ? "results" : "focus";
+    if (view) view.setAttribute("data-mode", mode);
+    const setup = document.getElementById("practiceSetup");
+    if (setup) setup.hidden = active && !practiceSetupOpen;
+    updatePracticeBand();
+}
+
+function togglePracticeSetup() {
+    practiceSetupOpen = !practiceSetupOpen;
+    setPracticeMode();
+    updateScoreBanner();
+    if (practiceSetupOpen) {
+        const setup = document.getElementById("practiceSetup");
+        if (setup) setup.scrollIntoView({ behavior: motionBehavior(), block: "start" });
+        try { apSubjectInput.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+    }
+}
+
+function motionBehavior() {
+    return window.Shell && window.Shell.reducedMotion() ? "auto" : "smooth";
+}
+
+function pad2(n) {
+    return n < 10 ? "0" + n : String(n);
+}
+
+// The band carries the set's real numbers: which question, then the score.
+function updatePracticeBand() {
+    if (!window.Shell || !window.Shell.setBand || window.Shell.current() !== "practice") return;
+    const total = generatedQuestions.length;
+    if (!total) { window.Shell.setBand(null); return; }
+    if (resultsShown) {
+        window.Shell.setBand({ num: String(scoreSummary().correct), of: "/" + total, label: "Right" });
+    } else {
+        window.Shell.setBand({ num: pad2(practiceIndex + 1), of: "/" + pad2(total), label: "Question" });
+    }
+}
+
+function showQuestion(index, moveFocus) {
+    const cards = quizOutput.querySelectorAll(".qa-card");
+    if (!cards.length) return;
+    practiceIndex = Math.max(0, Math.min(index, cards.length - 1));
+    cards.forEach(function (c, k) {
+        const on = k === practiceIndex && !resultsShown;
+        c.hidden = !on;
+        c.classList.toggle("is-current", on);
+    });
+    updateScoreBanner();
+    refreshQuestionNav();
+    updatePracticeBand();
+    if (moveFocus && !resultsShown) {
+        const title = cards[practiceIndex].querySelector(".qa-title");
+        const bar = document.getElementById("scoreBanner");
+        (bar || cards[practiceIndex]).scrollIntoView({ behavior: motionBehavior(), block: "start" });
+        if (title) title.focus({ preventScroll: true });
+    }
+}
+
+// Previous / Next on the current card. The last card leads to the results once every
+// question is graded; until then it leads to the first one still open.
+function refreshQuestionNav() {
+    const card = quizOutput.querySelector(".qa-card.is-current");
+    if (!card) return;
+    const idx = parseInt(card.getAttribute("data-index"), 10) || 0;
+    const item = generatedQuestions[idx];
+    const done = !!(item && quizResults[item.id] && quizResults[item.id].done);
+    const last = idx >= generatedQuestions.length - 1;
+    card.classList.toggle("is-graded", done);
+    const prev = card.querySelector(".q-prev");
+    if (prev) prev.disabled = idx === 0;
+    const next = card.querySelector(".q-next");
+    if (!next) return;
+    let label = "Next question";
+    let action = "q-next";
+    if (last && isSetComplete()) {
+        label = "See results";
+        action = "show-results";
+    } else if (last) {
+        label = "Next unanswered";
+    }
+    next.textContent = label;
+    next.setAttribute("data-action", action);
+    // Once this question is graded, moving on is the next action (the signal).
+    next.classList.toggle("secondary", !done);
+}
+
+function goNextQuestion() {
+    if (practiceIndex < generatedQuestions.length - 1) {
+        showQuestion(practiceIndex + 1, true);
+        return;
+    }
+    if (isSetComplete()) {
+        showResults();
+        return;
+    }
+    const open = firstOpenIndex();
+    if (open >= 0) showQuestion(open, true);
+}
+
+// After a grade: lock the choice, show what to do next, and keep focus on it.
+function afterGrade(card) {
+    if (!card) return;
+    card.querySelectorAll('.mcq-options input[type="radio"]').forEach(function (r) { r.disabled = true; });
+    const check = card.querySelector(".check-mcq");
+    if (check) check.disabled = true;
+    updateScoreBanner();
+    refreshQuestionNav();
+    const next = card.querySelector(".q-next");
+    if (next) {
+        try { next.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+    }
+}
+
+// Keyboard: letters or numbers choose, Enter checks (or moves on once graded), N moves on.
+// Typing in a text box is never intercepted, and buttons keep their own Enter.
+document.addEventListener("keydown", function (ev) {
+    if (!window.Shell || window.Shell.current() !== "practice") return;
+    if (!generatedQuestions.length || resultsShown) return;
+    if (ev.defaultPrevented || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    if (document.querySelector("dialog[open]")) return;
+    const t = ev.target instanceof HTMLElement ? ev.target : null;
+    const tag = t ? t.tagName : "";
+    const typing = tag === "TEXTAREA" || tag === "SELECT" ||
+        (tag === "INPUT" && !/^(radio|checkbox)$/i.test(t.type)) || (t && t.isContentEditable);
+    if (typing) return;
+    const card = quizOutput.querySelector(".qa-card.is-current");
+    if (!card) return;
+    const item = generatedQuestions[parseInt(card.getAttribute("data-index"), 10) || 0];
+    if (!item) return;
+    const done = !!(quizResults[item.id] && quizResults[item.id].done);
+    const key = ev.key;
+
+    const radios = Array.prototype.slice.call(card.querySelectorAll('.mcq-options input[type="radio"]'));
+    if (radios.length && !done && /^[1-6a-fA-F]$/.test(key)) {
+        let n = /^[1-6]$/.test(key) ? parseInt(key, 10) - 1 : -1;
+        if (n < 0) {
+            const letter = key.toUpperCase();
+            n = radios.findIndex(function (r) { return optionLetter(r.value) === letter; });
+            if (n < 0) n = letter.charCodeAt(0) - 65;
+        }
+        if (radios[n]) {
+            radios[n].checked = true;
+            radios[n].focus({ preventScroll: true });
+            ev.preventDefault();
+        }
+        return;
+    }
+    if (key === "Enter") {
+        if (tag === "BUTTON" || tag === "A" || tag === "SUMMARY") return; // native activation
+        if (done) {
+            goNextQuestion();
+            ev.preventDefault();
+            return;
+        }
+        const check = card.querySelector(".check-mcq");
+        if (check && radios.some(function (r) { return r.checked; })) {
+            check.click();
+            ev.preventDefault();
+        }
+        return;
+    }
+    if (key === "n" || key === "N") {
+        goNextQuestion();
+        ev.preventDefault();
+    }
+});
+
+document.addEventListener("studyboost:view", function (ev) {
+    if (ev.detail && ev.detail.view === "practice") updatePracticeBand();
+});
 
 // --- P0: study streak (consecutive days) ---
 const STREAK_KEY = "studyBoostStreakV1";
@@ -1093,7 +1422,10 @@ function legacyCopy(payload) {
     return ok;
 }
 
-// --- P0: completion screen — a state switch shown once a set is fully graded ---
+// --- P0: completion — the result sequence, built once a set is fully graded ---
+// The bookkeeping (set XP, streak) happens the moment the last answer is graded, so it
+// counts even if the student never opens the results. The card itself waits until the
+// student asks for it, so the last explanation can be read first.
 function maybeShowCompletion() {
     const total = generatedQuestions.length;
     if (!total) return;
@@ -1102,7 +1434,7 @@ function maybeShowCompletion() {
 }
 
 function enterCompletionMode() {
-    if (document.getElementById("completionCard")) return;  // already shown
+    if (document.getElementById("completionCard")) return;  // already built for this set
     const total = generatedQuestions.length;
     const s = scoreSummary();
     const wrong = s.answered - s.correct;
@@ -1123,20 +1455,39 @@ function enterCompletionMode() {
     const daily = bumpDaily({ xp: 20 });
     const lvl = levelInfo(getXp());
 
-    const card = document.createElement("div");
+    const card = document.createElement("section");
     card.id = "completionCard";
     card.className = "completion-card";
+    card.hidden = true;
+    card.setAttribute("aria-labelledby", "ccTitle");
+    card.setAttribute("data-xp", String(setXp));
     const progress = window.HomeSummary ? window.HomeSummary.levelProgress(getXp(), XP_PER_LEVEL) : { pct: 0 };
+    const meta = setMetaText();
     let html = "";
     html += '<div class="cc-result">';
-    html += '<h3 class="cc-title">Set complete</h3>';
-    html += '<p class="cc-score">' + s.correct + '<span class="cc-of"> / ' + total + "</span></p>";
+    html += '<p class="kicker">' + escapeHtml(resultKicker()) + "</p>";
+    html += '<h3 class="cc-title" id="ccTitle" tabindex="-1">' + (wrong === 0 ? "Perfect set." : "Set complete.") + "</h3>";
+    html += '<p class="cc-score"><span aria-hidden="true">' + s.correct + '<span class="cc-of"> / ' + total + "</span></span>" +
+        '<span class="sr-only">' + s.correct + " of " + total + " right</span></p>";
     html += "</div>";
     html += '<div class="cc-reward">';
     html += '<p class="cc-xp">+<span id="ccXp">' + setXp + "</span> XP</p>";
     html += '<p class="cc-level">Level ' + lvl.level + " · " + lvl.toNext + " XP to Level " + (lvl.level + 1) + "</p>";
     html += '<span class="bar-track"><span class="bar-fill" style="width:' + progress.pct + '%"></span></span>';
     html += "</div>";
+
+    // The sequence: every question in order with its result. Plain words, never a red X.
+    html += '<ol class="cc-sequence" aria-label="Your answers, in order">';
+    generatedQuestions.forEach(function (q, i) {
+        const ok = !!(quizResults[q.id] && quizResults[q.id].correct);
+        html += '<li class="cc-step ' + (ok ? "is-ok" : "is-miss") + '" style="--i:' + Math.min(i, 12) + '">' +
+            '<span class="cc-step-num">' + (i + 1) + "</span>" +
+            '<span class="cc-step-state">' + (ok ? "Right" : "Not yet") + "</span>" +
+            '<span class="cc-step-q">' + escapeHtml(snippetOf(q.question, 96)) + "</span>" +
+            "</li>";
+    });
+    html += "</ol>";
+
     html += '<div class="cc-detail">';
     html += masteryGrowthHtml(); // v2 #2: the growth signal, at the motivation peak
     html += "<p>" + (wrong === 0
@@ -1145,6 +1496,31 @@ function enterCompletionMode() {
     html += "<p>Today: " + daily.questions + " questions · " + daily.reviews + " reviews · +" + daily.xp + " XP</p>";
     html += "<p>Streak: Day " + streak + "</p>";
     html += "</div>";
+
+    // What to do about the ones that did not land: see the answer again, or practise
+    // new questions built from that exact mistake.
+    const missed = [];
+    generatedQuestions.forEach(function (q, i) {
+        const r = quizResults[q.id];
+        if (r && r.done && !r.correct) missed.push({ q: q, i: i });
+    });
+    if (missed.length) {
+        html += '<div class="cc-missed"><h4>Worth another look</h4><ul class="cc-missed-list">';
+        missed.forEach(function (m) {
+            const rec = m.q.errId ? findErrorRecord(m.q.errId)
+                : errorRecords.find(function (r) { return r.sourceId === m.q.id; });
+            html += "<li>";
+            html += '<span class="cc-missed-q"><b>' + (m.i + 1) + ".</b> " + escapeHtml(snippetOf(m.q.question, 110)) + "</span>";
+            html += '<span class="cc-missed-actions">';
+            html += '<button type="button" class="outline small" data-goto="' + m.i + '">See the answer</button>';
+            if (rec && canPracticeSimilar(rec)) {
+                html += '<button type="button" class="small" data-action="open-mistake" data-id="' + escapeHtml(rec.id) + '">Practice similar</button>';
+            }
+            html += "</span></li>";
+        });
+        html += "</ul></div>";
+    }
+
     html += '<div class="actions cc-actions">';
     if (wrong > 0) {
         html += '<button type="button" data-action="start-review">Review My Mistakes</button>';
@@ -1169,14 +1545,41 @@ function enterCompletionMode() {
     if (fb) html += '<p class="feedback-line">' + fb + " — 1 minute, helps StudyBoost improve.</p>";
     card.innerHTML = html;
 
-    // state switch: completion card becomes the main view; collapse the question pile
-    quizOutput.insertBefore(card, quizOutput.firstChild);
-    const sb = document.getElementById("scoreBanner");
-    if (sb) sb.style.display = "none";
-    quizOutput.querySelectorAll(".qa-card").forEach(function (c) { c.style.display = "none"; });
-    card.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (window.Shell) window.Shell.countUp(document.getElementById("ccXp"), setXp);
+    quizOutput.appendChild(card);
+    typesetMath(card);
+    updateScoreBanner();
+    refreshQuestionNav();
     refreshHud();
+}
+
+// Show the result sequence. Nothing waits on the animation: the numbers are in the DOM
+// from the start, and the reveal only plays when motion is allowed.
+function showResults() {
+    if (!document.getElementById("completionCard")) maybeShowCompletion();
+    const card = document.getElementById("completionCard");
+    if (!card) return;
+    resultsShown = true;
+    card.hidden = false;
+    quizOutput.querySelectorAll(".qa-card").forEach(function (c) { c.hidden = true; c.classList.remove("is-current"); });
+    const sb = document.getElementById("scoreBanner");
+    if (sb) sb.hidden = true;
+    setPracticeMode();
+    card.scrollIntoView({ behavior: motionBehavior(), block: "start" });
+    const title = card.querySelector(".cc-title");
+    if (title) title.focus({ preventScroll: true });
+    if (!card.hasAttribute("data-counted") && window.Shell) {
+        card.setAttribute("data-counted", "1");
+        window.Shell.countUp(document.getElementById("ccXp"), parseInt(card.getAttribute("data-xp"), 10) || 0);
+    }
+}
+
+function hideResults() {
+    const card = document.getElementById("completionCard");
+    if (card) card.hidden = true;
+    resultsShown = false;
+    const sb = document.getElementById("scoreBanner");
+    if (sb) sb.hidden = false;
+    setPracticeMode();
 }
 
 function findQuestionCard(qid) {
@@ -1238,13 +1641,38 @@ function handleQuizClick(ev) {
         return;
     }
 
-    // P0 completion-screen CTAs
+    // Moving around the set: the set bar's cells, Previous / Next, and the results.
+    if (t.hasAttribute("data-goto")) {
+        const goto = parseInt(t.getAttribute("data-goto"), 10) || 0;
+        if (resultsShown) hideResults();
+        showQuestion(goto, true);
+        return;
+    }
+    if (saveAction === "q-prev") {
+        showQuestion(practiceIndex - 1, true);
+        return;
+    }
+    if (saveAction === "q-next") {
+        goNextQuestion();
+        return;
+    }
+    if (saveAction === "show-results") {
+        showResults();
+        return;
+    }
+    if (saveAction === "change-set") {
+        togglePracticeSetup();
+        return;
+    }
+    if (saveAction === "open-mistake" && saveId) {
+        goToView("mistake/" + saveId);
+        return;
+    }
+
+    // Completion-screen actions
     if (saveAction === "show-questions") {
-        const cc = document.getElementById("completionCard");
-        if (cc) cc.remove();
-        const sb = document.getElementById("scoreBanner");
-        if (sb) sb.style.display = "";
-        quizOutput.querySelectorAll(".qa-card").forEach(function (c) { c.style.display = ""; });
+        hideResults();
+        showQuestion(0, true);
         return;
     }
     if (saveAction === "view-progress") {
@@ -1261,10 +1689,11 @@ function handleQuizClick(ev) {
         }
         generatedQuestions = plan.selected.slice();
         quizResults = {};
+        currentSetMeta = { subject: "", topic: "", difficulty: "", origin: "review" };
         renderQuestions();
         quizStatus.textContent = "Reviewing " + generatedQuestions.length +
             (generatedQuestions.length === 1 ? " item" : " items") + " due from your Mistake Log.";
-        quizOutput.scrollIntoView({ behavior: "smooth", block: "start" });
+        showQuestion(0, true);
         return;
     }
     if (saveAction === "share-progress") {
@@ -1272,10 +1701,14 @@ function handleQuizClick(ev) {
         return;
     }
     if (saveAction === "new-set") {
-        const cc = document.getElementById("completionCard");
-        if (cc) cc.remove();
+        // Back to the setup form. Misses from the finished set are already saved.
+        generatedQuestions = [];
+        quizResults = {};
+        currentSetMeta = null;
+        renderQuestions();
+        quizStatus.textContent = "";
         const panel = document.getElementById("quiz-title");
-        if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (panel) panel.scrollIntoView({ behavior: motionBehavior(), block: "start" });
         const subj = document.getElementById("apSubjectInput");
         if (subj) setTimeout(function () { try { subj.focus(); } catch (e) { /* ignore */ } }, 350);
         return;
@@ -1299,8 +1732,8 @@ function handleQuizClick(ev) {
 
         if (!sel) {
             fb.hidden = false;
-            fb.className = "feedback bad";
-            fb.textContent = "Select an option first.";
+            fb.className = "feedback hint-only";
+            fb.textContent = "Choose an option first.";
             return;
         }
 
@@ -1309,14 +1742,15 @@ function handleQuizClick(ev) {
         quizResults[qid] = { done: true, correct: ok };
         fb.hidden = false;
         fb.className = ok ? "feedback ok" : "feedback bad";
-        fb.textContent = ok ? "Correct." : "Incorrect. Compare with the suggested answer below.";
+        fb.textContent = ok ? "Correct." : "Not quite. The correct answer is marked" +
+            (item.explanation ? ", and the explanation is below." : ".");
         markMcqOptions(card, item);
         revealAnswer(card, qid);
-        updateScoreBanner();
         recordAttempt(item, ok);
         applyGradeOutcome(item, ok);
         if (!ok) revealExplanation(card, qid);
         maybeShowCompletion();
+        afterGrade(card);
         return;
     }
 
@@ -1334,7 +1768,7 @@ function handleQuizClick(ev) {
         const answerText = sanitizeText(ta.value);
         if (!answerText) {
             fb.hidden = false;
-            fb.className = "feedback bad";
+            fb.className = "feedback hint-only";
             fb.textContent = "Type your answer first.";
             return;
         }
@@ -1353,6 +1787,8 @@ function handleQuizClick(ev) {
         fb.hidden = false;
         fb.className = "feedback";
         fb.textContent = "Answer submitted — compare with the suggested answer, then grade yourself.";
+        const firstGrade = sg ? sg.querySelector("button") : null;
+        if (firstGrade) firstGrade.focus({ preventScroll: true });
         return;
     }
 
@@ -1370,17 +1806,19 @@ function handleQuizClick(ev) {
             return;
         }
         quizResults[qid] = { done: true, correct: isCorrect };
+        const item = generatedQuestions.find(function (x) { return x.id === qid; });
         if (fb) {
             fb.hidden = false;
             fb.className = isCorrect ? "feedback ok" : "feedback bad";
-            fb.textContent = isCorrect ? "Counted as correct." : "Counted as incorrect.";
+            fb.textContent = isCorrect ? "Counted as correct." : "Counted as not yet right" +
+                (item && item.explanation ? ". The explanation is below." : ".");
         }
-        updateScoreBanner();
-        const item = generatedQuestions.find(function (x) { return x.id === qid; });
+        if (card) card.querySelectorAll(".self-correct, .self-wrong").forEach(function (b) { b.disabled = true; });
         recordAttempt(item, isCorrect);
         applyGradeOutcome(item, isCorrect);
         if (!isCorrect) revealExplanation(card, qid);
         maybeShowCompletion();
+        afterGrade(card);
     }
 }
 
@@ -1683,6 +2121,9 @@ function renderStats(data, localOnly) {
             'These are unsynced results queued on this device and will merge once the server is back.</p>';
     }
 
+    if (window.HomeSummary && overall.answered) {
+        html += '<p class="top-line">' + escapeHtml(window.HomeSummary.weekTopLine(data.daily, data.bySubject).text) + "</p>";
+    }
     html += '<div class="stat-cards">';
     // No graded questions means no accuracy yet, which is not the same as 0%.
     html += '<div class="stat-card"><span class="stat-num">' + (overall.answered ? pct(overall.accuracy) + "%" : "–") + '</span><span class="stat-label">Overall accuracy</span></div>';
@@ -1726,27 +2167,33 @@ function renderStats(data, localOnly) {
     const daily = data.daily || [];
     const maxVol = daily.reduce(function (m, d) { return Math.max(m, d.answered); }, 0);
     html += "<h3>Last 14 days</h3>";
-    html += '<p class="hint">Bar height shows questions answered. Color shows accuracy that day.</p>';
-    html += '<ul class="trend-legend">' +
-        '<li><i class="acc-high"></i>80% or higher</li>' +
-        '<li><i class="acc-mid"></i>50 to 79%</li>' +
-        '<li><i class="acc-low"></i>Under 50%</li>' +
-        "</ul>";
-    html += '<div class="trend">';
-    daily.forEach(function (d) {
-        const heightPct = maxVol ? Math.max(6, Math.round((d.answered / maxVol) * 100)) : 0;
-        const title = d.date + ": " + d.answered + " answered" + (d.answered ? ", " + pct(d.accuracy) + "% correct" : "");
-        const label = d.date.slice(5);
-        html += '<div class="trend-col" data-tip="' + escapeHtml(title) + '">';
-        html += '<span class="trend-bar-wrap">';
-        if (d.answered) {
-            html += '<span class="trend-bar ' + accuracyClass(d.accuracy, d.answered) + '" style="height:' + heightPct + '%"></span>';
-        }
-        html += "</span>";
-        html += '<span class="trend-label">' + escapeHtml(label) + "</span>";
+    if (!maxVol) {
+        html += '<p class="empty">No graded questions in the last 14 days. Each day you practise adds a bar here.</p>';
+    } else {
+        html += '<p class="hint">Bar height and the number on it: questions answered that day (busiest day: ' + maxVol +
+            "). Color: accuracy that day.</p>";
+        html += '<ul class="trend-legend">' +
+            '<li><i class="acc-high"></i>80% or higher</li>' +
+            '<li><i class="acc-mid"></i>50 to 79%</li>' +
+            '<li><i class="acc-low"></i>Under 50%</li>' +
+            "</ul>";
+        html += '<div class="trend" role="list" aria-label="Questions answered per day, last 14 days">';
+        daily.forEach(function (d) {
+            const heightPct = Math.max(6, Math.round((d.answered / maxVol) * 100));
+            const title = d.date + ": " + d.answered + " answered" + (d.answered ? ", " + pct(d.accuracy) + "% correct" : "");
+            const label = d.date.slice(5);
+            html += '<div class="trend-col" role="listitem" data-tip="' + escapeHtml(title) + '" aria-label="' + escapeHtml(title) + '">';
+            html += '<span class="trend-bar-wrap">';
+            if (d.answered) {
+                html += '<span class="trend-bar ' + accuracyClass(d.accuracy, d.answered) + '" style="height:' + heightPct + '%">' +
+                    '<span class="trend-num">' + d.answered + "</span></span>";
+            }
+            html += "</span>";
+            html += '<span class="trend-label">' + escapeHtml(label) + "</span>";
+            html += "</div>";
+        });
         html += "</div>";
-    });
-    html += "</div>";
+    }
 
     statsOutput.innerHTML = html;
 }
@@ -1765,8 +2212,10 @@ function topicDisplay(stat) {
 function masteryRadarSvg(topics) {
     const axes = (topics || []).slice(0, 8);
     const n = axes.length;
-    if (n < 3) return "";
-    const cx = 150, cy = 105, R = 66, TAU = Math.PI * 2;
+    // With fewer than 5 topics the "radar" is a triangle or a square that says less than
+    // the bars below it, so it is left out.
+    if (n < 5) return "";
+    const cx = 180, cy = 120, R = 78, TAU = Math.PI * 2;
     const ptAt = function (i, radius) {
         const ang = -Math.PI / 2 + (i / n) * TAU;
         return [cx + radius * Math.cos(ang), cy + radius * Math.sin(ang)];
@@ -1788,14 +2237,14 @@ function masteryRadarSvg(topics) {
         const anchor = dx > 0.3 ? "start" : (dx < -0.3 ? "end" : "middle");
         const lp = ptAt(i, R + 12);
         const raw = topicDisplay(axes[i]);
-        const short = raw.length > 14 ? raw.slice(0, 13) + "..." : raw;
+        const short = raw.length > 20 ? raw.slice(0, 19) + "…" : raw;
         labels += '<text class="radar-label" x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="' + anchor + '" dominant-baseline="middle">' + escapeHtml(short) + "</text>";
     }
     const dataPoly = '<polygon class="radar-shape" points="' + polyPoints(function (i) {
         return R * Math.max(0, Math.min(1, axes[i].ema || 0));
     }) + '"/>';
     const summary = axes.map(function (t) { return topicDisplay(t) + " " + Math.round((t.ema || 0) * 100) + "%"; }).join(", ");
-    return '<div class="mastery-radar"><svg viewBox="0 0 300 210" width="100%" role="img" aria-label="Topic mastery radar: ' +
+    return '<div class="mastery-radar"><svg viewBox="0 0 360 240" width="100%" role="img" aria-label="Topic mastery radar: ' +
         escapeHtml(summary) + '">' + grid + spokes + dataPoly + labels + "</svg></div>";
 }
 
@@ -1943,11 +2392,22 @@ async function generateQuiz() {
     // is practicing); review-injected items from other topics are secondary.
     snapshotPreSetMastery(subjectLabel || "Uncategorized", topic || "");
 
-    const tryDemo = function (reason) {
+    const tryDemo = async function (reason) {
+        let loaded = !!window.OFFLINE_BANK;
+        if (!loaded) {
+            quizStatus.textContent = "Loading the built-in questions...";
+            quizBtn.setAttribute("aria-busy", "true");
+            try { loaded = await ensureQuestionBank(); } finally { quizBtn.removeAttribute("aria-busy"); }
+        }
+        if (!loaded) {
+            quizStatus.textContent = reason + " The built-in question bank didn't load. Check your connection, then try again.";
+            return;
+        }
         const demo = createMockQuestions(topic, apId, difficulty, expected, notesCtx);
         if (!demo || !demo.length) {
             if (reviewItems.length) {
                 generatedQuestions = reviewItems.slice();
+                currentSetMeta = { subject: subjectLabel, topic: topic, difficulty: "", origin: "review" };
                 renderQuestions();
                 quizStatus.textContent = reason + " There's no built-in bank for " + subjectLabel +
                     " — showing " + reviewItems.length + " review(s) due instead.";
@@ -1961,10 +2421,12 @@ async function generateQuiz() {
             return;
         }
         generatedQuestions = finalizeSet(demo);
+        currentSetMeta = { subject: subjectLabel, topic: topic, difficulty: difficulty, origin: "bank" };
         renderQuestions();
         const demoNew = generatedQuestions.filter(function (q) { return q.source !== "review"; }).length;
         quizStatus.textContent = reason + " Showing " + demoNew + " new from the built-in bank" +
-            (reviewItems.length ? " + " + reviewItems.length + " due review." : ".");
+            (reviewItems.length ? " + " + reviewItems.length + " due review." : ".") +
+            (notesCtx ? " Built-in questions don't use your notes." : "");
     };
 
     if (!healthReady) {
@@ -1976,7 +2438,7 @@ async function generateQuiz() {
         const reason = !serverHealthy
             ? "AI is unavailable right now."
             : "AI isn't set up yet.";
-        tryDemo(reason);
+        await tryDemo(reason);
         return;
     }
 
@@ -2008,6 +2470,7 @@ async function generateQuiz() {
         }
 
         generatedQuestions = finalizeSet(generatedQuestions);
+        currentSetMeta = { subject: subjectLabel, topic: topic, difficulty: difficulty, origin: "ai" };
         renderQuestions();
         const aiNew = generatedQuestions.filter(function (q) { return q.source !== "review"; }).length;
         quizStatus.textContent = "Questions ready — " + aiNew + " new from " + ctxLabel +
@@ -2016,7 +2479,7 @@ async function generateQuiz() {
         console.error("AI quiz generation failed:", err); // debug detail stays out of the UI
         recordAiResult("quiz", "failed");
         const timedOut = /timed out|too long/i.test((err && err.message) || "");
-        tryDemo(timedOut ? "The AI timed out." : "The AI request didn't go through.");
+        await tryDemo(timedOut ? "The AI timed out." : "The AI request didn't go through.");
     } finally {
         clearTimeout(slowTimer);
         setAIControlsBusy(false);
@@ -2132,71 +2595,337 @@ async function clearErrorRecords() {
     errorStatus.textContent = "Mistake Log cleared.";
 }
 
-function renderErrorRecords() {
+// --- Review: the orbit and the Mistake Library ------------------------------------------
+// One filter drives both views: the chart dims what the filter leaves out, the library
+// lists what it keeps. The rules (time buckets, search, sort, chart positions) live in
+// js/review-orbit.js, which is pure and tested. SM-2 owns every schedule shown here.
+const STATUS_LABEL = { "new": "New", learning: "Learning", mastered: "Mastered" };
+const WHEN_LABEL = { all: "All", due: "Due now", week: "Next 7 days", later: "Later" };
+
+function reviewItems() {
     const RS = window.ReviewSystem;
+    const RO = window.ReviewOrbit;
+    if (!RS || !RO) return [];
+    return errorRecords.map(function (r) { return RO.toItem(r, RS); });
+}
+
+function shortCourse(label) {
+    return window.ReviewOrbit ? window.ReviewOrbit.shortCourse(label) : String(label || "");
+}
+
+function setReviewFilter(patch) {
+    reviewFilter = Object.assign({}, reviewFilter, patch || {});
+    if (mistakeSubjectFilterEl && mistakeSubjectFilterEl.value !== reviewFilter.course) {
+        mistakeSubjectFilterEl.value = reviewFilter.course;
+    }
+    const search = document.getElementById("mistakeSearch");
+    if (search && search.value !== reviewFilter.query) search.value = reviewFilter.query;
+    const sort = document.getElementById("mistakeSort");
+    if (sort && sort.value !== reviewFilter.sort) sort.value = reviewFilter.sort;
+    renderErrorRecords();
+}
+
+function renderErrorRecords() {
     refreshHud(); // every change to the log passes through here
+    const items = reviewItems();
+    renderReviewChrome(items);
+    renderReviewOrbit(items);
+    renderLibrary(items);
+}
 
-    // Progress analytics over ALL records (independent of the current filter).
-    let analytics = "";
-    if (RS && errorRecords.length) {
-        const s = RS.summarize(errorRecords);
-        analytics =
-            '<div class="review-stats">' +
-            '<div class="review-stat"><span class="rs-num">' + s.due + '</span><span class="rs-label">Due now</span></div>' +
-            '<div class="review-stat"><span class="rs-num">' + s.learning + '</span><span class="rs-label">Learning</span></div>' +
-            '<div class="review-stat"><span class="rs-num">' + s.mastered + '</span><span class="rs-label">Mastered</span></div>' +
-            '<div class="review-stat"><span class="rs-num">' + s.masteryPct + '%</span><span class="rs-label">Mastery</span></div>' +
-            "</div>";
-    }
-
-    let records = errorRecords.slice();
-    if (showOnlyDue && RS) {
-        records = records.filter(function (item) { return RS.isDue(item.sr); });
-    }
-    if (mistakeSubjectFilter) {
-        records = records.filter(function (item) { return item.subject === mistakeSubjectFilter; });
-    }
-    // Show the most urgent (soonest-due) items first.
-    if (RS) {
-        records.sort(function (a, b) {
-            const da = a.sr && a.sr.due ? new Date(a.sr.due).getTime() : 0;
-            const db = b.sr && b.sr.due ? new Date(b.sr.due).getTime() : 0;
-            return da - db;
-        });
-    }
-
-    if (!records.length) {
-        // Truly empty log gets the motivational empty; filter-excluded gets filter copy.
-        const emptyMsg = errorRecords.length
-            ? "No items match this filter."
-            : "Questions you miss are saved here automatically for spaced review.";
-        errorOutput.innerHTML = analytics + (errorRecords.length ? practiceRecommendationsHtml() : "") +
-            "<p class='empty'>" + emptyMsg + "</p>";
+// Filter chips with live counts, the view toggle, and the instrument readouts.
+function renderReviewChrome(items) {
+    const RO = window.ReviewOrbit;
+    const c = RO ? RO.counts(items) : { all: 0, due: 0, week: 0, later: 0 };
+    document.querySelectorAll("#orbitStage [data-when]").forEach(function (b) {
+        const w = b.getAttribute("data-when");
+        b.textContent = WHEN_LABEL[w] + " · " + c[w];
+        b.setAttribute("aria-pressed", String(reviewFilter.when === w));
+    });
+    document.querySelectorAll("#orbitStage [data-orbit-view]").forEach(function (b) {
+        b.setAttribute("aria-pressed", String(orbitView === b.getAttribute("data-orbit-view")));
+    });
+    const box = document.getElementById("reviewReadouts");
+    const RS = window.ReviewSystem;
+    if (!box) return;
+    if (!RS || !errorRecords.length) {
+        box.innerHTML = "";
         return;
     }
+    const s = RS.summarize(errorRecords);
+    const cell = function (value, label, tone) {
+        return '<div class="readout"' + (tone ? ' data-tone="' + tone + '"' : "") + '><span class="ro-num">' + value +
+            '</span><span class="ro-label">' + label + "</span></div>";
+    };
+    box.innerHTML = cell(s.total, s.total === 1 ? "Saved mistake" : "Saved mistakes") +
+        cell(s.due, "Due now", "due") +
+        cell(s.learning, "Learning") +
+        cell(s.mastered, "Mastered", "mastered");
+}
 
-    const STATUS_LABEL = { "new": "New", learning: "Learning", mastered: "Mastered" };
+function nodeLabel(it) {
+    return (it.topic || "No topic") + ", " + it.course + ", " + window.ReviewOrbit.whenText(it).toLowerCase() +
+        (it.due ? "" : ", " + (STATUS_LABEL[it.status] || it.status).toLowerCase());
+}
 
-    const cards = records.map(function (item, index) {
+// An annular sector (or a full ring when one course fills the chart).
+function sectorPath(c, r0, r1, a0, a1) {
+    const p = function (r, a) { return (c + r * Math.cos(a)).toFixed(1) + "," + (c + r * Math.sin(a)).toFixed(1); };
+    if (a1 - a0 >= Math.PI * 2 - 1e-6) {
+        return "M" + (c + r1).toFixed(1) + "," + c + " A" + r1 + "," + r1 + " 0 1 1 " + (c - r1).toFixed(1) + "," + c +
+            " A" + r1 + "," + r1 + " 0 1 1 " + (c + r1).toFixed(1) + "," + c + " Z" +
+            " M" + (c + r0).toFixed(1) + "," + c + " A" + r0 + "," + r0 + " 0 1 0 " + (c - r0).toFixed(1) + "," + c +
+            " A" + r0 + "," + r0 + " 0 1 0 " + (c + r0).toFixed(1) + "," + c + " Z";
+    }
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    return "M" + p(r0, a0) + " L" + p(r1, a0) + " A" + r1 + "," + r1 + " 0 " + large + " 1 " + p(r1, a1) +
+        " L" + p(r0, a1) + " A" + r0 + "," + r0 + " 0 " + large + " 0 " + p(r0, a0) + " Z";
+}
+
+// The orbit as SVG. Home draws it small and passive; Review draws it with course labels
+// and focusable, selectable nodes (keyboard: arrows move, Enter selects).
+function orbitSvg(items, opts) {
+    const RO = window.ReviewOrbit;
+    const size = opts.size || 420;
+    const L = RO.layout(items, { size: size });
+    const c = L.center;
+    const f = opts.filter || null;
+    const sel = opts.selected || "";
+    const pad = opts.labels ? 70 : 6;
+    let h = "";
+    L.sectors.forEach(function (s, i) {
+        const on = !f || !f.course || f.course === s.course;
+        h += '<path class="ob-sector' + (i % 2 ? " is-alt" : "") + (on ? "" : " is-dim") + '" fill-rule="evenodd" d="' +
+            sectorPath(c, L.core + 3, L.edge + 12, s.a0, s.a1) + '"/>';
+    });
+    L.rings.forEach(function (g) {
+        h += '<circle class="ob-ring" cx="' + c + '" cy="' + c + '" r="' + g.r.toFixed(1) + '"/>';
+    });
+    // Ring labels sit in the gap at the top of the chart, where no course sector starts.
+    L.rings.forEach(function (g) {
+        h += '<text class="ob-tick" x="' + (c + 5) + '" y="' + (c - g.r - 4).toFixed(1) + '">' + g.days + "d</text>";
+    });
+    h += '<circle class="ob-core" cx="' + c + '" cy="' + c + '" r="' + L.core.toFixed(1) + '"/>';
+    if (opts.labels) {
+        L.sectors.forEach(function (s) {
+            if (s.a1 - s.a0 < 0.3 && L.sectors.length > 1) return; // too thin to label; the legend names it
+            const r = L.edge + 24;
+            const x = c + r * Math.cos(s.mid);
+            // Labels above the center grow upward, so their second line never covers the chart.
+            const y = c + r * Math.sin(s.mid) - (Math.sin(s.mid) < -0.3 ? 15 : 0);
+            const cos = Math.cos(s.mid);
+            const anchor = cos > 0.3 ? "start" : cos < -0.3 ? "end" : "middle";
+            h += '<text class="ob-label" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" text-anchor="' + anchor + '">' +
+                escapeHtml(shortCourse(s.course)) + '<tspan class="ob-count" x="' + x.toFixed(1) + '" dy="1.15em">' + s.count +
+                (s.due ? " · " + s.due + " due" : "") + "</tspan></text>";
+        });
+    }
+    // Draw (and tab through) nodes soonest-due first.
+    const order = {};
+    RO.sortItems(items, "due").forEach(function (it, i) { order[it.id] = i; });
+    const nodes = L.nodes.slice().sort(function (a, b) { return order[a.item.id] - order[b.item.id]; });
+    nodes.forEach(function (n) {
+        const it = n.item;
+        const state = it.due ? "due" : it.status;
+        const match = !f || RO.matches(it, f);
+        const cls = "ob-node is-" + state + (match ? "" : " is-dim") + (it.id === sel ? " is-selected" : "");
+        const x = n.x.toFixed(1);
+        const y = n.y.toFixed(1);
+        if (opts.interactive) {
+            h += '<g class="' + cls + '" data-node="' + escapeHtml(it.id) + '" role="button" tabindex="' + (it.id === sel ? 0 : -1) +
+                '" aria-pressed="' + (it.id === sel) + '" aria-label="' + escapeHtml(nodeLabel(it)) + '">' +
+                '<circle class="ob-hit" cx="' + x + '" cy="' + y + '" r="' + Math.max(L.dot + 7, 12).toFixed(1) + '"/>' +
+                '<circle class="ob-dot" cx="' + x + '" cy="' + y + '" r="' + L.dot.toFixed(1) + '"/></g>';
+        } else {
+            h += '<circle class="ob-dot ' + cls + '" cx="' + x + '" cy="' + y + '" r="' + L.dot.toFixed(1) + '"/>';
+        }
+    });
+    const vb = (-pad) + " " + (-pad) + " " + (size + 2 * pad) + " " + (size + 2 * pad);
+    const a11y = opts.interactive
+        ? 'role="group" aria-label="Review orbit: ' + items.length + (items.length === 1 ? " saved mistake" : " saved mistakes") +
+            '. Use the arrow keys to move between mistakes and Enter to select one."'
+        : 'aria-hidden="true" focusable="false"';
+    return '<svg class="ob-svg" viewBox="' + vb + '" ' + a11y + ">" + h + "</svg>";
+}
+
+function legendHtml(items) {
+    const RO = window.ReviewOrbit;
+    const L = RO.layout(items, { size: 420 });
+    const key = function (cls, text) {
+        return '<span class="lg-item"><i class="lg-dot ' + cls + '" aria-hidden="true"></i>' + text + "</span>";
+    };
+    let html = '<span class="lg-keys">' + key("is-due", "Due now (the core)") + key("is-learning", "Learning") +
+        key("is-new", "New") + key("is-mastered", "Mastered") + "</span>";
+    html += '<span class="lg-rule">Angle = course. Distance from the core = days until SM-2 brings it back (rings at 1, 6, 15, 38 days).</span>';
+    if (L.sectors.length) {
+        html += '<span class="lg-courses">' + L.sectors.map(function (s) {
+            return escapeHtml(shortCourse(s.course)) + " " + s.count;
+        }).join(" · ") + "</span>";
+    }
+    return html;
+}
+
+// The list alternative to the chart: the same items and filter, grouped by when.
+function orbitListHtml(items) {
+    const RO = window.ReviewOrbit;
+    const visible = RO.sortItems(items.filter(function (it) { return RO.matches(it, reviewFilter); }), "due");
+    if (!visible.length) {
+        return '<p class="empty">' + (items.length ? "Nothing matches this filter." : "No saved mistakes yet.") + "</p>";
+    }
+    const groups = [["due", "Due now"], ["week", "Next 7 days"], ["later", "Later"]];
+    let html = "";
+    groups.forEach(function (g) {
+        const list = visible.filter(function (it) { return RO.bucket(it) === g[0]; });
+        if (!list.length) return;
+        html += '<section class="ol-group"><h4>' + g[1] + " <span>" + list.length + "</span></h4><ul>";
+        list.forEach(function (it) {
+            const on = it.id === orbitSelectedId;
+            html += '<li><button type="button" class="ol-item' + (on ? " is-selected" : "") + '" data-select="' + escapeHtml(it.id) +
+                '" aria-pressed="' + on + '">' + escapeHtml((it.topic || "No topic") + " · " + shortCourse(it.course) + " · " + RO.whenText(it)) +
+                "</button></li>";
+        });
+        html += "</ul></section>";
+    });
+    return html;
+}
+
+function renderReviewOrbit(items) {
+    const RO = window.ReviewOrbit;
+    const chartEl = document.getElementById("reviewOrbitChart");
+    const listEl = document.getElementById("reviewOrbitList");
+    const legend = document.getElementById("orbitLegend");
+    if (!RO || !chartEl || !listEl) return;
+    // Keep a selection: the soonest-due match, unless the student picked one that still exists.
+    if (!items.some(function (it) { return it.id === orbitSelectedId; })) {
+        const visible = RO.sortItems(items.filter(function (it) { return RO.matches(it, reviewFilter); }), "due");
+        const first = visible[0] || RO.sortItems(items, "due")[0];
+        orbitSelectedId = first ? first.id : "";
+    }
+    chartEl.hidden = orbitView !== "chart";
+    listEl.hidden = orbitView !== "list";
+    if (orbitView === "chart") {
+        chartEl.innerHTML = orbitSvg(items, { size: 440, labels: true, interactive: true, filter: reviewFilter, selected: orbitSelectedId });
+    } else {
+        listEl.innerHTML = orbitListHtml(items);
+    }
+    if (legend) legend.innerHTML = legendHtml(items);
+    renderOrbitDetail(items);
+}
+
+// The selected mistake, with the two things to do about it. The card is a live region,
+// so it is only rewritten when what it shows changes (not on every filter keystroke).
+let orbitDetailKey = "";
+function renderOrbitDetail(items) {
+    const el = document.getElementById("orbitDetail");
+    const RO = window.ReviewOrbit;
+    if (!el || !RO) return;
+    const shown = items.find(function (x) { return x.id === orbitSelectedId; });
+    const key = items.length ? (shown ? [shown.id, shown.dueAt, shown.reviews, shown.status, canUseLiveAI()].join("|") : "none") : "empty";
+    if (key === orbitDetailKey && el.innerHTML) return;
+    orbitDetailKey = key;
+    if (!items.length) {
+        el.innerHTML = '<div class="od-card is-empty"><p class="kicker">Empty orbit</p>' +
+            '<h4 class="od-title">Nothing saved yet.</h4>' +
+            "<p>Questions you miss in Practice land in the core. Each time you remember one, it moves further out.</p>" +
+            '<div class="actions"><button type="button" data-action="orbit-practice">Start a practice set</button></div></div>';
+        return;
+    }
+    const it = items.find(function (x) { return x.id === orbitSelectedId; });
+    const rec = it ? findErrorRecord(it.id) : null;
+    if (!it || !rec) {
+        el.innerHTML = "";
+        return;
+    }
+    let html = '<div class="od-card" data-state="' + (it.due ? "due" : it.status) + '">';
+    html += '<p class="kicker">' + escapeHtml(RO.whenText(it) + (it.reviews ? " · reviewed " + it.reviews + "×" : " · not reviewed yet")) + "</p>";
+    html += '<h4 class="od-title">' + escapeHtml(it.topic || "No topic saved") + "</h4>";
+    html += '<p class="od-meta">' + escapeHtml(it.course + " · " + (rec.type || "Question") + " · " + (STATUS_LABEL[it.status] || it.status)) + "</p>";
+    html += '<p class="od-q">' + escapeHtml(RO.snippet(rec.question, 170)) + "</p>";
+    html += '<div class="actions">';
+    html += '<button type="button" data-action="orbit-rate" data-id="' + escapeHtml(it.id) + '">' +
+        (it.due ? "Review it now" : "Open in the library") + "</button>";
+    if (canPracticeSimilar(rec)) {
+        html += '<button type="button" class="secondary" data-action="open-mistake" data-id="' + escapeHtml(it.id) + '">Practice similar</button>';
+    }
+    html += "</div></div>";
+    el.innerHTML = html;
+    typesetMath(el);
+}
+
+function selectOrbitItem(id) {
+    orbitSelectedId = id;
+    document.querySelectorAll("#reviewOrbitChart [data-node]").forEach(function (g) {
+        const on = g.getAttribute("data-node") === id;
+        g.classList.toggle("is-selected", on);
+        g.setAttribute("aria-pressed", String(on));
+        g.setAttribute("tabindex", on ? "0" : "-1");
+    });
+    document.querySelectorAll("#reviewOrbitList [data-select]").forEach(function (b) {
+        const on = b.getAttribute("data-select") === id;
+        b.classList.toggle("is-selected", on);
+        b.setAttribute("aria-pressed", String(on));
+    });
+    renderOrbitDetail(reviewItems());
+}
+
+// Bring a mistake's library card into view (clearing filters that would hide it).
+function openLibraryCard(id) {
+    const find = function () { return errorOutput.querySelector('[data-card-id="' + cssEscape(id) + '"]'); };
+    let card = find();
+    if (!card) {
+        setReviewFilter({ when: "all", course: "", query: "" });
+        card = find();
+    }
+    if (!card) return;
+    card.scrollIntoView({ behavior: motionBehavior(), block: "start" });
+    const title = card.querySelector(".qa-title");
+    if (title) title.focus({ preventScroll: true });
+    card.classList.remove("is-flash");
+    void card.offsetWidth;
+    card.classList.add("is-flash");
+}
+
+function renderLibrary(items) {
+    const RS = window.ReviewSystem;
+    const RO = window.ReviewOrbit;
+    const countEl = document.getElementById("libraryCount");
+    if (!RS || !RO) return;
+    const visible = RO.sortItems(items.filter(function (it) { return RO.matches(it, reviewFilter); }), reviewFilter.sort);
+    if (countEl) {
+        countEl.textContent = !items.length ? ""
+            : visible.length === items.length ? items.length + (items.length === 1 ? " saved mistake" : " saved mistakes")
+                : "Showing " + visible.length + " of " + items.length;
+    }
+    const recs = errorRecords.length ? practiceRecommendationsHtml() : "";
+    if (!visible.length) {
+        const emptyMsg = errorRecords.length
+            ? "Nothing matches this filter. Try All, another course, or a different search."
+            : "Questions you miss are saved here automatically for spaced review.";
+        errorOutput.innerHTML = recs + "<p class='empty'>" + emptyMsg + "</p>";
+        return;
+    }
+    const byId = {};
+    errorRecords.forEach(function (r) { byId[r.id] = r; });
+
+    const cards = visible.map(function (it) {
+        const item = byId[it.id];
         const sr = item.sr;
-        const status = RS ? RS.status(sr) : "new";
-        const due = RS ? RS.isDue(sr) : true;
-        const days = RS ? RS.daysUntilDue(sr) : 0;
-        const dueText = due ? "Due now" : (days === 1 ? "Next review in 1 day" : "Next review in " + days + " days");
+        const due = it.due;
         const id = escapeHtml(item.id);
+        const dueText = due ? "Due now" : (it.days === 1 ? "Next review in 1 day" : "Next review in " + it.days + " days");
         // Show what each rating would schedule, so the choice has a visible result.
         const ratingButton = function (quality, label) {
-            const next = RS ? RS.review(sr, quality).intervalDays : 0;
+            const next = RS.review(sr, quality).intervalDays;
             const when = next === 1 ? "1 day" : next + " days";
             return '<button type="button" class="outline rate" data-action="review" data-q="' + quality + '" data-id="' + id + '"' +
-                (RS ? ' data-next="' + when + '" aria-label="' + label + ', next review in ' + when + '"' : "") + ">" + label + "</button>";
+                ' data-next="' + when + '" aria-label="' + label + ", next review in " + when + '">' + label + "</button>";
         };
         return (
-            '<article class="error-card' + (due ? " is-due" : "") + '">' +
-            '<div class="card-head"><strong class="qa-title">Item ' + (index + 1) + "</strong>" +
+            '<article class="error-card' + (due ? " is-due" : "") + '" data-card-id="' + id + '">' +
+            '<div class="card-head"><h4 class="qa-title" tabindex="-1">' + escapeHtml(it.topic || "No topic saved") + "</h4>" +
             '<span class="tag subject">' + escapeHtml(item.subject || "Uncategorized") + "</span>" +
             '<span class="tag">' + escapeHtml(item.type) + "</span>" +
-            '<span class="tag status-' + status + '">' + (STATUS_LABEL[status] || status) + "</span>" +
+            '<span class="tag status-' + it.status + '">' + (STATUS_LABEL[it.status] || it.status) + "</span>" +
             (due ? '<span class="tag due">Due</span>' : "") +
             variantTagHtml(item) +
             "</div>" +
@@ -2208,7 +2937,7 @@ function renderErrorRecords() {
             (item.explanation
                 ? '<details class="answer-box"><summary>Why</summary><p>' + escapeHtml(item.explanation) + "</p></details>"
                 : "") +
-            '<p class="due-info">' + escapeHtml(dueText) + (sr && sr.reviews ? " · reviewed " + sr.reviews + "x" : "") + "</p>" +
+            '<p class="due-info">' + escapeHtml(dueText) + (sr && sr.reviews ? " · reviewed " + sr.reviews + "×" : "") + "</p>" +
             '<div class="actions review-actions">' +
             '<span class="selfgrade-q">How well did you recall it?</span>' +
             ratingButton(2, "Forgot") +
@@ -2221,15 +2950,21 @@ function renderErrorRecords() {
         );
     }).join("");
 
-    errorOutput.innerHTML = analytics + practiceRecommendationsHtml() + cards;
+    errorOutput.innerHTML = recs + cards;
     typesetMath(errorOutput);
 }
 
 // One renderer for the AI and offline summaries, ending in the next step of the loop.
-function renderSummary(summaryText, listHtml) {
+// The summary reads like a page: what made it (AI or the offline extractor), a short lede,
+// then numbered key points.
+function renderSummary(summaryText, listHtml, source) {
+    const made = source === "ai"
+        ? "AI summary"
+        : "Offline summary · your own lines, cleaned up";
     summaryOutput.innerHTML =
-        "<h3>Simplified Summary</h3><p>" + escapeHtml(summaryText) + "</p>" +
-        "<h3>Key Points</h3><ul>" + listHtml + "</ul>" +
+        '<p class="kicker">' + made + "</p>" +
+        '<h3>Simplified Summary</h3><p class="summary-lede">' + escapeHtml(summaryText) + "</p>" +
+        '<h3>Key Points</h3><ol class="key-points">' + listHtml + "</ol>" +
         '<div class="actions"><button type="button" data-action="practice-notes">Practice these notes</button></div>';
     typesetMath(summaryOutput);
 }
@@ -2254,11 +2989,12 @@ summaryBtn.addEventListener("click", async function () {
     summaryStatus.textContent = "Generating summary...";
 
     if (!canUseLiveAI()) {
-        const demo = summarizeNotesDemo(raw);
-        renderSummary(demo ? demo.simplifiedSummary : raw, demo ? demo.keyPointsHtml : "");
+        // The raw text, not the whitespace-collapsed copy: key points are split by line.
+        const demo = summarizeNotesDemo(noteInput.value);
+        renderSummary(demo ? demo.simplifiedSummary : raw, demo ? demo.keyPointsHtml : "", "offline");
         lastNotesContext = raw;
         summaryStatus.textContent = serverHealthy
-            ? "Offline summary — add an API key in Setup & connection to enable AI summaries."
+            ? "Offline summary — AI summaries need the AI connection (Setup → AI connection)."
             : "Offline summary — start the local server to enable AI. Your notes are linked to the quiz.";
         updateNotesContextUI();
         return;
@@ -2271,15 +3007,15 @@ summaryBtn.addEventListener("click", async function () {
         const listHtml = (json.keyPoints || []).map(function (pt) {
             return "<li>" + escapeHtml(pt) + "</li>";
         }).join("");
-        renderSummary(json.simplifiedSummary, listHtml);
+        renderSummary(json.simplifiedSummary, listHtml, "ai");
         lastNotesContext = json.simplifiedSummary + "\n" + (json.keyPoints || []).join("\n");
         summaryStatus.textContent = "Summary ready — your practice questions can now use these notes.";
         updateNotesContextUI();
     } catch (err) {
         console.error("AI summary failed:", err); // debug detail stays out of the UI
         summaryStatus.textContent = "AI summary unavailable right now — showing an offline summary instead.";
-        const demo = summarizeNotesDemo(raw);
-        renderSummary(demo ? demo.simplifiedSummary : raw, demo ? demo.keyPointsHtml : "");
+        const demo = summarizeNotesDemo(noteInput.value);
+        renderSummary(demo ? demo.simplifiedSummary : raw, demo ? demo.keyPointsHtml : "", "offline");
         lastNotesContext = raw;
         updateNotesContextUI();
     } finally {
@@ -2290,24 +3026,84 @@ summaryBtn.addEventListener("click", async function () {
 
 quizBtn.addEventListener("click", generateQuiz);
 
-showAllBtn.addEventListener("click", function () {
-    showOnlyDue = false;
-    renderErrorRecords();
-    errorStatus.textContent = "Showing all items.";
-});
-
-showUnknownBtn.addEventListener("click", function () {
-    showOnlyDue = true;
-    renderErrorRecords();
-    errorStatus.textContent = "Showing items due for review.";
-});
-
 clearErrorsBtn.addEventListener("click", clearErrorRecords);
 
+// Review filters: time chips, course, search, sort, and the chart/list switch. The same
+// filter state drives the orbit and the library.
 mistakeSubjectFilterEl.addEventListener("change", function () {
-    mistakeSubjectFilter = mistakeSubjectFilterEl.value;
-    renderErrorRecords();
+    setReviewFilter({ course: mistakeSubjectFilterEl.value });
 });
+
+(function wireReviewTools() {
+    const stage = document.getElementById("orbitStage");
+    const search = document.getElementById("mistakeSearch");
+    const sort = document.getElementById("mistakeSort");
+    let searchTimer = 0;
+    if (search) {
+        search.addEventListener("input", function () {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(function () { setReviewFilter({ query: search.value }); }, 140);
+        });
+    }
+    if (sort) {
+        sort.addEventListener("change", function () { setReviewFilter({ sort: sort.value }); });
+    }
+    if (!stage) return;
+    stage.addEventListener("click", function (ev) {
+        const t = ev.target instanceof Element ? ev.target : null;
+        if (!t) return;
+        const when = t.closest("[data-when]");
+        if (when) {
+            const w = when.getAttribute("data-when");
+            setReviewFilter({ when: w });
+            errorStatus.textContent = w === "all" ? "Showing all items." : "Showing items " + WHEN_LABEL[w].toLowerCase() + ".";
+            return;
+        }
+        const view = t.closest("[data-orbit-view]");
+        if (view) {
+            orbitView = view.getAttribute("data-orbit-view");
+            renderErrorRecords();
+            return;
+        }
+        const node = t.closest("[data-node]");
+        if (node) {
+            selectOrbitItem(node.getAttribute("data-node"));
+            return;
+        }
+        const pick = t.closest("[data-select]");
+        if (pick) {
+            selectOrbitItem(pick.getAttribute("data-select"));
+            return;
+        }
+        const act = t.closest("[data-action]");
+        if (!act) return;
+        const action = act.getAttribute("data-action");
+        if (action === "orbit-rate") openLibraryCard(act.getAttribute("data-id"));
+        else if (action === "open-mistake") goToView("mistake/" + act.getAttribute("data-id"));
+        else if (action === "orbit-practice") goToPracticeSetup();
+    });
+    // Roving focus through the chart: arrows move, Home/End jump, Enter or Space selects.
+    stage.addEventListener("keydown", function (ev) {
+        const node = ev.target instanceof Element ? ev.target.closest("[data-node]") : null;
+        if (!node) return;
+        const all = Array.prototype.slice.call(stage.querySelectorAll("[data-node]"));
+        const i = all.indexOf(node);
+        let next = -1;
+        if (ev.key === "ArrowRight" || ev.key === "ArrowDown") next = Math.min(all.length - 1, i + 1);
+        else if (ev.key === "ArrowLeft" || ev.key === "ArrowUp") next = Math.max(0, i - 1);
+        else if (ev.key === "Home") next = 0;
+        else if (ev.key === "End") next = all.length - 1;
+        else if (ev.key === "Enter" || ev.key === " ") {
+            selectOrbitItem(node.getAttribute("data-node"));
+            ev.preventDefault();
+            return;
+        }
+        if (next < 0) return;
+        ev.preventDefault();
+        all.forEach(function (g, k) { g.setAttribute("tabindex", k === next ? "0" : "-1"); });
+        all[next].focus();
+    });
+}());
 
 // A Forgot / Hard / Got it rating, from the Mistake Log or a mistake's own page.
 function rateMistake(id, quality) {
@@ -2321,7 +3117,7 @@ function rateMistake(id, quality) {
     }
 }
 
-errorOutput.addEventListener("click", function (event) {
+errorOutput.addEventListener("click", async function (event) {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const action = target.getAttribute("data-action");
@@ -2330,7 +3126,18 @@ errorOutput.addEventListener("click", function (event) {
     if (action === "review") {
         rateMistake(id, parseInt(target.getAttribute("data-q"), 10));
     } else if (action === "remove-error") {
+        // One mistake and its schedule live only in this browser: confirm before deleting.
+        const record = findErrorRecord(id);
+        const name = record && record.topic ? "“" + record.topic + "”" : "this mistake";
+        const ok = window.Shell
+            ? await window.Shell.confirm({ title: "Delete this mistake?", body: "This removes " + name + " and its review schedule from this browser. It cannot be undone.", confirmLabel: "Delete", danger: true })
+            : window.confirm("Delete this mistake and its review schedule?");
+        if (!ok) {
+            errorStatus.textContent = "Nothing was deleted.";
+            return;
+        }
         removeErrorRecord(id);
+        errorStatus.textContent = "Deleted.";
     } else if (action === "open-mistake") {
         goToView("mistake/" + id);
     }
@@ -2647,7 +3454,7 @@ function renderDrillIdle(record) {
         html += "<p>" + escapeHtml(variantSession.unavailable) + "</p>";
         html += '<div class="actions">';
         html += '<button type="button" class="secondary" data-action="practice-course">Practice a new ' + escapeHtml(record.subject || "") + " set</button>";
-        html += '<button type="button" class="outline" data-action="back-to-log">Back to Mistake Log</button>';
+        html += '<button type="button" class="outline" data-action="back-to-log">Back to Review</button>';
         html += "</div>";
         html += '<p class="hint">A new set is general practice for the course, not questions built from this mistake. This mistake stays in spaced review either way.</p>';
         html += "</div>";
@@ -2688,15 +3495,8 @@ function renderVariantCard(item) {
         html += '<p class="variant-changes"><span>Same idea, new setup:</span> ' + escapeHtml(item.changes.join(" · ")) + "</p>";
     }
     html += '<p class="qa-q">' + escapeHtml(item.question) + "</p>";
-    html += '<div class="mcq-options" data-role="mcq">';
-    item.options.forEach(function (opt) {
-        html += "<label>";
-        html += '<input type="radio" name="variant-' + escapeHtml(item.id) + '" value="' + escapeHtml(opt) + '" /> ';
-        html += "<span>" + escapeHtml(opt) + "</span>";
-        html += "</label>";
-    });
-    html += "</div>";
-    html += '<div class="actions"><button type="button" class="secondary" data-action="variant-check">Check answer</button></div>';
+    html += mcqOptionsHtml("variant-" + item.id, item.options);
+    html += '<div class="actions"><button type="button" data-action="variant-check">Check answer</button></div>';
     html += '<div class="feedback" role="status" data-variant-feedback hidden></div>';
     html += '<div class="answer-box" data-variant-answer hidden><h4>Answer</h4><p>' + escapeHtml(item.answer) + "</p>";
     if (item.explanation) {
@@ -2926,7 +3726,7 @@ function renderVariantResult(record, r) {
     } else {
         html += '<button type="button" data-action="variant-start">Next similar question (' + LEVEL_NAME[st.target.level] + ")</button>";
     }
-    html += '<button type="button" class="outline" data-action="back-to-log">Back to Mistake Log</button>';
+    html += '<button type="button" class="outline" data-action="back-to-log">Back to Review</button>';
     html += "</div>";
     variantResultEl.innerHTML = html;
 }
@@ -2939,7 +3739,7 @@ function renderMistakeDetail(errId) {
     const record = findErrorRecord(errId);
     if (!record) {
         mistakeOriginalEl.innerHTML = '<p class="empty">This mistake is no longer in your Mistake Log.</p>' +
-            '<div class="actions"><button type="button" data-action="back-to-log">Back to Mistake Log</button></div>';
+            '<div class="actions"><button type="button" data-action="back-to-log">Back to Review</button></div>';
         mistakeAnalysisEl.innerHTML = "";
         variantDrillEl.hidden = true;
         return;
@@ -3009,7 +3809,13 @@ function isReturningUser() {
 }
 
 // --- Home dashboard: real numbers only ---------------------------------------
+// Opens Practice on the setup form, even when a set is already on screen.
 function goToPracticeSetup() {
+    if (generatedQuestions.length && !practiceSetupOpen) {
+        practiceSetupOpen = true;
+        setPracticeMode();
+        updateScoreBanner();
+    }
     goToView("practice").then(function () {
         try { apSubjectInput.focus(); } catch (e) { /* ignore */ }
     });
@@ -3038,47 +3844,149 @@ function barHtml(pct, extraClass) {
         '" style="width:' + pct + '%"></span></span>';
 }
 
-function renderNextStep(counts) {
-    const el = document.getElementById("nextStep");
-    if (!el) return;
+// --- Home: the command center -----------------------------------------------------------
+// The first screen answers "what do I do now?" from the student's own data. The decision
+// itself (due reviews, then a weak topic with a saved mistake, then the weakest topic)
+// lives in js/home-summary.js; this renders it.
+function weakInputs() {
     const weak = window.MasteryModel ? window.MasteryModel.summarizeMastery(masteryMap).weakest : [];
     const top = rankedPractice(1)[0];
     const weakMistake = top && typeof top.ema === "number"
         ? { id: top.record.id, topic: top.record.topic || "", subject: top.record.subject || "", ema: top.ema }
         : null;
-    const step = window.HomeSummary.nextStep({
-        due: counts.due,
-        weakest: weak[0],
-        weakMistake: weakMistake,
-        hasActivity: isReturningUser()
-    });
+    return { weakest: weak[0], weakMistake: weakMistake };
+}
+
+// The giant numeral beside the headline. Always a real number from this student's data.
+function commandFigure(step, counts, items) {
+    if (step.kind === "review") return { value: String(counts.due), unit: "due now" };
+    if ((step.kind === "variant" || step.kind === "focus") && typeof step.pct === "number") {
+        return { value: step.pct + "%", unit: "recent accuracy" };
+    }
+    const waiting = items.filter(function (it) { return !it.due; });
+    if (waiting.length) {
+        const soonest = Math.min.apply(null, waiting.map(function (it) { return it.days; }));
+        return { value: String(soonest), unit: soonest === 1 ? "day to the next review" : "days to the next review" };
+    }
+    const streak = readStreak().count;
+    if (streak) return { value: String(streak), unit: "day streak" };
+    return null;
+}
+
+function commandListHtml(step, items) {
+    const RO = window.ReviewOrbit;
+    if (!RO) return "";
+    const line = function (it, rec) {
+        return "<li>" +
+            '<span class="cl-what"><span class="cl-course">' + escapeHtml(shortCourse(it.course)) + "</span>" +
+            '<span class="cl-topic">' + escapeHtml(it.topic || "No topic") + "</span></span>" +
+            '<span class="cl-q">' + escapeHtml(RO.snippet(rec ? rec.question : "", 84)) + "</span>" +
+            "</li>";
+    };
+    if (step.kind === "review") {
+        const due = RO.sortItems(items.filter(function (it) { return it.due; }), "due");
+        let html = due.slice(0, 4).map(function (it) { return line(it, findErrorRecord(it.id)); }).join("");
+        if (due.length > 4) html += '<li class="cl-more">+ ' + (due.length - 4) + " more due</li>";
+        return html;
+    }
+    if (step.kind === "variant" && step.errId) {
+        const it = items.find(function (x) { return x.id === step.errId; });
+        return it ? line(it, findErrorRecord(it.id)) : "";
+    }
+    return "";
+}
+
+function renderNextStep(counts) {
+    const el = document.getElementById("nextStep");
+    if (!el || !window.HomeSummary) return;
+    const HS = window.HomeSummary;
+    const w = weakInputs();
+    const returning = isReturningUser();
+    const input = { due: counts.due, weakest: w.weakest, weakMistake: w.weakMistake, hasActivity: returning };
+    const step = HS.nextStep(input);
+    currentStep = step;
+    // A quieter second move: the weak topic, after the reviews are done.
+    const alt = step.kind === "review" ? HS.nextStep(Object.assign({}, input, { due: 0 })) : null;
+    currentAlt = alt && (alt.kind === "variant" || alt.kind === "focus") ? alt : null;
+
     el.setAttribute("data-kind", step.kind);
-    el.innerHTML =
-        "<h2>" + escapeHtml(step.title) + "</h2>" +
-        "<p>" + escapeHtml(step.body) + "</p>" +
-        '<div class="actions"><button type="button" id="nextStepBtn">' + escapeHtml(step.cta) + "</button></div>";
-    document.getElementById("nextStepBtn").addEventListener("click", function () {
-        if (step.kind === "variant") {
-            goToView("mistake/" + step.errId);
-            return;
-        }
-        if (step.kind === "review") {
-            showOnlyDue = true;
-            renderErrorRecords();
-            errorStatus.textContent = "Showing items due for review.";
-            goToView("review");
-            return;
-        }
-        if (step.kind === "focus") {
-            const course = AP_SUBJECTS.find(function (s) { return s.label === step.subject; });
-            if (course) {
-                apSubjectInput.value = course.id;
-                apSubjectInput.dispatchEvent(new Event("change"));
-            }
-            topicInput.value = step.topic || "";
-        }
+    el.setAttribute("data-state", returning ? "returning" : "first");
+    const kicker = document.getElementById("commandKicker");
+    const figure = document.getElementById("commandFigure");
+    const title = document.getElementById("home-title");
+    const dek = document.getElementById("commandDek");
+    const list = document.getElementById("commandList");
+    const btn = document.getElementById("nextStepBtn");
+    const altBtn = document.getElementById("nextStepAlt");
+
+    if (!returning) {
+        kicker.textContent = "Adaptive AP practice";
+        figure.hidden = true;
+        title.textContent = "Turn your notes into adaptive practice.";
+        dek.textContent = "Paste your notes, answer AP-style questions, and the ones you miss come back until they stick.";
+        list.hidden = true;
+        list.innerHTML = "";
+        btn.textContent = "Start studying";
+        altBtn.hidden = true;
+        return;
+    }
+
+    const items = reviewItems();
+    kicker.textContent = "Your next move";
+    // Due reviews: the headline itself carries the giant number ("4 / questions are due").
+    // Other steps: the number is a separate real reading (accuracy, days to next review).
+    const lead = step.kind === "review" ? /^(\d+)\s+(.*)$/.exec(step.title) : null;
+    const fig = lead ? null : commandFigure(step, counts, items);
+    figure.hidden = !fig;
+    figure.innerHTML = fig
+        ? '<span class="cf-num">' + escapeHtml(fig.value) + '</span><span class="cf-unit">' + escapeHtml(fig.unit) + "</span>"
+        : "";
+    if (lead) {
+        // The space between the spans keeps "4 questions" one phrase for screen readers.
+        title.innerHTML = '<span class="h1-num">' + escapeHtml(lead[1]) + '</span> <span class="h1-words">' + escapeHtml(lead[2]) + "</span>";
+    } else {
+        title.textContent = step.title;
+    }
+    title.classList.toggle("has-num", !!lead);
+    dek.textContent = step.body;
+    const listHtml = commandListHtml(step, items);
+    list.hidden = !listHtml;
+    list.innerHTML = listHtml;
+    list.setAttribute("aria-label", step.kind === "variant" ? "The question you missed" : "Due now");
+    if (listHtml) typesetMath(list);
+    btn.textContent = step.cta;
+    altBtn.hidden = !currentAlt;
+    if (currentAlt) {
+        const where = currentAlt.topic || currentAlt.subject || "your weakest topic";
+        altBtn.textContent = (currentAlt.kind === "variant" ? "Then: similar questions on " : "Then: practice ") + where +
+            (typeof currentAlt.pct === "number" ? " (" + currentAlt.pct + "%)" : "");
+    }
+}
+
+function runStep(step) {
+    if (!step || !isReturningUser()) {
         goToPracticeSetup();
-    });
+        return;
+    }
+    if (step.kind === "variant") {
+        goToView("mistake/" + step.errId);
+        return;
+    }
+    if (step.kind === "review") {
+        setReviewFilter({ when: "due" });
+        errorStatus.textContent = "Showing items due for review.";
+        goToView("review");
+        return;
+    }
+    if (step.kind === "focus") {
+        const course = AP_SUBJECTS.find(function (s) { return s.label === step.subject; });
+        if (course) {
+            apSubjectInput.value = course.id;
+            apSubjectInput.dispatchEvent(new Event("change"));
+        }
+        topicInput.value = step.topic || "";
+    }
+    goToPracticeSetup();
 }
 
 function renderMissions(counts) {
@@ -3094,49 +4002,49 @@ function renderMissions(counts) {
     }).join("");
 }
 
-// Review orbit: each saved mistake is a dot, and its distance from the center is the
-// real number of days until SM-2 brings it back. Rings sit at the first SM-2 intervals.
+// Home's orbit: the same chart as Review, small and passive. The whole chart links there.
 function renderOrbit(counts) {
     const chart = document.getElementById("orbitChart");
     const caption = document.getElementById("orbitCaption");
-    const HS = window.HomeSummary;
-    const RS = window.ReviewSystem;
-    if (!chart || !RS) return;
-
-    const C = 210;
-    const points = HS.orbitPoints(errorRecords.slice(0, 80), RS.daysUntilDue, RS.isDue);
-    const dots = points.map(function (p, i) {
-        const x = (C + p.r * Math.cos(p.angle)).toFixed(1);
-        const y = (C + p.r * Math.sin(p.angle)).toFixed(1);
-        const when = p.due ? "due now" : "back in " + dayCount(p.days);
-        return '<g class="orbit-dot' + (p.due ? " is-due" : "") + '" style="--i:' + Math.min(i, 24) + '" data-tip="' +
-            escapeHtml((p.subject || "Saved question") + ": " + when) + '">' +
-            '<circle class="orbit-hit" cx="' + x + '" cy="' + y + '" r="13"/>' +
-            '<circle class="orbit-mark" cx="' + x + '" cy="' + y + '" r="' + (p.due ? 5.5 : 6.5) + '"/>' +
-            "</g>";
-    }).join("");
-    const rings = HS.ORBIT_RINGS.map(function (days) {
-        const r = HS.orbitRadius(days).toFixed(1);
-        const a = -Math.PI / 4;
-        const lx = (C + HS.orbitRadius(days) * Math.cos(a)).toFixed(1);
-        const ly = (C + HS.orbitRadius(days) * Math.sin(a)).toFixed(1);
-        return '<circle class="orbit-ring" cx="' + C + '" cy="' + C + '" r="' + r + '"/>' +
-            '<text class="orbit-tick" x="' + lx + '" y="' + ly + '" text-anchor="middle" dominant-baseline="central">' + days + "d</text>";
-    }).join("");
+    if (!chart || !window.ReviewOrbit) return;
+    const items = reviewItems();
+    chart.innerHTML = orbitSvg(items, { size: 420, labels: false, interactive: false });
     const summary = counts.total
-        ? counts.total + " saved questions, " + counts.due + " due now"
-        : "No saved questions yet";
-    chart.innerHTML = '<svg viewBox="0 0 420 420" role="img" aria-label="Review schedule: ' + escapeHtml(summary) + '">' +
-        '<circle class="orbit-core" cx="' + C + '" cy="' + C + '" r="' + HS.ORBIT_CORE + '"/>' +
-        rings + dots + "</svg>";
-
+        ? counts.total + (counts.total === 1 ? " saved mistake, " : " saved mistakes, ") + counts.due + " due now"
+        : "no saved mistakes yet";
+    chart.setAttribute("aria-label", "Open the review orbit: " + summary + ".");
     if (!caption) return;
     if (!counts.total) {
-        caption.textContent = "Your review schedule. Questions you miss land here, then move out as you remember them.";
+        caption.textContent = "Your review orbit. Questions you miss land in the core, then move outward as you remember them.";
         return;
     }
-    const lead = counts.due ? counts.due + " due now. " : "Nothing due now. ";
-    caption.textContent = lead + "Each dot is a saved question. Farther from the center means more days until it comes back.";
+    const lead = counts.due ? counts.due + " due now in the core. " : "Nothing due now. ";
+    caption.textContent = lead + "Each dot is a saved mistake: the farther out, the more days until it comes back.";
+}
+
+// Coming up: how many saved mistakes come back on each of the next seven days (SM-2).
+function renderComingUp() {
+    const el = document.getElementById("comingUp");
+    if (!el || !window.ReviewOrbit) return;
+    const items = reviewItems();
+    if (!items.length) {
+        el.innerHTML = '<p class="empty">Nothing is scheduled yet. Questions you miss show up here on the day they come back.</p>';
+        return;
+    }
+    const up = window.ReviewOrbit.upcoming(items, 7);
+    const max = Math.max.apply(null, up.days.map(function (d) { return d.count; }).concat([1]));
+    let html = '<ol class="week-bars">';
+    up.days.forEach(function (d) {
+        const label = d.offset === 0 ? "now" : d.offset === 1 ? "1 day" : d.offset + " days";
+        html += '<li class="wb' + (d.offset === 0 ? " is-now" : "") + (d.count ? "" : " is-zero") + '">' +
+            '<span class="wb-num">' + d.count + "</span>" +
+            '<span class="wb-bar" style="height:' + (4 + Math.round((d.count / max) * 84)) + 'px" aria-hidden="true"></span>' +
+            '<span class="wb-day">' + (d.offset === 0 ? "due " : "in ") + label + "</span></li>";
+    });
+    html += "</ol>";
+    html += '<p class="hint">' + (up.later ? up.later + (up.later === 1 ? " more comes" : " more come") + " back after that. " : "") +
+        "Days are counted from now on your SM-2 schedule.</p>";
+    el.innerHTML = html;
 }
 
 function renderHud() {
@@ -3189,11 +4097,15 @@ function renderHome() {
     // The welcome card is for people with no activity yet. It has done its job once
     // they have answered something, even if they never dismissed it.
     const welcome = document.getElementById("welcomeCard");
-    if (welcome && !welcome.hidden && isReturningUser()) welcome.hidden = true;
+    const returning = isReturningUser();
+    if (welcome && !welcome.hidden && returning) welcome.hidden = true;
+    const view = document.getElementById("view-home");
+    if (view) view.setAttribute("data-returning", returning ? "1" : "0");
     const counts = reviewCounts();
     renderNextStep(counts);
     renderMissions(counts);
     renderOrbit(counts);
+    renderComingUp();
 }
 
 // Keep the level, streak, and due count current everywhere after any change.
@@ -3234,13 +4146,11 @@ const ONBOARD_KEY = "studyBoostOnboardedV1";
         goToPracticeSetup();
     });
 }());
-(function wireStartCta() {
-    const cta = document.getElementById("startStudyingCta");
-    if (!cta) return;
-    cta.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        goToPracticeSetup();
-    });
+(function wireNextStep() {
+    const btn = document.getElementById("nextStepBtn");
+    const alt = document.getElementById("nextStepAlt");
+    if (btn) btn.addEventListener("click", function () { runStep(currentStep); });
+    if (alt) alt.addEventListener("click", function () { runStep(currentAlt); });
 }());
 // B2: populate the persistent footer feedback link if a form URL is configured.
 (function initFeedbackFooter() {

@@ -11,7 +11,8 @@
  *   Shell.param()             -> the current view's parameter ("" when none)
  *   Shell.confirm(options)    -> Promise<boolean>, themed replacement for window.confirm
  *   Shell.countUp(el, to)     -> animate a number, respecting reduced motion
- *   Shell.reducedMotion()     -> true if the student asked for less motion
+ *   Shell.reducedMotion()     -> true if the device or the student's setting asks for less motion
+ *   Shell.setBand(info|null)  -> show { num, of, label } in the band instead of the page name
  *
  * Fires "studyboost:view" on document with detail { view, param } after each change,
  * including a parameter change on the same view (one mistake to another).
@@ -52,13 +53,18 @@
     var EASE_OUT = "cubic-bezier(.16,1,.3,1)";
 
     var motionQuery = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
-    function reducedMotion() { return !!(motionQuery && motionQuery.matches); }
+    // The device setting, or the student's own "Reduce motion" choice in Setup
+    // (index.html sets data-motion on <html> before first paint).
+    function reducedMotion() {
+        return !!(motionQuery && motionQuery.matches) || document.documentElement.getAttribute("data-motion") === "reduce";
+    }
 
     var body = document.body;
     var wipe = document.getElementById("wipe");
     var bandWord = document.getElementById("bandWord");
     var bandStep = document.getElementById("bandStep");
     var bandStripes = document.getElementById("bandStripes");
+    var bandCount = document.getElementById("bandCount");
     var navIndicator = document.getElementById("navIndicator");
     var views = Array.prototype.slice.call(document.querySelectorAll(".view"));
     var links = Array.prototype.slice.call(document.querySelectorAll(".nav-link"));
@@ -133,6 +139,7 @@
         }
         if (bandStep) bandStep.textContent = band.step;
         if (bandStripes) bandStripes.hidden = !band.step;
+        setBand(null);
 
         current = name;
         currentParam = param || "";
@@ -305,6 +312,30 @@
         });
     }
 
+    // --- Band count ----------------------------------------------------------
+    // A view can put a real number in the band instead of its name: Practice shows the
+    // question number during a set, then the score. Text only, set with textContent.
+    function setBand(info) {
+        if (!bandCount) return;
+        if (!info) {
+            bandCount.hidden = true;
+            body.removeAttribute("data-band");
+            return;
+        }
+        bandCount.textContent = "";
+        var num = document.createElement("b");
+        num.textContent = info.num;
+        var of = document.createElement("span");
+        of.textContent = info.of || "";
+        var label = document.createElement("em");
+        label.textContent = info.label || "";
+        bandCount.appendChild(num);
+        bandCount.appendChild(of);
+        bandCount.appendChild(label);
+        bandCount.hidden = false;
+        body.setAttribute("data-band", "count");
+    }
+
     // --- Numbers -------------------------------------------------------------
     function countUp(el, to) {
         if (!el) return;
@@ -337,6 +368,7 @@
         param: function () { return currentParam; },
         confirm: confirmDialog,
         countUp: countUp,
-        reducedMotion: reducedMotion
+        reducedMotion: reducedMotion,
+        setBand: setBand
     };
 })();

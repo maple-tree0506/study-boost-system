@@ -11,6 +11,45 @@ Newest entries first.
 
 ---
 
+## 2026-11 — Flagship redesign ("Signal Blue")
+**Why:** a returning student's real next task sat below the fold (Home led with the
+marketing headline at every visit), a practice set started behind a full-screen form, the
+review orbit placed dots by a hash (its angle meant nothing, and you couldn't act on a dot),
+and every page used the same template.
+**Process:** a measured baseline first (screenshots at seven sizes, axe-core, lab timings,
+console, overflow, with labelled fixtures in `tests/visual/`), search-level research
+(game UI, product tools, learning products, editorial web; full page reads were blocked by
+this environment's network policy, so findings are marked secondhand), then three
+renderable prototypes with the same content: an editorial JRPG poster, an observatory
+instrument panel, and a riso print room. I chose the first as the base (it grows from the
+existing brand and gives the boldest first read), took the second's chart layer and calm
+reading column, and the third's headline/dek/numbered-list hierarchy. Record:
+`docs/REDESIGN-PROGRESS.md`.
+**What changed:**
+- Home is a command center: "4 questions are due" with the due list and one white button;
+  a weak topic's accuracy when nothing is due; a quieter second move; the orbit on a black
+  slab; a "Coming up" week from SM-2 due dates.
+- Practice has a focus mode: one question at a time, a set bar that says where questions
+  came from (AI, built-in bank, due reviews), numbered cells that navigate, keyboard keys,
+  and the band shows "02 / 07". The result sequence lists every question in order and sends
+  missed ones to "See the answer" or "Practice similar".
+- Review is the Review Orbit: course sectors × days until SM-2 brings each mistake back,
+  filters shared with a searchable, sortable Mistake Library, selectable nodes (keyboard
+  too), a list alternative, and the selected mistake in a field-blue card with the action.
+- Notes reads like a page (numbered key points, says how the summary was made); Progress
+  opens with one plain sentence about the week and labels its bars; Setup puts student
+  settings first (new Reduce motion option) and folds the AI connection away.
+**Bugs found and fixed on the way:** the offline Notes summary collapsed newlines before
+splitting by line; built-in questions were prefixed "[From your notes: …]" although the bank
+never reads notes (and "[Medium · course]" leaked into saved mistakes); deleting one mistake
+had no confirmation; a late web-font swap shifted the Home view (CLS 0.25); the 250 KB
+question bank loaded on every page (now on demand, prefetched when idle).
+**Decisions:** no change to the API, SM-2, mastery, storage format, or deployment; one
+optional `motion` field in the UI preferences; all new logic in a pure, tested module
+(`js/review-orbit.js`).
+
+---
+
 ## 2026-11 — Similar-question practice (adaptive error-based practice)
 **Why:** the Mistake Log only re-showed the exact question a student missed. Re-answering
 the same item can be memorized; it doesn't show the idea transfers. A missed chain-rule

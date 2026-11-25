@@ -63,7 +63,7 @@ Tests (all must pass before you commit):
 
 ```bash
 pytest -q
-node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tests/mastery-model.test.js tests/question-bank.test.js tests/home-summary.test.js tests/variant-practice.test.js
+node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tests/mastery-model.test.js tests/question-bank.test.js tests/home-summary.test.js tests/variant-practice.test.js tests/review-orbit.test.js
 node --test tests/e2e/variant-flow.e2e.js      # needs: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
 ```
 
@@ -92,15 +92,19 @@ js/question-bank.js       window.OFFLINE_BANK: 14 subjects x {basic, medium, cha
 js/spaced-repetition.js   SM-2 scheduler (pure, pluggable)
 js/mastery-model.js       Topic mastery: EMA + volume-gated levels + per-source counts (pure)
 js/practice-selection.js  Injects due mistakes into new sets (pure)
-js/home-summary.js        Home logic: level, streak, missions, next step, orbit geometry (pure)
+js/home-summary.js        Home logic: level, streak, missions, next step, Progress top line (pure)
+js/review-orbit.js        Review Orbit + Mistake Library rules: filter, sort, chart layout, snippet (pure)
 js/variant-practice.js    Similar-question rules: staircase, mastery evidence, SM-2 nudge, ranking (pure)
 pages/about.html, privacy.html, terms.html   Trust pages served at /about, /privacy, /terms
 assets/og-image.png       Social preview card (regenerate with scripts/make_og_image.py, needs Pillow)
 assets/fonts/             Self-hosted Big Shoulders + Instrument Sans (SIL OFL licenses alongside)
 robots.txt, sitemap.xml   SEO files, served by exact routes
 tests/                    pytest suites (test_*.py), node:test suites (*.test.js), tests/e2e/ Playwright suite
+tests/visual/             Review tool (not CI): capture.js (screenshots, overflow, axe, lab timings) + labelled fixtures.js
 docs/ARCHITECTURE.md      Module overview
-docs/DESIGN-SYSTEM.md     Visual rules (colors, type, shape, motion, data honesty)
+docs/DESIGN-SYSTEM.md     Visual rules ("Signal Blue" grammar, tokens, components, motion, a11y states, data honesty)
+docs/REDESIGN-PROGRESS.md The flagship redesign record: audit, research, prototypes, decisions, iterations, results
+docs/redesign/            Before/after screenshots from the redesign
 docs/UX-FLOW.md           The guided "spine" and screen-by-screen flow
 docs/VARIANT-PRACTICE.md  Similar-question practice: design, gates, rules, API, tests, limits
 docs/QUESTION-BANK-STANDARD.md   Authoring rules for js/question-bank.js
@@ -120,15 +124,20 @@ order (order matters, later files use earlier globals):
 
 ```
 KaTeX 0.16.9 (CDN: katex.min.js, contrib/auto-render.min.js)
-js/question-bank.js -> js/spaced-repetition.js -> js/practice-selection.js -> js/mastery-model.js
--> js/home-summary.js -> js/variant-practice.js -> js/shell.js -> js/app.js
+js/spaced-repetition.js -> js/practice-selection.js -> js/mastery-model.js -> js/home-summary.js
+-> js/review-orbit.js -> js/variant-practice.js -> js/shell.js -> js/app.js
 ```
 
+`js/question-bank.js` (~250 KB) is not in that list: `ensureQuestionBank()` in `app.js`
+injects it the first time a set needs it and prefetches it when the browser is idle.
+One inline script in `<head>` applies the student's "Reduce motion" setting
+(`data-motion="reduce"` on `<html>`) before the first paint.
+
 - **Logic modules** (`spaced-repetition`, `mastery-model`, `practice-selection`,
-  `home-summary`, `variant-practice`) are pure IIFEs: no DOM, no storage. Each
-  dual-exports: `window.X = api` in the browser and `module.exports = api` for Node
+  `home-summary`, `review-orbit`, `variant-practice`) are pure IIFEs: no DOM, no storage.
+  Each dual-exports: `window.X = api` in the browser and `module.exports = api` for Node
   tests. Globals: `ReviewSystem`, `MasteryModel`, `PracticeSelection`, `HomeSummary`,
-  `VariantPractice`, `OFFLINE_BANK`, `Shell`.
+  `ReviewOrbit`, `VariantPractice`, `OFFLINE_BANK` (once loaded), `Shell`.
 - **`js/app.js`** is the glue: it owns state (top-level `let`s such as `errorRecords`,
   `masteryMap`, `generatedQuestions`, `quizResults`, `variantSession`), reads/writes
   `localStorage`, renders HTML strings, and wires events.
@@ -140,7 +149,17 @@ js/question-bank.js -> js/spaced-repetition.js -> js/practice-selection.js -> js
   (all stay in the DOM), runs the slanted page wipe, keeps the nav marker (the mistake
   page keeps **Review** marked), and fires `document` event `studyboost:view` with
   `detail { view, param }`. `Shell.go("mistake/err-123")`, `Shell.current()`,
-  `Shell.param()`, `Shell.confirm({...})`, `Shell.countUp(el, n)`, `Shell.reducedMotion()`.
+  `Shell.param()`, `Shell.confirm({...})`, `Shell.countUp(el, n)`, `Shell.reducedMotion()`
+  (device setting or the student's choice), `Shell.setBand({num, of, label} | null)` (a real
+  number in the band instead of the page name; Practice uses it for "02 / 07").
+- **Practice focus mode**: all cards of a set are rendered; only `.qa-card.is-current`
+  shows. State in `app.js`: `practiceIndex`, `practiceSetupOpen`, `resultsShown`,
+  `currentSetMeta` (`origin`: `ai` | `bank` | `review`). `#view-practice[data-mode]` is
+  `setup` | `focus` | `results`. Completion bookkeeping (XP, streak) runs on the last
+  grade; the result card (`#completionCard`) stays hidden until "See results".
+- **Review**: one filter (`reviewFilter`: `when`, `course`, `query`, `sort`) drives the
+  orbit chart and the library; `orbitSelectedId` is the selected mistake; `orbitView` is
+  `chart` | `list`. Home's `#nextStep` is the command-center hero.
 - **AI calls from the browser** go only to the local server: `/api/chat` (summaries and
   practice sets; prompts are built in `app.js`) and `/api/variants` (similar questions;
   prompts are built on the server). The key never reaches the browser.
@@ -181,7 +200,7 @@ is treated as untrusted input:
 | `studyBoostMistakesV2` | Array of mistake records (shape below). Legacy key `learningAssistantErrorsV1` is migrated on read. |
 | `studyBoostMasteryV1` | Topic mastery map (shape below). |
 | `studyBoostUserIdV1` | Anonymous id `u-<uuid>` (no PII). |
-| `studyBoostUIPrefsV1` | `{ model }` |
+| `studyBoostUIPrefsV1` | `{ model, motion }` (`motion`: `"system"` or `"reduce"`; older records lack it) |
 | `studyBoostXpV1` | Total XP (string integer). 100 XP per level. |
 | `studyBoostStreakV1` | `{ count, lastDay }` (UTC dates). |
 | `studyBoostDailyV1` | `{ day, questions, reviews, xp }` for today's missions. |
@@ -328,8 +347,9 @@ Full design: `docs/VARIANT-PRACTICE.md`. Summary:
 
 ## 9. Rules you must keep
 
-1. **No build step, no app dependencies.** Plain `<script defer>` files. New logic goes in
-   a pure dual-export module with `node:test` tests; `app.js` stays glue.
+1. **No build step, no app dependencies.** Plain `<script defer>` files (plus the one-line
+   motion script in `<head>`). New logic goes in a pure dual-export module with
+   `node:test` tests; `app.js` stays glue.
 2. **Escape everything** inserted with `innerHTML` (`escapeHtml`), then `typesetMath`.
 3. **Buttons rendered by `app.js` contain text only**, no child elements: their slanted
    shape lives on `::before`/`::after`, and several click handlers read `ev.target` directly.
@@ -408,9 +428,24 @@ is per user). New similar-question code needs no new packages or settings.
 
 ## 13. Current state and recent changes
 
-- Default branch: `main`. Similar-question practice was developed on branch
-  `claude/zen-ramanujan-t57aza` (commit `062cd40` plus this handoff file). Merge it into
-  `main`, or point your tools at that branch, to work on the newest code.
+- Default branch: `main`. Similar-question practice and the flagship redesign were
+  developed on branch `claude/zen-ramanujan-t57aza`. Merge it into `main`, or point your
+  tools at that branch, to work on the newest code.
+- November 2026, flagship redesign ("Signal Blue", record in `docs/REDESIGN-PROGRESS.md`):
+  - Home command center (real next task first), Practice focus mode (one question at a
+    time, set bar, keyboard keys, band shows the question number), result sequence,
+    Review Orbit (course sectors × SM-2 days, filters, selectable nodes, list view) with
+    the Mistake Library (search, sort, confirmed delete), editorial Notes, Progress top
+    line and labelled 14-day bars, Setup with a Reduce-motion setting and the AI
+    connection folded away.
+  - New: `js/review-orbit.js` (+ tests), `HomeSummary.weekTopLine`, `Shell.setBand`,
+    `tests/visual/` (capture harness + fixtures), `docs/REDESIGN-PROGRESS.md`.
+  - Fixed: offline Notes summary merged lines; built-in questions claimed to come from
+    the student's notes ("[From your notes: …]" prefix) and carried a "[Medium · course]"
+    prefix into saved mistakes; single delete had no confirmation; late font swap (CLS);
+    the 250 KB bank loaded on every page.
+  - No API, SM-2, mastery, storage-format, or deployment change. One optional field
+    (`motion`) in `studyBoostUIPrefsV1`.
 - November 2026, similar-question practice (adaptive error-based practice):
   - New: `mathcheck.py`, `variant_templates.py`, `variant_engine.py`,
     `js/variant-practice.js`, `docs/VARIANT-PRACTICE.md`, the mistake page, `/api/variants`,

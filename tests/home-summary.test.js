@@ -162,3 +162,31 @@ test("nextStep: due reviews still come first, and a strong topic gets no variant
     const strong = Home.nextStep({ due: 0, weakMistake: { id: "e", subject: "S", topic: "T", ema: 0.9 }, hasActivity: true });
     assert.equal(strong.kind, "start");
 });
+
+test("weekTopLine sums the last 7 days and names subjects only with enough answers", () => {
+    const daily = [];
+    for (let i = 0; i < 14; i++) daily.push({ date: "d" + i, answered: i < 7 ? 5 : 2, correct: i < 7 ? 5 : 1 });
+    const bySubject = [
+        { subject: "AP Biology", answered: 10, correct: 7, accuracy: 0.7 },
+        { subject: "AP Physics 1", answered: 10, correct: 3, accuracy: 0.3 },
+        { subject: "AP Chemistry", answered: 2, correct: 2, accuracy: 1 }
+    ];
+    const line = Home.weekTopLine(daily, bySubject);
+    assert.equal(line.answered, 14);
+    assert.equal(line.correct, 7);
+    assert.match(line.text, /^Last 7 days: 14 questions, 50% right\./);
+    assert.match(line.text, /Strongest: AP Biology \(70%\)/);
+    assert.match(line.text, /Most room to grow: AP Physics 1 \(30%\)/);
+    assert.doesNotMatch(line.text, /Chemistry/, "2 answers are too few to name a subject");
+});
+
+test("weekTopLine is honest with no data and never invents a comparison", () => {
+    assert.equal(Home.weekTopLine([], []).text, "No graded questions in the last 7 days.");
+    const one = Home.weekTopLine([{ answered: 1, correct: 1 }], [{ subject: "AP Biology", answered: 9, correct: 6, accuracy: 0.66 }]);
+    assert.equal(one.text, "Last 7 days: 1 question, 100% right.");
+    const tie = Home.weekTopLine([], [
+        { subject: "A", answered: 4, correct: 2, accuracy: 0.5 },
+        { subject: "B", answered: 4, correct: 2, accuracy: 0.5 }
+    ]);
+    assert.doesNotMatch(tie.text, /Strongest/);
+});
