@@ -5,3 +5,4 @@ __pycache__/
 studyboost.db
 .pytest_cache/
 .claude/
+node_modules/

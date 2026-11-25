@@ -1,4 +1,28 @@
-# StudyBoost — UX Flow (v2)
+# StudyBoost — UX Flow
+
+## v3: the flagship redesign (November 2026)
+
+The spine below (v2) still holds. v3 changes what each screen puts first, so a returning
+student never has to look for their next task. Evidence and decisions:
+`docs/REDESIGN-PROGRESS.md`. Visual rules: `docs/DESIGN-SYSTEM.md`.
+
+| Screen | First thing on screen | The one action (signal) | Also there |
+|---|---|---|---|
+| **Home, first visit** | "Turn your notes into adaptive practice." | Start studying | Welcome card (the 4-step loop), empty orbit with a caption |
+| **Home, returning** | The real next task: "4 questions are due" with the due list, or a weak topic's recent accuracy, or days to the next review | Start review / Practice similar questions / Practice this / Start a new set | A quieter second move (the weak topic after the reviews), the passive orbit (links to Review), missions ledger, Coming up (reviews per day, 7 days) |
+| **Practice, setup** | Course, format, difficulty, topic, notes toggle | Generate Practice Questions | Status line says where questions come from (AI, built-in bank, due reviews) and whether notes were used |
+| **Practice, focus** | One question; the band shows "02 / 07" | Check answer, then Next question | Set bar (meta, numbered cells that navigate, score, Change set); keys A–D / 1–4, Enter, N |
+| **Results** | "Set complete." with the score | Review My Mistakes (or Start a new set when perfect) | Every question in order (Right / Not yet), XP and level, topic growth, missed questions with See the answer / Practice similar. The last answer's explanation is read first; results open on "See results" |
+| **Review** | The orbit: every saved mistake by course and days until review; the soonest-due one selected | Review it now (on the selected mistake) | Filters (All / Due now / Next 7 days / Later, course), chart or list, readouts, legend |
+| **Mistake Library** (on Review) | Cards for the filtered mistakes, soonest due first | Forgot / Hard / Got it (with the interval each sets) | Search, sort, Practice similar, Delete (confirmed), Clear log (folded away) |
+| **Mistake page** | The original question with the student's pick, what it tests | Generate / Check a similar question | Unchanged flow (see VARIANT-PRACTICE.md); options now use the same key badges as Practice |
+| **Notes** | The student's notes (the manuscript) | Generate Summary, then Practice these notes | Summary page says how it was made (AI or offline lines) and numbers the key points |
+| **Progress** | One plain sentence about the last 7 days | (none: a reading page) | Readouts, by subject, by practice type, 14-day bars with counts, topic mastery (radar only with 5+ topics) |
+| **Setup** | Motion setting and Your data | Download my data | AI connection folded away for whoever runs the server |
+
+---
+
+## v2 (kept for history)
 
 ## The problem v2 solves
 
@@ -57,6 +81,14 @@ front door.
 | **3 Completion** | score · +XP · Level + XP-to-next · today's questions/reviews/XP · streak · **[Review My Mistakes]** (primary) · [View Progress]. | → Review / Progress | **Shipped.** |
 | **4 Review** | due SM-2 items, started immediately by the CTA (no second click). | back to spine / Progress | **Shipped** (Review CTA auto-loads due). |
 | **5 Progress** | Topic Mastery progress bars + streak + daily/total XP. | back to Home base | **Shipped** (progress bars). |
+
+**Branch from Review: similar-question practice.** Each saved mistake has its own page
+(`#mistake/<id>`, "Practice similar" on the card, recommended weakest-topic-first above the
+log, and offered as Home's next step when no review is due). It shows the original with the
+student's pick, what it tests, and a practice strip: similar questions whose difficulty
+follows a 2-up/1-down staircase, immediate feedback naming the misconception behind the pick,
+the topic-mastery change, and what happens next (the original's spaced review stays on
+schedule, moved up after a miss). See [VARIANT-PRACTICE.md](VARIANT-PRACTICE.md).
 
 **Home base** = today's dashboard, reframed: the place to see everything and jump
 to any panel. Default landing for a *returning* user who just wants to resume;

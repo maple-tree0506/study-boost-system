@@ -8,7 +8,10 @@ Then open http://127.0.0.1:8765/
 
 from __future__ import annotations
 
+import json
 import os
+import random
+import re
 import sqlite3
 import sys
 import time
@@ -18,6 +21,9 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 from flask import Flask, jsonify, request, send_from_directory
+
+import variant_engine as ve
+import variant_templates as vt
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE = os.path.join(APP_DIR, ".env")
@@ -110,6 +116,42 @@ def _migrate_attempts_columns(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE attempts ADD COLUMN source TEXT")
 
 
+def _create_generation_log(conn: sqlite3.Connection) -> None:
+    """Additive, idempotent: one row per similar-question request, METADATA ONLY.
+
+    It holds counts, codes, and token usage so the daily AI quota survives restarts
+    and generation reliability can be measured. It never stores question text,
+    answers, or explanations (the privacy page promises that).
+    """
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ai_generation_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL,
+            user_id TEXT,
+            kind TEXT NOT NULL,
+            generator TEXT NOT NULL,
+            outcome TEXT NOT NULL,
+            error_code TEXT,
+            requested INTEGER NOT NULL DEFAULT 0,
+            accepted INTEGER NOT NULL DEFAULT 0,
+            rejected INTEGER NOT NULL DEFAULT 0,
+            verified INTEGER NOT NULL DEFAULT 0,
+            rejection_reasons TEXT,
+            llm_calls INTEGER NOT NULL DEFAULT 0,
+            prompt_tokens INTEGER NOT NULL DEFAULT 0,
+            completion_tokens INTEGER NOT NULL DEFAULT 0,
+            latency_ms INTEGER,
+            model TEXT
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ai_generation_log_user_day "
+        "ON ai_generation_log (user_id, created_at)"
+    )
+
+
 def _init_db() -> None:
     with closing(_db()) as conn:
         conn.execute(
@@ -124,6 +166,7 @@ def _init_db() -> None:
             """
         )
         _migrate_attempts_columns(conn)
+        _create_generation_log(conn)
         conn.commit()
     _seed_demo_attempts_if_needed()
 
@@ -135,6 +178,9 @@ _init_db()
 # project directory — including .env and studyboost.db — was downloadable at
 # /<project-dir-name>/<file>. Every asset the page needs has an explicit route below.
 app = Flask(__name__, static_folder=None)
+# Hard cap on any request body (legitimate requests are far smaller: notes are capped
+# at 12,000 characters). Werkzeug answers 413 before a larger body is buffered.
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
 # No CORS: the page and the API are served from the same origin, so cross-origin
 # headers are unnecessary. Not enabling CORS prevents arbitrary sites from calling
 # this local proxy while the server is running.
@@ -152,8 +198,20 @@ MAX_TOTAL_CHARS = int(os.environ.get("MAX_TOTAL_CHARS", "12000"))
 MAX_MESSAGE_CHARS = int(os.environ.get("MAX_MESSAGE_CHARS", "6000"))
 MAX_MESSAGES = int(os.environ.get("MAX_MESSAGES", "30"))
 
+# Similar-question practice. Each request makes at most two AI calls (one generation,
+# one targeted repair), so these bound both cost and latency.
+VARIANT_RATE_LIMIT_PER_MIN = int(os.environ.get("VARIANT_RATE_LIMIT_PER_MIN", "6"))           # requests that may call the AI
+VARIANT_BUILTIN_RATE_LIMIT_PER_MIN = int(os.environ.get("VARIANT_BUILTIN_RATE_LIMIT_PER_MIN", "30"))  # built-in generator only
+VARIANT_DAILY_LIMIT = int(os.environ.get("VARIANT_DAILY_LIMIT", "40"))      # AI requests per user per UTC day
+VARIANT_BUDGET_SECONDS = float(os.environ.get("VARIANT_BUDGET_SECONDS", "40"))
+LLM_READ_TIMEOUT = float(os.environ.get("LLM_READ_TIMEOUT", "25"))
+VARIANT_MODEL = os.environ.get("VARIANT_MODEL", ve.DEFAULT_MODEL)
+MAX_VARIANT_BODY = 64 * 1024
+
 _rate_history: dict[str, list[float]] = {}
 _attempt_rate_history: dict[str, list[float]] = {}
+_variant_rate_history: dict[str, list[float]] = {}
+_variant_builtin_rate_history: dict[str, list[float]] = {}
 
 
 def _client_ip() -> str:
@@ -199,6 +257,218 @@ def _openai_chat(model: str, messages: list, json_mode: bool = False) -> str:
         raise RuntimeError(res.text or f"OpenAI error {res.status_code}")
     data = res.json()
     return data["choices"][0]["message"]["content"]
+
+
+_DURATION_PART = re.compile(r"(\d+(?:\.\d+)?)(ms|h|m|s)")
+
+
+def _parse_duration(value) -> float | None:
+    """Seconds from a Retry-After value ("12", "1.5") or a reset hint ("2m59.56s", "750ms")."""
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    try:
+        return max(0.0, float(text))
+    except ValueError:
+        pass
+    total, matched = 0.0, False
+    for amount, unit in _DURATION_PART.findall(text):
+        matched = True
+        total += float(amount) * {"ms": 0.001, "s": 1, "m": 60, "h": 3600}[unit]
+    return total if matched else None
+
+
+def _llm_complete(model: str, messages: list, max_tokens: int, temperature: float, timeout: float):
+    """One JSON-mode chat completion. Returns (content, usage); raises ve.LLMError with a
+    code the client can explain (rate_limited, timeout, auth_error, bad_request,
+    upstream_error, bad_response, not_configured). Provider error bodies are logged
+    server-side, never sent to the browser."""
+    if not OPENAI_KEY:
+        raise ve.LLMError("not_configured")
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "response_format": {"type": "json_object"},
+    }
+    try:
+        res = requests.post(
+            f"{OPENAI_BASE}/chat/completions",
+            headers={"Authorization": f"Bearer {OPENAI_KEY}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=(5, max(1.0, timeout)),
+        )
+    except requests.Timeout:
+        raise ve.LLMError("timeout", "provider timed out") from None
+    except requests.RequestException as e:
+        raise ve.LLMError("upstream_error", type(e).__name__) from None
+    if res.status_code == 429:
+        retry = None
+        for header in ("retry-after", "x-ratelimit-reset-requests", "x-ratelimit-reset-tokens"):
+            retry = _parse_duration(res.headers.get(header))
+            if retry is not None:  # 0 is a valid answer: retry now
+                break
+        raise ve.LLMError("rate_limited", "provider 429", retry_after=retry)
+    if res.status_code in (401, 403):
+        raise ve.LLMError("auth_error", "provider %d" % res.status_code)
+    if res.status_code in (400, 404, 422):
+        print("[StudyBoost ERROR] variant request rejected:", res.status_code, res.text[:300], file=sys.stderr)
+        raise ve.LLMError("bad_request", "provider %d" % res.status_code)
+    if not res.ok:
+        raise ve.LLMError("upstream_error", "provider %d" % res.status_code)
+    try:
+        data = res.json()
+        content = data["choices"][0]["message"]["content"]
+    except (ValueError, KeyError, IndexError, TypeError):
+        raise ve.LLMError("bad_response", "unreadable provider response") from None
+    if not isinstance(content, str):
+        raise ve.LLMError("bad_response", "empty content")
+    usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+    return content, usage
+
+
+def _make_llm(model: str, deadline: float):
+    """The engine's llm callable: bounded by the request deadline, with one short wait
+    and retry when the provider's rate limit resets within a couple of seconds."""
+    def llm(messages, max_tokens, temperature):
+        for attempt in (1, 2):
+            remaining = deadline - time.monotonic()
+            if remaining < 3:
+                raise ve.LLMError("timeout", "request budget used up")
+            try:
+                return _llm_complete(model, messages, max_tokens, temperature, min(LLM_READ_TIMEOUT, remaining - 1))
+            except ve.LLMError as e:
+                wait = e.retry_after
+                if (e.code == "rate_limited" and attempt == 1 and wait is not None and wait <= 2.5
+                        and deadline - time.monotonic() > wait + 8):
+                    time.sleep(wait)
+                    continue
+                raise
+    return llm
+
+
+def _today_utc_start() -> str:
+    now = datetime.now(timezone.utc)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+
+def _ai_requests_today(user_id: str | None) -> int:
+    if not user_id:
+        return 0
+    with closing(_db()) as conn:
+        return conn.execute(
+            # Only requests that actually consumed tokens count: a provider 429 or a
+            # timeout spends nothing and must not lock the student out.
+            "SELECT COUNT(*) FROM ai_generation_log WHERE user_id = ? AND llm_calls > 0 "
+            "AND prompt_tokens + completion_tokens > 0 AND created_at >= ?",
+            (user_id, _today_utc_start()),
+        ).fetchone()[0]
+
+
+def _log_generation(user_id, generator, outcome, error_code, requested, variants, meta, latency_ms) -> None:
+    """Metadata only. Never pass question text, answers, or explanations here."""
+    meta = meta or {}
+    verified = sum(1 for v in variants if (v.get("verification") or {}).get("status") == "verified")
+    try:
+        with closing(_db()) as conn:
+            conn.execute(
+                "INSERT INTO ai_generation_log (created_at, user_id, kind, generator, outcome, error_code, "
+                "requested, accepted, rejected, verified, rejection_reasons, llm_calls, prompt_tokens, "
+                "completion_tokens, latency_ms, model) VALUES (?, ?, 'variant', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    datetime.now(timezone.utc).isoformat(), user_id, generator, outcome, error_code,
+                    requested, len(variants), int(meta.get("rejected") or 0), verified,
+                    json.dumps(meta.get("rejectionReasons") or {}, sort_keys=True)[:1000],
+                    int(meta.get("llmCalls") or 0), int(meta.get("promptTokens") or 0),
+                    int(meta.get("completionTokens") or 0), latency_ms, meta.get("model"),
+                ),
+            )
+            conn.commit()
+    except Exception as e:  # noqa: BLE001 - logging must never break a response
+        print("[StudyBoost ERROR] generation log", repr(e), file=sys.stderr)
+
+
+_VARIANT_STATUS = {
+    "bad_input": 400, "rate_limited": 429, "too_many_requests": 429, "daily_limit": 429, "timeout": 504,
+    "invalid_output": 502, "bad_response": 502, "auth_error": 502, "bad_request": 502,
+    "upstream_error": 502, "no_generator": 503, "not_configured": 503, "server_error": 500,
+}
+
+
+def _variant_error(code: str, message: str, retry_after=None, analysis=None):
+    body = {"error": message, "code": code}
+    if retry_after is not None:
+        body["retryAfter"] = int(retry_after + 0.999)
+    if analysis is not None:
+        body["analysis"] = analysis
+    resp = jsonify(body)
+    resp.status_code = _VARIANT_STATUS.get(code, 500)
+    if retry_after is not None:
+        resp.headers["Retry-After"] = str(int(retry_after + 0.999))
+    return resp
+
+
+@app.route("/api/variants", methods=["POST"])
+def generate_variants():
+    """Similar-question practice for one saved mistake.
+
+    Body: { mistake: {question, options, answer, userAnswer, explanation, subject, topic,
+            difficulty, id}, level, count (1-3), avoid: [stems already seen],
+            analysis (from an earlier round, re-validated), model, userId }
+    The question text is processed (and sent to the AI provider when a key is set)
+    but never stored; only counts and codes are logged.
+    """
+    # Flood guard first: it is cheap and runs before any database work.
+    if _rate_limited(_client_ip(), _variant_builtin_rate_history, VARIANT_BUILTIN_RATE_LIMIT_PER_MIN):
+        return _variant_error("too_many_requests", "Too many similar-question requests in the last minute. "
+                              "Try again in about a minute.", 60)
+    if (request.content_length or 0) > MAX_VARIANT_BODY:
+        return jsonify({"error": "Request is too large.", "code": "bad_input"}), 413
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return _variant_error("bad_input", "Send a JSON object.")
+    try:
+        mistake = ve.normalize_mistake(body.get("mistake"))
+        req = ve.normalize_request(body, mistake)
+    except ve.InputError as e:
+        return _variant_error("bad_input", str(e))
+    user_id = (str(body.get("userId") or "").strip()[:64]) or None
+
+    started = time.monotonic()
+    model = req["model"] or VARIANT_MODEL
+    over_quota = bool(OPENAI_KEY) and VARIANT_DAILY_LIMIT >= 0 and _ai_requests_today(user_id) >= VARIANT_DAILY_LIMIT
+    uses_ai = bool(OPENAI_KEY) and not over_quota
+    # Requests that can spend AI quota also pass the tighter AI bucket; the built-in
+    # generator costs no tokens, so the flood guard above is enough for it.
+    if uses_ai and _rate_limited(_client_ip(), _variant_rate_history, VARIANT_RATE_LIMIT_PER_MIN):
+        return _variant_error("too_many_requests", "Too many similar-question requests in the last minute. "
+                              "Try again in about a minute.", 60)
+    llm = _make_llm(model, started + VARIANT_BUDGET_SECONDS) if uses_ai else None
+    try:
+        result = ve.generate_variants(mistake, req, llm=llm, deadline=started + VARIANT_BUDGET_SECONDS,
+                                      rng=random.Random(), model=model)
+    except ve.VariantError as e:
+        latency = int((time.monotonic() - started) * 1000)
+        code, message = e.code, e.message
+        if over_quota and code == "no_generator":
+            code, message = "daily_limit", "You've used today's AI similar-question limit. It resets at midnight UTC."
+        _log_generation(user_id, "none", "failed", code, req["count"], [], e.meta, latency)
+        return _variant_error(code, message, e.retry_after, e.analysis)
+    except Exception as e:  # noqa: BLE001
+        print("[StudyBoost ERROR] variants", repr(e), file=sys.stderr)
+        return _variant_error("server_error", "Something went wrong while generating questions.")
+
+    if over_quota and result["generator"] == "template":
+        result["notice"] = ("You've used today's AI similar-question limit, so these come from the built-in "
+                            "generator. The AI limit resets at midnight UTC.")
+    latency = int((time.monotonic() - started) * 1000)
+    meta = result.pop("meta", {})
+    _log_generation(user_id, result["generator"], meta.get("outcome", "ok"), None, req["count"],
+                    result["variants"], meta, latency)
+    result["level"] = req["level"]
+    result["relation"] = req["relation"]
+    return jsonify(result)
 
 
 @app.route("/")
@@ -261,6 +531,9 @@ def health():
         {
             "ok": True,
             "openai_configured": bool(OPENAI_KEY),
+            # Similar-question practice: AI for any course when a key is set; the
+            # built-in generator covers these AP Calculus skills with or without one.
+            "variants": {"ai": bool(OPENAI_KEY), "builtInSkills": sorted(vt.SKILLS)},
         }
     )
 
@@ -282,7 +555,9 @@ def record_attempt():
     # Beta instrumentation (both optional; absent on legacy/offline-queue payloads).
     user_id = (str(body.get("userId") or "").strip()[:64]) or None
     source = body.get("source")
-    source = source if source in ("review", "generated") else None  # whitelist
+    # whitelist: a new question, a scheduled review of a saved mistake, or a similar
+    # ("variant") question generated from a saved mistake
+    source = source if source in ("review", "generated", "variant") else None
 
     try:
         with closing(_db()) as conn:
@@ -311,7 +586,7 @@ def stats():
                 rows = []
             else:
                 rows = conn.execute(
-                    "SELECT subject, qtype, correct, created_at FROM attempts WHERE user_id = ?",
+                    "SELECT subject, qtype, correct, created_at, source FROM attempts WHERE user_id = ?",
                     (user_id,),
                 ).fetchall()
     except Exception as e:  # noqa: BLE001
@@ -323,7 +598,11 @@ def stats():
 
     by_subject_map: dict[str, dict[str, int]] = defaultdict(lambda: {"answered": 0, "correct": 0})
     by_day_map: dict[str, dict[str, int]] = defaultdict(lambda: {"answered": 0, "correct": 0})
+    by_source_map: dict[str, dict[str, int]] = defaultdict(lambda: {"answered": 0, "correct": 0})
     for r in rows:
+        src = by_source_map[r["source"] if r["source"] in ("generated", "review", "variant") else "other"]
+        src["answered"] += 1
+        src["correct"] += int(r["correct"])
         subj = by_subject_map[r["subject"] or "Uncategorized"]
         subj["answered"] += 1
         subj["correct"] += int(r["correct"])
@@ -343,6 +622,19 @@ def stats():
         for name, v in by_subject_map.items()
     ]
     by_subject.sort(key=lambda x: (-x["answered"], x["subject"]))
+
+    # Practice type split: new questions vs. scheduled reviews vs. similar questions.
+    by_source = [
+        {
+            "source": name,
+            "answered": by_source_map[name]["answered"],
+            "correct": by_source_map[name]["correct"],
+            "accuracy": (by_source_map[name]["correct"] / by_source_map[name]["answered"])
+            if by_source_map[name]["answered"] else 0,
+        }
+        for name in ("generated", "review", "variant", "other")
+        if by_source_map.get(name, {}).get("answered")
+    ]
 
     # Use UTC to match created_at (stored in UTC); date.today() is server-local
     # and would drop "today" from the window when local date < UTC date.
@@ -368,6 +660,7 @@ def stats():
                 "accuracy": (correct_total / total) if total else 0,
             },
             "bySubject": by_subject,
+            "bySource": by_source,
             "daily": daily,
         }
     )

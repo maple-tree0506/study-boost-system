@@ -65,8 +65,10 @@ def main():
     users = {r["user_id"] for r in rows}
     review = [r for r in rows if r["source"] == "review"]
     generated = [r for r in rows if r["source"] == "generated"]
+    variant = [r for r in rows if r["source"] == "variant"]
     review_correct = sum(int(r["correct"]) for r in review)
     gen_correct = sum(int(r["correct"]) for r in generated)
+    variant_correct = sum(int(r["correct"]) for r in variant)
 
     # Per-user activity and retention (>=2 distinct active days).
     per_user_days = {}
@@ -94,9 +96,55 @@ def main():
     print("  Generated attempts: %d, correct: %d (%.1f%%)"
           % (len(generated), gen_correct, _pct(gen_correct, len(generated))))
     print()
+    print("Similar-question practice (new questions built from a saved mistake):")
+    print("  Variant attempts: %d, correct: %d (%.1f%%)"
+          % (len(variant), variant_correct, _pct(variant_correct, len(variant))))
+    _print_generation_log(args.since, args.until)
+    print()
     print("Note: attempt-level rates (a question reviewed N times = N rows). "
           "Short answers are self-graded. Outcome metrics, not a controlled trial.")
     return 0
+
+
+def _print_generation_log(since, until):
+    """Reliability of similar-question generation, from the metadata-only log.
+    Databases created before that table existed simply skip this section."""
+    conn = sqlite3.connect("file:%s?mode=ro" % DB_PATH, uri=True)
+    conn.row_factory = sqlite3.Row
+    try:
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ai_generation_log'"
+        ).fetchone()
+        if not exists:
+            return
+        where, params = ["(user_id IS NULL OR user_id != 'demo-seed')"], []
+        if since:
+            where.append("created_at >= ?")
+            params.append(since)
+        if until:
+            where.append("created_at <= ?")
+            params.append(until + "T23:59:59+00:00")
+        rows = conn.execute(
+            "SELECT generator, outcome, accepted, verified, llm_calls, prompt_tokens, completion_tokens "
+            "FROM ai_generation_log WHERE " + " AND ".join(where),
+            params,
+        ).fetchall()
+    finally:
+        conn.close()
+    if not rows:
+        return
+    outcomes = {}
+    for r in rows:
+        outcomes[r["outcome"]] = outcomes.get(r["outcome"], 0) + 1
+    accepted = sum(int(r["accepted"] or 0) for r in rows)
+    verified = sum(int(r["verified"] or 0) for r in rows)
+    calls = sum(int(r["llm_calls"] or 0) for r in rows)
+    tokens = sum(int(r["prompt_tokens"] or 0) + int(r["completion_tokens"] or 0) for r in rows)
+    print("  Generation requests: %d (%s)" % (len(rows), ", ".join(
+        "%s %d" % (k, v) for k, v in sorted(outcomes.items()))))
+    print("  Questions served: %d, answer machine-checked: %d (%.1f%%)"
+          % (accepted, verified, _pct(verified, accepted)))
+    print("  AI calls: %d, tokens: %d" % (calls, tokens))
 
 
 if __name__ == "__main__":

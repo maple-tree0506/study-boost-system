@@ -11,6 +11,81 @@ Newest entries first.
 
 ---
 
+## 2026-11 — Flagship redesign ("Signal Blue")
+**Why:** a returning student's real next task sat below the fold (Home led with the
+marketing headline at every visit), a practice set started behind a full-screen form, the
+review orbit placed dots by a hash (its angle meant nothing, and you couldn't act on a dot),
+and every page used the same template.
+**Process:** a measured baseline first (screenshots at seven sizes, axe-core, lab timings,
+console, overflow, with labelled fixtures in `tests/visual/`), search-level research
+(game UI, product tools, learning products, editorial web; full page reads were blocked by
+this environment's network policy, so findings are marked secondhand), then three
+renderable prototypes with the same content: an editorial JRPG poster, an observatory
+instrument panel, and a riso print room. I chose the first as the base (it grows from the
+existing brand and gives the boldest first read), took the second's chart layer and calm
+reading column, and the third's headline/dek/numbered-list hierarchy. Record:
+`docs/REDESIGN-PROGRESS.md`.
+**What changed:**
+- Home is a command center: "4 questions are due" with the due list and one white button;
+  a weak topic's accuracy when nothing is due; a quieter second move; the orbit on a black
+  slab; a "Coming up" week from SM-2 due dates.
+- Practice has a focus mode: one question at a time, a set bar that says where questions
+  came from (AI, built-in bank, due reviews), numbered cells that navigate, keyboard keys,
+  and the band shows "02 / 07". The result sequence lists every question in order and sends
+  missed ones to "See the answer" or "Practice similar".
+- Review is the Review Orbit: course sectors × days until SM-2 brings each mistake back,
+  filters shared with a searchable, sortable Mistake Library, selectable nodes (keyboard
+  too), a list alternative, and the selected mistake in a field-blue card with the action.
+- Notes reads like a page (numbered key points, says how the summary was made); Progress
+  opens with one plain sentence about the week and labels its bars; Setup puts student
+  settings first (new Reduce motion option) and folds the AI connection away.
+**Bugs found and fixed on the way:** the offline Notes summary collapsed newlines before
+splitting by line; built-in questions were prefixed "[From your notes: …]" although the bank
+never reads notes (and "[Medium · course]" leaked into saved mistakes); deleting one mistake
+had no confirmation; a late web-font swap shifted the Home view (CLS 0.25); the 250 KB
+question bank loaded on every page (now on demand, prefetched when idle).
+**Decisions:** no change to the API, SM-2, mastery, storage format, or deployment; one
+optional `motion` field in the UI preferences; all new logic in a pure, tested module
+(`js/review-orbit.js`).
+
+---
+
+## 2026-11 — Similar-question practice (adaptive error-based practice)
+**Why:** the Mistake Log only re-showed the exact question a student missed. Re-answering
+the same item can be memorized; it doesn't show the idea transfers. A missed chain-rule
+question should lead to a *new* chain-rule question, not a random calculus one.
+**Audit first:** mistakes were stored client-side (the privacy page promises question text
+is never stored on the server), multiple-choice picks were **not saved at all**, there was
+no mistake detail page, and AI output was shape-checked but never answer-checked.
+**What I built:**
+- A mistake page (`#mistake/<id>`, "Practice similar" in Review): the question with your
+  pick, what it tests (knowledge point, method, likely error), and a practice strip.
+- `/api/variants`: one AI call returns the analysis plus 2 variants as JSON, then every
+  variant must pass schema, knowledge-point, duplicate, and math gates. For computable math,
+  `mathcheck.py` (a small parser, no `eval`) recomputes the answer key, rejects ambiguous or
+  duplicate distractors, and the options shown are typeset from what was checked. Rejected
+  variants get one targeted repair call. Provider 429s, timeouts, and bad output map to codes
+  the UI explains.
+- A built-in generator (`variant_templates.py`) for seven AP Calculus skills, so the keyless
+  demo still works for those topics; each distractor encodes a named misconception.
+- Adaptive rules (`js/variant-practice.js`): 2-up/1-down difficulty staircase, a Beta-posterior
+  "likely mastered" rule (never from one answer), weakest-topic-first recommendations, and an
+  SM-2 coupling that can only bring a review *forward* after a miss.
+**Decisions:** keep the local-first data model (mistakes, analysis, and variant history live on
+the mistake record, so backups include them); the server processes the one mistake and stores
+only a counts row (`ai_generation_log`), and the privacy page now says exactly that. Variant
+attempts are a third `source` (`variant`), so the pre-registered Review Recovery Rate is untouched.
+Diagnosis is never invented: no recorded answer means "not enough information", and an AI
+diagnosis whose quote isn't in the student's answer is shown as unconfirmed.
+**Bugs caught by the tests while building:** duplicate distractors passed verification (only
+options vs. the key were compared), a sign-dropping normalizer treated `-6x sin` and `6x sin` as
+the same option, and `\pi x` printed as the unknown KaTeX command `\pix`.
+**Verified:** pytest 16 → 237 (math engine, templates, engine gates, endpoint with a mocked
+provider, legacy-DB migration, "no question text in the DB" dump check); JS 67 → 93; a Playwright
+end-to-end suite (offline loop to likely-mastered, honest no-generator path, mocked AI path with
+a rate limit, key never reaches the browser, phone width); KaTeX rendered 85 generated formulas
+with 0 parse errors.
+
 ## 2026-11 — Visual redesign (new identity, guided views)
 **Why:** the app worked, but it looked like a form. I wanted it to look designed, and to
 read as one product instead of a long page of panels.

@@ -10,10 +10,11 @@
  *   activeStreak(stored, today, yesterday)      -> { count, doneToday }
  *   dayPart(hour)                               -> "Morning" | ... | "Late night"
  *   missions({ daily, due })                    -> [{ id, label, value, target, pct, state, note }]
- *   nextStep({ due, weakest, hasActivity })     -> { kind, title, body, cta, view }
+ *   nextStep({ due, weakest, hasActivity, weakMistake }) -> { kind, title, body, cta, view, pct? }
  *   orbitRadius(days)                           -> radius in chart units
  *   orbitAngle(id)                              -> stable angle in radians
  *   orbitPoints(records, daysUntilDue, isDue)   -> [{ id, days, due, r, angle, ... }]
+ *   weekTopLine(daily, bySubject)               -> { text, answered, correct }
  *
  * Browser: window.HomeSummary. Node: module.exports.
  */
@@ -109,11 +110,14 @@
     }
 
     // What the student should do next, in priority order: due reviews beat weak
-    // topics, and weak topics beat a generic new set.
+    // topics, and weak topics beat a generic new set. A weak topic that has a saved
+    // mistake gets similar-question practice built from that mistake, which targets
+    // the specific misunderstanding better than a fresh, generic set.
     function nextStep(input) {
         var due = (input && input.due) || 0;
         var weakest = input && input.weakest;
         var hasActivity = !!(input && input.hasActivity);
+        var weakMistake = input && input.weakMistake;
 
         if (due > 0) {
             return {
@@ -122,6 +126,22 @@
                 body: "Recall them now, while the spacing still helps you remember.",
                 cta: "Start review",
                 view: "review"
+            };
+        }
+        if (weakMistake && weakMistake.id && typeof weakMistake.ema === "number" && weakMistake.ema < 0.7) {
+            var mTopic = String(weakMistake.topic || "").trim();
+            var where = mTopic ? mTopic + " in " + (weakMistake.subject || "this course") : (weakMistake.subject || "This course");
+            return {
+                kind: "variant",
+                title: "Try questions like one you missed",
+                body: where + " is at " + Math.round(weakMistake.ema * 100) + "% recent accuracy. " +
+                    "Similar questions built from that mistake show whether the idea now carries over.",
+                cta: "Practice similar questions",
+                view: "mistake",
+                pct: Math.round(weakMistake.ema * 100),
+                errId: weakMistake.id,
+                subject: weakMistake.subject || "",
+                topic: mTopic
             };
         }
         if (weakest && typeof weakest.ema === "number" && weakest.ema < 0.7) {
@@ -133,6 +153,7 @@
                     Math.round(weakest.ema * 100) + "% recent accuracy, your lowest right now.",
                 cta: "Practice this",
                 view: "practice",
+                pct: Math.round(weakest.ema * 100),
                 subject: weakest.subject || "",
                 topic: topic
             };
@@ -200,6 +221,38 @@
         });
     }
 
+    // Progress opens with one plain sentence about the student's own week (the "top line"),
+    // built only from their graded answers. Subjects need 3+ answers to be named.
+    //   daily:     [{ date, answered, correct }]  (oldest first, as /api/stats returns it)
+    //   bySubject: [{ subject, answered, correct, accuracy }]
+    function weekTopLine(daily, bySubject) {
+        var days = (daily || []).slice(-7);
+        var answered = 0;
+        var correct = 0;
+        days.forEach(function (d) {
+            answered += d.answered || 0;
+            correct += d.correct || 0;
+        });
+        var named = (bySubject || []).filter(function (s) { return (s.answered || 0) >= 3; });
+        named.sort(function (a, b) { return b.accuracy - a.accuracy || b.answered - a.answered; });
+        var parts = [];
+        if (answered) {
+            parts.push("Last 7 days: " + answered + (answered === 1 ? " question" : " questions") + ", " +
+                Math.round((correct / answered) * 100) + "% right.");
+        } else {
+            parts.push("No graded questions in the last 7 days.");
+        }
+        if (named.length >= 2) {
+            var top = named[0];
+            var low = named[named.length - 1];
+            if (top.accuracy > low.accuracy) {
+                parts.push("Strongest: " + top.subject + " (" + Math.round(top.accuracy * 100) + "%).");
+                parts.push("Most room to grow: " + low.subject + " (" + Math.round(low.accuracy * 100) + "%).");
+            }
+        }
+        return { text: parts.join(" "), answered: answered, correct: correct };
+    }
+
     var api = {
         MISSION_QUESTIONS: MISSION_QUESTIONS,
         MISSION_XP: MISSION_XP,
@@ -213,7 +266,8 @@
         nextStep: nextStep,
         orbitRadius: orbitRadius,
         orbitAngle: orbitAngle,
-        orbitPoints: orbitPoints
+        orbitPoints: orbitPoints,
+        weekTopLine: weekTopLine
     };
 
     // Browser: attach to window. Node (tests): export the same object.
