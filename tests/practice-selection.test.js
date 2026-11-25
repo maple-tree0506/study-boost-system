@@ -129,3 +129,53 @@ test("default isDue treats a record with no sr as due", () => {
     const { selected } = planPracticeSelection({ reviews: [r] }); // no isDue injected => default
     assert.strictEqual(selected.length, 1);
 });
+
+// --- topic matching for the built-in bank -------------------------------------------------
+const PSel = require("../js/practice-selection.js");
+
+test("splitByTopic keeps only items whose question or answer is about the topic", () => {
+    const items = [
+        { q: "Name the main products of glycolysis.", a: "Pyruvate, ATP, and NADH." },
+        { q: "A point mutation changes one codon. What is the most likely effect?", a: "A. A single amino acid change" },
+        { q: "Explain how Le Chatelier's principle applies to an equilibrium related to {focus}.", a: "A stress shifts the equilibrium." },
+        { q: "Where do glycolytic enzymes work?", a: "A. In the cytoplasm" }
+    ];
+    const split = PSel.splitByTopic(items, "Glycolysis");
+    assert.deepEqual(split.onTopic, [0, 3], "stems match 'glycolytic'; a {focus} template does not count");
+    assert.deepEqual(split.general, [1, 2]);
+});
+
+test("every meaningful topic word must appear; short words match exactly", () => {
+    const rates = { q: "A ladder slides; at what rate is the top moving? The rates are related by the chain rule.", a: "A. 3 m/s" };
+    const chain = { q: "Differentiate (3x+1)^4 using the chain rule.", a: "A. 12(3x+1)^3" };
+    assert.deepEqual(PSel.splitByTopic([rates, chain], "Related rates").onTopic, [0]);
+    assert.deepEqual(PSel.splitByTopic([rates, chain], "Chain rule").onTopic, [0, 1]);
+    assert.deepEqual(PSel.splitByTopic([{ q: "What is the pH of a buffer?", a: "A. 4.7" }, { q: "Phase changes absorb heat.", a: "A. yes" }], "pH").onTopic, [0]);
+    assert.deepEqual(PSel.splitByTopic([{ q: "State Kirchhoff's loop law.", a: "A. Sum of voltages is zero" }], "Kirchhoff's laws").onTopic, [0]);
+});
+
+test("no topic, or only filler words, means every item is general", () => {
+    const items = [{ q: "Anything", a: "A" }, { q: "Else", a: "B" }];
+    assert.deepEqual(PSel.splitByTopic(items, "").onTopic, []);
+    assert.deepEqual(PSel.splitByTopic(items, "  ").general, [0, 1]);
+    assert.deepEqual(PSel.topicTerms("the unit on"), []);
+    assert.deepEqual(PSel.splitByTopic(items, "the unit on").general, [0, 1]);
+});
+
+test("the real AP Biology bank: a glycolysis request never matches a codon-mutation question", () => {
+    global.window = global.window || {};
+    require("../js/question-bank.js");
+    const bank = global.window.OFFLINE_BANK.bio;
+    for (const tier of ["basic", "medium", "challenge"]) {
+        for (const kind of ["mcq", "sa"]) {
+            const pool = bank[tier][kind];
+            const split = PSel.splitByTopic(pool, "Glycolysis");
+            for (const i of split.onTopic) {
+                assert.match(pool[i].q + " " + pool[i].a, /glycol/i, tier + "/" + kind + " #" + i);
+            }
+            for (const i of split.general) {
+                assert.doesNotMatch((pool[i].q + " " + pool[i].a).replace(/\{focus\}/g, ""), /glycol/i);
+            }
+        }
+    }
+});

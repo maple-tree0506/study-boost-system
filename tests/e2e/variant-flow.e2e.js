@@ -336,8 +336,10 @@ test("offline: a topic without a built-in generator is honest and offers a real 
     const page = await newPage(browser);
     await seed(page, offline.base, [bioMistake("err-seed-bio", "Enzymes")], {});
     await page.goto(offline.base + "#mistake/err-seed-bio");
-    await page.click('#variantDrill [data-action="variant-start"]');
-    await page.waitForSelector('[data-action="practice-course"]');
+    // No click needed: offline, a course without a built-in generator is checked as soon as
+    // the page opens, so the student never presses a start button that cannot work.
+    await page.waitForSelector('#variantArea [data-action="practice-course"]');
+    assert.equal(await page.locator('#variantDrill [data-action="variant-start"]').count(), 0);
     assert.match(await page.textContent("#variantArea"), /need the AI connection/);
     assert.match(await page.textContent("#mistakeAnalysis .kp-name"), /Enzymes/);
     assert.match(await page.textContent("#mistakeAnalysis .diag"), /Not enough information/);

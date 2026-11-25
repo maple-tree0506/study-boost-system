@@ -67,7 +67,7 @@ node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tes
 node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js   # needs: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
 ```
 
-Current counts: pytest 237, JS unit 107, end-to-end 13 (5 similar-question + 8 redesign). The JS file list is explicit on
+Current counts: pytest 237, JS unit 111, end-to-end 20 (5 similar-question + 15 redesign and walkthrough fixes). The JS file list is explicit on
 purpose: never run bare `node --test tests/` (newer Node mis-handles the directory).
 
 ## 3. Repository map
@@ -207,6 +207,7 @@ is treated as untrusted input:
 | `studyBoostAttemptQueueV1` | Unsynced attempts (max 500). Not backed up (re-import would double-submit). |
 | `studyBoostAiReliabilityV1` | `{ kind: { ok, repaired, failed, total } }` diagnostics. Not backed up. |
 | `studyBoostOnboardedV1` | `"1"` once the first-run welcome card was dismissed. |
+| `studyBoostSessionV1` | `{ savedAt, notes, set: { questions, results, index, meta, preSet, drafts } \| null }`: the Notes box and an unfinished practice set, restored after a refresh (24 h max). Restore only redraws; nothing is graded or scored twice. Dropped when a set completes. Not backed up. |
 
 "Download my data" / "Restore from file" (Setup) write and read a JSON backup
 `{ app, type: "studyboost-backup", version: 2, exportedAt, data: { key: rawString } }`
@@ -291,6 +292,11 @@ use only, currently retired), `RATE_LIMIT_PER_MIN` (10), `ATTEMPT_RATE_LIMIT_PER
   Levels: mastered (attempts >= 4, EMA >= 0.85), proficient (>= 3, >= 0.70), developing
   (>= 1), new. "Weakest" needs >= 2 attempts. Fed by every graded practice answer, tagged
   with its source; Review ratings (Forgot/Hard/Got it) do NOT feed it.
+- **Topic attribution offline** (`PracticeSelection.splitByTopic`): bank items carry no topic
+  tags, so a requested topic is matched against each item's question and correct answer
+  (the `{focus}` template token never counts). Matching items carry the topic; the rest of
+  the set is general practice with `topic: ""` (the course's general bucket), and the card,
+  set bar, and status line say so. AI sets keep the requested topic.
 - **Review injection R1** (`js/practice-selection.js`): up to 3 due mistakes (same subject,
   or no subject) lead each new set, tagged `source: "review"`, rendered as recall cards.
   A wrong new question is auto-captured into the Mistake Log.
