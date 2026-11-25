@@ -11,6 +11,30 @@ Newest entries first.
 
 ---
 
+## 2026-11 — Fixes from a walkthrough of the public site
+**Why:** a desktop and 390px walkthrough of the live (keyless) site found five problems.
+**Topic attribution (high):** practising "AP Biology → Glycolysis" served a codon-mutation
+question and filed the miss, and its mastery, under Glycolysis. The bank has no topic tags,
+so every item was stamped with the typed topic. Now `PracticeSelection.splitByTopic` matches
+the topic against each item's own question and answer (template items that only insert the
+topic name don't count); matching items carry the topic, the rest are general course
+practice with an empty topic (the course's general bucket). The card says "Counts toward
+Glycolysis" or "General · counts toward AP Biology", and a set with no match says it is a
+general set before the first answer.
+**Refresh lost work (high):** an unfinished set (questions, checked answers, short-answer
+drafts, position) and the Notes box are kept in `studyBoostSessionV1` for a day and redrawn
+after a refresh without grading or scoring anything again.
+**Notes promise (medium):** offline, "Practice these notes" is replaced by a plain statement
+and "Go to Practice", and the setup's notes checkbox is disabled with the reason.
+**Similar questions (medium):** offline, non-calculus mistakes say on their card that
+similar questions need the AI connection, and their page checks availability on open
+instead of after a click.
+**Question count (low):** the setup shows how many built-in questions the course and level
+have, how many match the topic, and when a format asks for more than exist.
+Records saved before this fix keep whatever topic they were given.
+
+---
+
 ## 2026-11 — First-visit Home says what this server can do
 **Why:** after the redesign went live, a review of the public site (which runs without an AI
 key) noted that the first-visit headline still promised "Turn your notes into adaptive

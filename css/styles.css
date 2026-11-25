@@ -519,6 +519,8 @@ input[type="checkbox"]:checked {
     background: var(--cyan) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 7.500 5.500 11 12 3' fill='none' stroke='%2302050B' stroke-width='2.600'/%3E%3C/svg%3E") center/12px no-repeat;
 }
 .check-row { display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; }
+input[type="checkbox"]:disabled { opacity: .4; cursor: not-allowed; }
+.check-row:has(input:disabled) { color: var(--mute); cursor: not-allowed; }
 
 .hint { margin: 6px 0 0; font-size: 14px; color: var(--mute); }
 .status { margin-top: 10px; font-size: 14px; color: var(--mute); }
@@ -651,6 +653,9 @@ button[aria-busy="true"]::after {
 .tag.due { background: var(--warn); color: var(--black); }
 .tag.status-learning, .tag.mastery-proficient { background: var(--field); color: var(--black); }
 .tag.status-mastered, .tag.mastery-mastered { background: var(--good); color: var(--black); }
+/* Where a practice question's result is counted: the requested topic, or the course overall. */
+.tag.counts { background: var(--royal); }
+.tag.counts.general { background: var(--raise); color: var(--white); }
 
 .rank-pips { display: inline-flex; gap: 3px; }
 .rank-pips i { width: 12px; height: 7px; background: var(--line); transform: skewX(-20deg); }
@@ -867,6 +872,8 @@ button.rate:not(:disabled):hover { color: var(--black); }
 button.rate:not(:disabled):hover::before { background: var(--cyan); }
 button.rate:not(:disabled):hover::after { transform: none; }
 .review-actions .danger { margin-left: auto; }
+.similar-note { margin-top: 6px; }
+.bank-hint { margin-top: 8px; }
 
 .review-stats, .stat-cards {
     display: grid;

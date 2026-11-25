@@ -339,3 +339,143 @@ test("phone width: Home, Practice, and Review fit without sideways scrolling", a
     assert.deepEqual(page.errors, []);
     await page.close();
 });
+
+// --- fixes from a walkthrough of the public site --------------------------------------------
+
+test("topic practice offline: only questions about the topic count toward it", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "bio");
+    await page.selectOption("#difficultyInput", "medium");
+    await page.selectOption("#questionFormatInput", "5:0");
+    await page.fill("#topicInput", "Glycolysis");
+    // Before generating, the setup says what the bank has for this topic.
+    await page.waitForFunction(() => /Glycolysis/.test(document.getElementById("bankHint").textContent));
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current .check-mcq");
+    const set = await page.evaluate(() => generatedQuestions.map((q) => ({ q: q.question + " " + q.answer, topic: q.topic })));
+    // Every question filed under Glycolysis really is about glycolysis; every other one is general.
+    for (const item of set) {
+        if (item.topic) assert.match(item.q, /glycol/i, "filed under the topic: " + item.q);
+        else assert.equal(item.topic, "");
+    }
+    assert.match(await page.textContent("#quizStatus"), /general AP Biology|about “Glycolysis”/);
+    // Answer a general question wrong: the mistake and the mastery go to the course bucket.
+    const generalIdx = await page.evaluate(() => generatedQuestions.findIndex((q) => !q.topic));
+    if (generalIdx >= 0) {
+        await page.locator(".set-cell").nth(generalIdx).click();
+        const qid = await page.locator(".qa-card.is-current").getAttribute("data-qid");
+        const answer = await page.evaluate((id) => generatedQuestions.find((q) => q.id === id).answer, qid);
+        for (const r of await page.locator(".qa-card.is-current input[type=radio]").all()) {
+            if ((await r.getAttribute("value")) !== answer) { await r.check(); break; }
+        }
+        await page.click(".qa-card.is-current .check-mcq");
+        assert.match(await page.textContent(".qa-card.is-current .tag.counts"), /General · counts toward AP Biology/);
+        const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("studyBoostMistakesV2"))[0]);
+        assert.equal(saved.topic, "");
+        const mastery = await page.evaluate(() => JSON.parse(localStorage.getItem("studyBoostMasteryV1")));
+        assert.equal(mastery["AP Biology::glycolysis"], undefined, "a general question never feeds the Glycolysis estimate");
+        assert.ok(mastery["AP Biology::"], "it feeds the course's general bucket");
+    }
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("a topic the bank does not cover gives a clearly general set", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "bio");
+    await page.fill("#topicInput", "Quantum tunnelling");
+    await page.waitForFunction(() => /None are about/.test(document.getElementById("bankHint").textContent));
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current");
+    assert.match(await page.textContent("#quizStatus"), /general AP Biology set: results count toward AP Biology overall/);
+    assert.match(await page.textContent(".set-meta"), /General practice \(no built-in questions on Quantum tunnelling\)/);
+    assert.ok(await page.evaluate(() => generatedQuestions.every((q) => q.topic === "")));
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("the setup says how many built-in questions a format will really get", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#difficultyInput", "basic");
+    await page.selectOption("#questionFormatInput", "0:5");
+    await page.waitForFunction(() => /so the set will have \d+ short answer/.test(document.getElementById("bankHint").textContent));
+    const have = await page.evaluate(() => window.OFFLINE_BANK.calc_ab.basic.sa.length);
+    assert.match(await page.textContent("#bankHint"), new RegExp("so the set will have " + have + " short answer"));
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current");
+    assert.equal(await page.locator(".qa-card").count(), have);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("a refresh keeps the unfinished set, checked answers, drafts, and notes, without re-counting", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "notes");
+    await page.fill("#noteInput", "Draft notes that must survive a refresh");
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#questionFormatInput", "3:2");
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current .check-mcq");
+    const firstId = await page.locator(".qa-card.is-current").getAttribute("data-qid");
+    await page.locator(".qa-card.is-current input[type=radio]").first().check();
+    await page.click(".qa-card.is-current .check-mcq");
+    // Type a short-answer draft without submitting it.
+    const saIdx = await page.evaluate(() => generatedQuestions.findIndex((q) => q.type === "Short Answer"));
+    await page.locator(".set-cell").nth(saIdx).click();
+    await page.fill(".qa-card.is-current .sa-input", "my unfinished answer");
+    const before = await page.evaluate(() => ({ xp: localStorage.getItem("studyBoostXpV1"), daily: localStorage.getItem("studyBoostDailyV1") }));
+    await page.waitForTimeout(400);
+    await page.reload();
+    await page.waitForFunction(() => document.getElementById("aiChip").dataset.state !== "checking");
+    await page.waitForSelector(".qa-card.is-current");
+    assert.match(await page.textContent("#quizStatus"), /Restored your unfinished set/);
+    assert.equal(await page.evaluate(() => practiceIndex), saIdx);
+    assert.equal(await page.inputValue(".qa-card.is-current .sa-input"), "my unfinished answer");
+    assert.equal(await page.evaluate((id) => !!(quizResults[id] && quizResults[id].done), firstId), true);
+    await page.locator(".set-cell").first().click();
+    assert.equal(await page.isVisible(".qa-card.is-current .answer-box"), true, "the checked answer is still revealed");
+    assert.equal(await page.isDisabled(".qa-card.is-current .check-mcq"), true);
+    const after = await page.evaluate(() => ({ xp: localStorage.getItem("studyBoostXpV1"), daily: localStorage.getItem("studyBoostDailyV1") }));
+    assert.deepEqual(after, before, "restoring never grades or awards XP again");
+    assert.equal(await page.inputValue("#noteInput"), "Draft notes that must survive a refresh");
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("offline, Notes and the setup never promise questions from notes", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "notes");
+    await page.fill("#noteInput", "Glycolysis\nSplits glucose into pyruvate");
+    await page.click("#summaryBtn");
+    await page.waitForSelector("#summaryOutput .key-points li");
+    assert.match(await page.textContent("#summaryOutput"), /need the AI connection/);
+    assert.equal(await page.locator('#summaryOutput button:has-text("Practice these notes")').count(), 0);
+    await open(page, server.base, "practice");
+    assert.equal(await page.isDisabled("#useNotesContextInput"), true);
+    assert.match(await page.textContent("#notesContextHint"), /don't use notes/);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("offline, a non-calculus mistake says on its card that similar questions need the AI", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, [mistake("err-bio", "AP Biology", "Enzymes", 3), mistake("err-calc", "AP Calculus AB", "Chain rule", 3)]);
+    await open(page, server.base, "review");
+    const bio = page.locator('[data-card-id="err-bio"]');
+    const calc = page.locator('[data-card-id="err-calc"]');
+    assert.match(await bio.textContent(), /Similar questions for AP Biology need the AI connection/);
+    assert.equal(await bio.locator(".similar-btn").count(), 0);
+    assert.equal(await calc.locator(".similar-btn").count(), 1);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});

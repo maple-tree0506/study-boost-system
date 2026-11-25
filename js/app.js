@@ -54,6 +54,11 @@ let orbitView = "chart";
 // Home: what the main button and the quieter second button do right now.
 let currentStep = null;
 let currentAlt = null;
+// Unfinished work kept across a refresh (see "Unfinished work survives a refresh").
+const SESSION_KEY = "studyBoostSessionV1";
+const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+let sessionTimer = 0;
+let restoringSession = false;
 let lastNotesContext = "";
 let serverHealthy = false;
 let healthReady = false;
@@ -343,6 +348,14 @@ function updateNotesContextUI() {
     const fromBox = !!sanitizeText(noteInput.value);
     const fromSummary = !!sanitizeText(lastNotesContext);
     const hasAny = fromBox || fromSummary;
+    // Offline the set comes from the built-in bank, which never reads notes: say so here,
+    // before generating, instead of after.
+    if (healthReady && !canUseLiveAI()) {
+        useNotesContextInput.disabled = true;
+        notesContextHint.textContent = "Built-in questions are fixed AP-style items and don't use notes. " +
+            "Practice from your notes needs the AI connection (Setup → AI connection).";
+        return;
+    }
     useNotesContextInput.disabled = false;
     if (!hasAny && useNotesContextInput.checked) {
         notesContextHint.textContent = "Paste notes on the Notes page, or generate a summary, to base questions on your material.";
@@ -607,6 +620,8 @@ async function fetchHealth() {
     }
     loadStats();
     renderFirstVisitCopy(); // the connection decides what the first-visit Home can promise
+    updateNotesContextUI();
+    updateBankHint();
     if (window.Shell && window.Shell.current() === "mistake") renderMistakeDetail(window.Shell.param());
 }
 
@@ -838,7 +853,62 @@ function ensureQuestionBank() {
     else window.setTimeout(go, 2500);
 }());
 
-function createMockQuestions(topic, apSubjectId, difficulty, expected, notesContext) {
+// Build a set from the built-in bank. When the student named a topic, only items whose
+// own question or answer is about it count as on-topic (PracticeSelection.splitByTopic);
+// the rest of the set is general course practice, and its results go to the course's
+// general bucket, never to the requested topic.
+// Before generating offline: what the built-in bank actually has for this course and
+// level, and how much of it is about the typed topic, so the format and topic choices
+// don't promise more than the set will hold.
+function updateBankHint() {
+    const el = document.getElementById("bankHint");
+    if (!el) return;
+    if (!healthReady || canUseLiveAI()) { el.hidden = true; return; }
+    if (!window.OFFLINE_BANK) {
+        el.hidden = true;
+        ensureQuestionBank().then(function (ok) { if (ok) updateBankHint(); });
+        return;
+    }
+    const apId = apSubjectInput.value;
+    const subject = subjectLabelFromId(apId);
+    const bank = window.OFFLINE_BANK[apId];
+    const tierName = ({ basic: "Basic", medium: "Medium", challenge: "Challenge" })[difficultyInput.value] || "Medium";
+    const pack = bank && (bank[difficultyInput.value] || bank.medium);
+    el.hidden = false;
+    if (!pack) {
+        el.textContent = "The built-in bank has no " + subject + " questions. Pick another course, or connect the AI.";
+        return;
+    }
+    const want = parseFormat(questionFormatInput.value);
+    const nMcq = pack.mcq.length;
+    const nSa = pack.sa.length;
+    let text = "Built-in bank, " + subject + " · " + tierName + ": " + nMcq + " multiple choice, " + nSa + " short answer.";
+    const short = [];
+    if (want.mcq > nMcq) short.push(nMcq + " multiple choice");
+    if (want.sa > nSa) short.push(nSa + " short answer");
+    if (short.length) text += " This format asks for more, so the set will have " + short.join(" and ") + ".";
+    const topic = sanitizeText(topicInput.value);
+    if (topic && window.PracticeSelection && window.PracticeSelection.splitByTopic) {
+        const on = window.PracticeSelection.splitByTopic(pack.mcq, topic).onTopic.length +
+            window.PracticeSelection.splitByTopic(pack.sa, topic).onTopic.length;
+        text += on
+            ? " " + on + (on === 1 ? " is" : " are") + " about “" + topic + "”; the rest of a set is general practice for the course."
+            : " None are about “" + topic + "” at this level: you'd get a general " + subject + " set, counted toward the course overall.";
+    }
+    el.textContent = text;
+}
+(function wireBankHint() {
+    let timer = 0;
+    [apSubjectInput, difficultyInput, questionFormatInput].forEach(function (el) {
+        el.addEventListener("change", updateBankHint);
+    });
+    topicInput.addEventListener("input", function () {
+        clearTimeout(timer);
+        timer = setTimeout(updateBankHint, 250);
+    });
+}());
+
+function createMockQuestions(topic, apSubjectId, difficulty, expected) {
     const allBanks = (typeof window !== "undefined" && window.OFFLINE_BANK) || {};
     const subjectBank = allBanks[apSubjectId];
     if (!subjectBank) return null;
@@ -850,34 +920,57 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected, notesCont
     // Bank questions are fixed, AP-style items: they are not written from the student's
     // notes, so they never claim to be (the status line says the notes were not used).
     const course = subjectLabelFromId(apSubjectId);
-    const focus = sanitizeText(topic) || course;
-    const fill = function (s) { return String(s || "").replace(/\{focus\}/g, focus); };
+    const wanted = sanitizeText(topic);
+    const PS = window.PracticeSelection;
+    const topicKey = wanted && window.MasteryModel ? window.MasteryModel.normalizeTopicKey(wanted) : "";
+    const pick = function (kind, need) {
+        const pool = pack[kind] || [];
+        const split = wanted && PS && PS.splitByTopic ? PS.splitByTopic(pool, wanted)
+            : { onTopic: [], general: pool.map(function (x, i) { return i; }) };
+        const chosen = [];
+        const from = function (indices, key, on) {
+            const n = Math.min(need - chosen.length, indices.length);
+            if (n <= 0) return;
+            pickBankIndices(key, indices.length, n).forEach(function (k) { chosen.push({ idx: indices[k], on: on }); });
+        };
+        from(split.onTopic, apSubjectId + "|" + tier + "|" + kind + "|topic:" + topicKey, true);
+        from(split.general, apSubjectId + "|" + tier + "|" + kind + (wanted ? "|general:" + topicKey : ""), false);
+        return chosen;
+    };
+    // On-topic items read with the student's topic; general ones with the course name,
+    // so a template never claims to be about a topic it doesn't test.
+    const filler = function (on) {
+        const focus = on ? wanted : course;
+        return function (text) { return String(text || "").replace(/\{focus\}/g, focus); };
+    };
 
     const out = [];
-    if (expected.mcq > 0 && pack.mcq.length) {
-        const mcqIdx = pickBankIndices(apSubjectId + "|" + tier + "|mcq", pack.mcq.length, expected.mcq);
-        mcqIdx.forEach(function (idx, i) {
-            const item = pack.mcq[idx];
+    if (expected.mcq > 0) {
+        pick("mcq", expected.mcq).forEach(function (c, i) {
+            const item = pack.mcq[c.idx];
+            const fill = filler(c.on);
             out.push({
-                id: "mcq-demo-" + Date.now() + "-" + i + "-" + idx,
+                id: "mcq-demo-" + Date.now() + "-" + i + "-" + c.idx,
                 type: "Multiple Choice",
                 question: fill(item.q),
                 options: (item.o || []).slice(),
                 answer: item.a,
-                explanation: fill(item.e || "")
+                explanation: fill(item.e || ""),
+                onTopic: c.on
             });
         });
     }
-    if (expected.sa > 0 && pack.sa.length) {
-        const saIdx = pickBankIndices(apSubjectId + "|" + tier + "|sa", pack.sa.length, expected.sa);
-        saIdx.forEach(function (idx, j) {
-            const item = pack.sa[idx];
+    if (expected.sa > 0) {
+        pick("sa", expected.sa).forEach(function (c, j) {
+            const item = pack.sa[c.idx];
+            const fill = filler(c.on);
             out.push({
-                id: "sa-demo-" + Date.now() + "-" + j + "-" + idx,
+                id: "sa-demo-" + Date.now() + "-" + j + "-" + c.idx,
                 type: "Short Answer",
                 question: fill(item.q),
                 answer: item.a,
-                explanation: fill(item.e || "")
+                explanation: fill(item.e || ""),
+                onTopic: c.on
             });
         });
     }
@@ -906,6 +999,19 @@ const ORIGIN_NAME = {
     bank: "Built-in question bank",
     review: "Due reviews from your Mistake Log"
 };
+
+// Say plainly which built-in questions are about the requested topic and where the
+// results of the others go (the course overall), so mastery feedback stays honest.
+function topicCoverageText(topic, subject, onTopic, general) {
+    const t = "“" + topic + "”";
+    if (!onTopic) {
+        return "No built-in " + subject + " questions at this level are about " + t +
+            ", so this is a general " + subject + " set: results count toward " + subject + " overall, not " + t + ".";
+    }
+    if (!general) return "All " + onTopic + " are about " + t + ".";
+    return onTopic + (onTopic === 1 ? " is" : " are") + " about " + t + "; the other " + general +
+        (general === 1 ? " is" : " are") + " general " + subject + " practice and count toward the course overall.";
+}
 
 // The result kicker stays short: course and level only (the set bar has the rest).
 function resultKicker() {
@@ -944,6 +1050,7 @@ function setMetaText() {
     const parts = [];
     if (m.subject) parts.push(m.subject);
     if (m.topic) parts.push(m.topic);
+    else if (m.requestedTopic) parts.push("General practice (no built-in questions on " + m.requestedTopic + ")");
     if (DIFFICULTY_NAME[m.difficulty]) parts.push(DIFFICULTY_NAME[m.difficulty]);
     let origin = ORIGIN_NAME[m.origin] || "";
     if (m.origin !== "review" && reviews) origin += " + " + reviews + (reviews === 1 ? " due review" : " due reviews");
@@ -1003,6 +1110,7 @@ function renderQuestions() {
     if (!generatedQuestions.length) {
         quizOutput.innerHTML = "<p class='empty'>Choose a course and generate questions to begin.</p>";
         setPracticeMode();
+        saveSession();
         return;
     }
 
@@ -1020,6 +1128,11 @@ function renderQuestions() {
         // them so the (intentionally) larger count reads as the feature it is.
         if (item.source === "review") {
             html += '<span class="tag review">Review · from your Mistake Log</span>';
+        } else if (currentSetMeta && currentSetMeta.requestedTopic) {
+            // Where this question's result will be counted: the topic, or the course overall.
+            html += item.topic
+                ? '<span class="tag counts">Counts toward ' + escapeHtml(item.topic) + "</span>"
+                : '<span class="tag counts general">General · counts toward ' + escapeHtml(item.subject || "the course") + "</span>";
         }
         html += "</div>";
         html += '<p class="qa-q">' + escapeHtml(item.question) + "</p>";
@@ -1070,6 +1183,7 @@ function renderQuestions() {
     typesetMath(quizOutput);
     showQuestion(0, false);
     setPracticeMode();
+    saveSession();
 }
 
 // Setup form, focused set, or result sequence: one data attribute drives the layout.
@@ -1126,6 +1240,7 @@ function showQuestion(index, moveFocus) {
     updateScoreBanner();
     refreshQuestionNav();
     updatePracticeBand();
+    saveSession(); // the question on screen is part of what a refresh restores
     if (moveFocus && !resultsShown) {
         const title = cards[practiceIndex].querySelector(".qa-title");
         const bar = document.getElementById("scoreBanner");
@@ -2367,8 +2482,11 @@ async function generateQuiz() {
             q.subject = subjectLabel || "Uncategorized";
             q.source = "generated";
             q.reason = "generator:new";
-            q.topic = topic || "";
-            q.topicKey = topicKey;
+            // A bank item that is not about the requested topic is general practice: its
+            // result belongs to the course's general bucket, not to that topic.
+            const general = q.onTopic === false;
+            q.topic = general ? "" : (topic || "");
+            q.topicKey = general ? "" : topicKey;
             q.difficulty = difficulty; // similar-question practice starts from the original's level
         });
         // De-bias MCQ option positions (no more "always A") for the whole set.
@@ -2386,7 +2504,8 @@ async function generateQuiz() {
         ctx.source === "textarea" ? "your notes" :
         ctx.source === "summary" ? "your last summary" :
         "the course and topic";
-    quizStatus.textContent = "Generating questions from " + ctxLabel + "...";
+    // Only the AI reads notes; offline the set comes from the built-in bank.
+    quizStatus.textContent = canUseLiveAI() ? "Generating questions from " + ctxLabel + "..." : "Picking questions from the built-in bank...";
     quizResults = {};
     // v2 #2: remember the practiced topic's mastery level before any grading, so the
     // completion screen can show growth. Uses the chosen subject+topic (what the user
@@ -2404,7 +2523,7 @@ async function generateQuiz() {
             quizStatus.textContent = reason + " The built-in question bank didn't load. Check your connection, then try again.";
             return;
         }
-        const demo = createMockQuestions(topic, apId, difficulty, expected, notesCtx);
+        const demo = createMockQuestions(topic, apId, difficulty, expected);
         if (!demo || !demo.length) {
             if (reviewItems.length) {
                 generatedQuestions = reviewItems.slice();
@@ -2421,12 +2540,22 @@ async function generateQuiz() {
             }
             return;
         }
+        const onTopic = demo.filter(function (q) { return q.onTopic; }).length;
         generatedQuestions = finalizeSet(demo);
-        currentSetMeta = { subject: subjectLabel, topic: topic, difficulty: difficulty, origin: "bank" };
+        // Nothing in the bank is about the requested topic: this is a general course set,
+        // and the completion screen measures the course, not the topic.
+        if (topic && !onTopic) snapshotPreSetMastery(subjectLabel || "Uncategorized", "");
+        currentSetMeta = {
+            subject: subjectLabel, topic: onTopic ? topic : "", difficulty: difficulty, origin: "bank",
+            requestedTopic: topic, onTopic: onTopic, general: demo.length - onTopic
+        };
         renderQuestions();
-        const demoNew = generatedQuestions.filter(function (q) { return q.source !== "review"; }).length;
+        const demoNew = demo.length;
+        const asked = expected.mcq + expected.sa;
         quizStatus.textContent = reason + " Showing " + demoNew + " new from the built-in bank" +
             (reviewItems.length ? " + " + reviewItems.length + " due review." : ".") +
+            (demoNew < asked ? " The bank has " + demoNew + " at this level for this format, not " + asked + "." : "") +
+            (topic ? " " + topicCoverageText(topic, subjectLabel, onTopic, demoNew - onTopic) : "") +
             (notesCtx ? " Built-in questions don't use your notes." : "");
     };
 
@@ -2947,9 +3076,13 @@ function renderLibrary(items) {
             ratingButton(2, "Forgot") +
             ratingButton(3, "Hard") +
             ratingButton(5, "Got it") +
-            '<button type="button" class="similar-btn" data-action="open-mistake" data-id="' + id + '">Practice similar</button>' +
+            (canPracticeSimilar(item)
+                ? '<button type="button" class="similar-btn" data-action="open-mistake" data-id="' + id + '">Practice similar</button>'
+                : '<button type="button" class="outline" data-action="open-mistake" data-id="' + id + '">What it tests</button>') +
             '<button type="button" class="danger small" data-action="remove-error" data-id="' + id + '">Delete</button>' +
             "</div>" +
+            (canPracticeSimilar(item) ? "" : '<p class="hint similar-note">Similar questions for ' + escapeHtml(item.subject || "this course") +
+                " need the AI connection; offline, the built-in generator covers AP Calculus only.</p>") +
             "</article>"
         );
     }).join("");
@@ -2965,11 +3098,16 @@ function renderSummary(summaryText, listHtml, source) {
     const made = source === "ai"
         ? "AI summary"
         : "Offline summary · your own lines, cleaned up";
+    // Only the AI can turn these notes into questions; offline, say so instead of
+    // offering a button that would quietly use the built-in bank.
+    const next = canUseLiveAI()
+        ? '<div class="actions"><button type="button" data-action="practice-notes">Practice these notes</button></div>'
+        : '<p class="hint">Questions built from these notes need the AI connection. Offline, Practice uses the built-in bank of AP-style questions.</p>' +
+            '<div class="actions"><button type="button" class="secondary" data-action="practice-notes">Go to Practice</button></div>';
     summaryOutput.innerHTML =
         '<p class="kicker">' + made + "</p>" +
         '<h3>Simplified Summary</h3><p class="summary-lede">' + escapeHtml(summaryText) + "</p>" +
-        '<h3>Key Points</h3><ol class="key-points">' + listHtml + "</ol>" +
-        '<div class="actions"><button type="button" data-action="practice-notes">Practice these notes</button></div>';
+        '<h3>Key Points</h3><ol class="key-points">' + listHtml + "</ol>" + next;
     typesetMath(summaryOutput);
 }
 
@@ -3488,6 +3626,29 @@ function renderDrillIdle(record) {
         html += "</div>";
         html += '<p class="hint">A new set is general practice for the course, not questions built from this mistake. This mistake stays in spaced review either way.</p>';
         html += "</div>";
+        variantAreaEl.innerHTML = html;
+        return;
+    }
+    if (!canPracticeSimilar(record) && !st.history.length && !window.VariantPractice.pickPending(record, st.target.level)) {
+        if (healthReady && !variantSession.autoChecked && !variantSession.busy && serverHealthy) {
+            variantSession.autoChecked = true;
+            html += "<p>Checking what is available for " + escapeHtml(record.subject || "this course") + " without the AI connection...</p></div>";
+            variantAreaEl.innerHTML = html;
+            const sess = variantSession;
+            // If the check ends some other way (rate limit, network), fall back to the
+            // plain statement rather than leaving "Checking..." on screen.
+            startVariant().then(function () {
+                if (variantSession === sess && !sess.unavailable && !sess.item) {
+                    const rec = findErrorRecord(sess.errId);
+                    if (rec) renderDrillIdle(rec);
+                }
+            });
+            return;
+        }
+        html += "<p>Similar questions for " + escapeHtml(record.subject || "this course") +
+            " need the AI connection. Offline, the built-in generator covers AP Calculus derivative, integral, and limit rules.</p>";
+        html += '<div class="actions"><button type="button" class="secondary" data-action="practice-course">Practice a new ' +
+            escapeHtml(record.subject || "") + " set</button></div></div>";
         variantAreaEl.innerHTML = html;
         return;
     }
@@ -4285,3 +4446,151 @@ function convertPastedFormulas(html, plainText) {
     });
 }());
     
+// --- Unfinished work survives a refresh ------------------------------------------------
+// A practice set in progress (questions, what was already checked, short-answer drafts,
+// the question on screen) and the Notes box are kept in this browser for a day, so a
+// refresh or a phone interruption doesn't throw them away. Restoring only redraws: grades,
+// XP, and attempts were recorded when they happened and are never recorded twice. A set
+// is dropped once it is complete (its results are saved by then). Not part of backups.
+
+function readSession() {
+    try {
+        const raw = localStorage.getItem(SESSION_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (!data || typeof data !== "object" || Date.now() - (data.savedAt || 0) > SESSION_MAX_AGE_MS) {
+            localStorage.removeItem(SESSION_KEY);
+            return null;
+        }
+        return data;
+    } catch (e) {
+        return null;
+    }
+}
+
+function saveSessionNow() {
+    clearTimeout(sessionTimer);
+    if (restoringSession) return;
+    const open = generatedQuestions.length > 0 && !isSetComplete();
+    const drafts = {};
+    if (open) {
+        quizOutput.querySelectorAll("[data-sa-input]").forEach(function (ta) {
+            if (ta.value && !ta.readOnly) drafts[ta.getAttribute("data-sa-input")] = ta.value;
+        });
+    }
+    const data = {
+        savedAt: Date.now(),
+        notes: noteInput.value || "",
+        set: open ? {
+            questions: generatedQuestions,
+            results: quizResults,
+            index: practiceIndex,
+            meta: currentSetMeta,
+            preSet: preSetMastery,
+            drafts: drafts
+        } : null
+    };
+    try {
+        if (!data.notes && !data.set) localStorage.removeItem(SESSION_KEY);
+        else localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+    } catch (e) { /* storage full or blocked: the work just won't survive a refresh */ }
+}
+
+function saveSession() {
+    clearTimeout(sessionTimer);
+    sessionTimer = setTimeout(saveSessionNow, 300);
+}
+
+// Put one card back the way the student left it (checked answer, submitted short answer,
+// or an unsent draft), without grading anything again.
+function restoreCardState(item, drafts) {
+    const card = findQuestionCard(item.id);
+    if (!card) return;
+    const qid = item.id;
+    const r = quizResults[qid] || {};
+    const fb = card.querySelector('[data-feedback="' + cssEscape(qid) + '"]');
+    const radios = card.querySelectorAll('.mcq-options input[type="radio"]');
+    if (card.querySelector(".check-mcq")) {
+        if (!r.done) return;
+        radios.forEach(function (radio) { radio.checked = radio.value === item.userAnswer; });
+        markMcqOptions(card, item);
+        revealAnswer(card, qid);
+        if (!r.correct) revealExplanation(card, qid);
+        if (fb) {
+            fb.hidden = false;
+            fb.className = r.correct ? "feedback ok" : "feedback bad";
+            fb.textContent = r.correct ? "Correct." : "Not quite. The correct answer is marked" +
+                (item.explanation ? ", and the explanation is below." : ".");
+        }
+        radios.forEach(function (radio) { radio.disabled = true; });
+        card.querySelector(".check-mcq").disabled = true;
+        return;
+    }
+    const ta = card.querySelector("[data-sa-input]");
+    if (!ta) return;
+    if (!r.submitted && !r.done) {
+        if (drafts && drafts[qid]) ta.value = drafts[qid];
+        return;
+    }
+    ta.value = item.userAnswer || "";
+    ta.setAttribute("readonly", "readonly");
+    ta.classList.add("locked");
+    const submit = card.querySelector(".submit-sa");
+    if (submit) submit.disabled = true;
+    revealAnswer(card, qid);
+    const sg = card.querySelector('[data-selfgrade="' + cssEscape(qid) + '"]');
+    if (sg) sg.hidden = false;
+    if (!fb) return;
+    fb.hidden = false;
+    if (r.done) {
+        card.querySelectorAll(".self-correct, .self-wrong").forEach(function (b) { b.disabled = true; });
+        fb.className = r.correct ? "feedback ok" : "feedback bad";
+        fb.textContent = r.correct ? "Counted as correct." : "Counted as not yet right" +
+            (item.explanation ? ". The explanation is below." : ".");
+        if (!r.correct) revealExplanation(card, qid);
+    } else {
+        fb.className = "feedback";
+        fb.textContent = "Answer submitted — compare with the suggested answer, then grade yourself.";
+    }
+}
+
+function restoreSession() {
+    const saved = readSession();
+    if (!saved) return;
+    if (saved.notes && !noteInput.value) {
+        noteInput.value = saved.notes;
+        updateNotesContextUI();
+    }
+    const set = saved.set;
+    if (!set || !Array.isArray(set.questions) || !set.questions.length) return;
+    restoringSession = true;
+    try {
+        generatedQuestions = set.questions;
+        quizResults = set.results && typeof set.results === "object" ? set.results : {};
+        currentSetMeta = set.meta || null;
+        if (set.preSet) preSetMastery = set.preSet;
+        renderQuestions();
+        generatedQuestions.forEach(function (item) { restoreCardState(item, set.drafts || {}); });
+        showQuestion(Math.max(0, Math.min(set.index || 0, generatedQuestions.length - 1)), false);
+        quizStatus.textContent = "Restored your unfinished set. Answers you already checked are kept and were not counted again.";
+    } catch (e) {
+        generatedQuestions = [];
+        quizResults = {};
+        currentSetMeta = null;
+        renderQuestions();
+    } finally {
+        restoringSession = false;
+    }
+}
+
+(function wireSessionSaving() {
+    quizOutput.addEventListener("input", saveSession);   // short-answer drafts
+    quizOutput.addEventListener("click", saveSession);   // checks, grades, navigation
+    noteInput.addEventListener("input", saveSession);
+    // A phone can drop the page without warning once it is in the background.
+    document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "hidden") saveSessionNow();
+    });
+    window.addEventListener("pagehide", saveSessionNow);
+}());
+restoreSession();
