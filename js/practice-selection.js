@@ -155,8 +155,97 @@
         return out;
     }
 
+    // --- Skill catalog ----------------------------------------------------------------
+    // Courses whose bank items carry skill tags (`k: [skillId, ...]`, the first is the
+    // item's main skill). Tagged items are matched by tag, not by words, and their results
+    // always count toward their own skill. Units follow the AP Calculus AB course
+    // framework. Skill ids that the built-in similar-question generator also uses
+    // (power-rule, chain-rule, product-rule, quotient-rule, antiderivative-power,
+    // definite-integral, trig-limit) keep the same ids.
+    var SKILLS = {
+        calc_ab: [
+            { id: "limits", name: "Limits", unit: "Unit 1 · Limits and continuity", aliases: ["limit"] },
+            { id: "trig-limit", name: "Trig limits at 0", unit: "Unit 1 · Limits and continuity", aliases: ["sin x over x", "trigonometric limits"] },
+            { id: "continuity", name: "Continuity", unit: "Unit 1 · Limits and continuity", aliases: ["continuous"] },
+            { id: "derivative-definition", name: "Definition of the derivative", unit: "Unit 2 · Differentiation basics", aliases: ["limit definition", "difference quotient"] },
+            { id: "power-rule", name: "Power rule", unit: "Unit 2 · Differentiation basics", aliases: ["power rule derivatives"] },
+            { id: "basic-derivatives", name: "Basic derivatives (constants, e^x, ln x)", unit: "Unit 2 · Differentiation basics", aliases: ["derivative of e^x", "exponential derivatives", "derivatives of constants"] },
+            { id: "product-rule", name: "Product rule", unit: "Unit 2 · Differentiation basics", aliases: [] },
+            { id: "quotient-rule", name: "Quotient rule", unit: "Unit 2 · Differentiation basics", aliases: [] },
+            { id: "chain-rule", name: "Chain rule", unit: "Unit 3 · Composite functions", aliases: ["composite functions", "chain"] },
+            { id: "motion", name: "Position, velocity, and acceleration", unit: "Unit 4 · Derivatives in context", aliases: ["motion", "velocity", "acceleration", "particle motion"] },
+            { id: "related-rates", name: "Related rates", unit: "Unit 4 · Derivatives in context", aliases: ["related rate"] },
+            { id: "mvt", name: "Mean Value Theorem", unit: "Unit 5 · Analytical applications", aliases: ["mvt", "mean value"] },
+            { id: "extrema", name: "Extrema and derivative tests", unit: "Unit 5 · Analytical applications", aliases: ["local extrema", "maximum", "minimum", "first derivative test", "second derivative test", "optimization"] },
+            { id: "increasing-concavity", name: "Increasing, decreasing, and concavity", unit: "Unit 5 · Analytical applications", aliases: ["concavity", "inflection points", "increasing", "decreasing"] },
+            { id: "riemann-sums", name: "Riemann sums", unit: "Unit 6 · Integration", aliases: ["riemann sum", "trapezoidal sum"] },
+            { id: "integral-meaning", name: "Meaning of the definite integral", unit: "Unit 6 · Integration", aliases: ["signed area", "net change", "accumulation of change"] },
+            { id: "ftc-accumulation", name: "Accumulation functions (FTC part 1)", unit: "Unit 6 · Integration", aliases: ["fundamental theorem of calculus", "ftc", "accumulation function"] },
+            { id: "antiderivative-power", name: "Antiderivatives (reverse power rule)", unit: "Unit 6 · Integration", aliases: ["antiderivatives", "indefinite integrals", "reverse power rule"] },
+            { id: "definite-integral", name: "Evaluating definite integrals", unit: "Unit 6 · Integration", aliases: ["definite integrals", "definite integral", "ftc part 2"] },
+            { id: "u-substitution", name: "u-substitution", unit: "Unit 6 · Integration", aliases: ["u sub", "substitution"] },
+            { id: "differential-equations", name: "Separable differential equations", unit: "Unit 7 · Differential equations", aliases: ["differential equations", "separation of variables", "exponential growth"] },
+            { id: "average-value", name: "Average value of a function", unit: "Unit 8 · Applications of integration", aliases: ["average value"] },
+            { id: "volume", name: "Volumes of revolution", unit: "Unit 8 · Applications of integration", aliases: ["volume", "disk method", "washer method", "shell method"] }
+        ]
+    };
+
+    function norm(text) {
+        return words(text).join(" ");
+    }
+
+    function skillsFor(courseId) {
+        return SKILLS[courseId] ? SKILLS[courseId].slice() : [];
+    }
+
+    function skillById(courseId, id) {
+        var list = SKILLS[courseId] || [];
+        for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+        return null;
+    }
+
+    // The catalog skill a typed topic names (by name, id, or alias), or null.
+    function findSkill(courseId, topic) {
+        var t = norm(topic);
+        if (!t) return null;
+        var list = SKILLS[courseId] || [];
+        for (var i = 0; i < list.length; i++) {
+            var sk = list[i];
+            var names = [sk.name, sk.id.replace(/-/g, " ")].concat(sk.aliases || []);
+            for (var j = 0; j < names.length; j++) {
+                if (norm(names[j]) === t) return sk;
+            }
+        }
+        return null;
+    }
+
+    // Which items of a bank pool answer a request for `topic` in `courseId`:
+    //   { onTopic, general, skill, byTag }
+    // Tagged pools are matched by skill tag when the topic names a catalog skill; a topic
+    // the catalog does not know, or an untagged pool, falls back to splitByTopic.
+    function splitForRequest(items, topic, courseId) {
+        var skill = findSkill(courseId, topic);
+        var tagged = (items || []).some(function (it) { return it && Array.isArray(it.k); });
+        if (skill && tagged) {
+            var out = { onTopic: [], general: [], skill: skill, byTag: true, terms: [] };
+            items.forEach(function (it, i) {
+                if (it && Array.isArray(it.k) && it.k.indexOf(skill.id) !== -1) out.onTopic.push(i);
+                else out.general.push(i);
+            });
+            return out;
+        }
+        var split = splitByTopic(items, topic);
+        split.skill = null;
+        split.byTag = false;
+        return split;
+    }
+
     var api = {
         planPracticeSelection: planPracticeSelection,
+        skillsFor: skillsFor,
+        skillById: skillById,
+        findSkill: findSkill,
+        splitForRequest: splitForRequest,
         topicTerms: topicTerms,
         textMatchesTerms: textMatchesTerms,
         splitByTopic: splitByTopic

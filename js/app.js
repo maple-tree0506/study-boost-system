@@ -41,6 +41,11 @@ let preSetMastery = null;
 let lastShareText = "";
 // H-F: errIds whose SM-2 schedule was already updated this browser session (dedup).
 const sessionReviewedErrIds = new Set();
+// Mistakes whose answer was shown in this page session; their recall ratings are unlocked.
+// A rating is a judgement of recall, so it can't be given before the answer is seen.
+const revealedErrIds = new Set();
+const RATE_PROMPT = "How well did you recall it?";
+const RATE_PROMPT_LOCKED = "Try to recall the answer, then show it to rate yourself.";
 // Practice focus mode: the question on screen, whether the setup form is open over a
 // running set, whether the result sequence is showing, and what the set is.
 let practiceIndex = 0;
@@ -582,7 +587,7 @@ function renderAiChip() {
         text = "AI connected";
     } else if (serverHealthy) {
         state = "offline";
-        text = "Offline question bank";
+        text = "Built-in question bank";
     }
     chip.setAttribute("data-state", state);
     chip.textContent = text;
@@ -853,17 +858,112 @@ function ensureQuestionBank() {
     else window.setTimeout(go, 2500);
 }());
 
-// Build a set from the built-in bank. When the student named a topic, only items whose
-// own question or answer is about it count as on-topic (PracticeSelection.splitByTopic);
-// the rest of the set is general course practice, and its results go to the course's
-// general bucket, never to the requested topic.
+// Build a set from the built-in bank. A requested topic is matched by skill tag where the
+// course is tagged (AP Calculus AB), otherwise by the words of each item's own question and
+// answer (PracticeSelection.splitForRequest). Every tagged item counts toward its own skill;
+// an untagged item that doesn't match the request is general course practice (empty topic,
+// the course's general bucket). `onlyMatching` leaves the rest of the set empty instead of
+// filling it. Returns null when the course has no bank, [] when nothing matched.
+function createMockQuestions(topic, apSubjectId, difficulty, expected, onlyMatching) {
+    const allBanks = (typeof window !== "undefined" && window.OFFLINE_BANK) || {};
+    const subjectBank = allBanks[apSubjectId];
+    if (!subjectBank) return null;
+
+    const tier = ({ basic: "basic", medium: "medium", challenge: "challenge" })[difficulty] || "medium";
+    const pack = subjectBank[tier] || subjectBank.medium || subjectBank.basic || subjectBank.challenge;
+    if (!pack || !Array.isArray(pack.mcq) || !Array.isArray(pack.sa)) return null;
+
+    // Bank questions are fixed, AP-style items: they are not written from the student's
+    // notes, so they never claim to be (the status line says the notes were not used).
+    const course = subjectLabelFromId(apSubjectId);
+    const wanted = sanitizeText(topic);
+    const PS = window.PracticeSelection;
+    const topicKey = wanted && window.MasteryModel ? window.MasteryModel.normalizeTopicKey(wanted) : "";
+    let requestedSkill = null;
+    const pick = function (kind, need) {
+        const pool = pack[kind] || [];
+        const split = wanted && PS && PS.splitForRequest ? PS.splitForRequest(pool, wanted, apSubjectId)
+            : { onTopic: [], general: pool.map(function (x, i) { return i; }), skill: null };
+        if (split.skill) requestedSkill = split.skill;
+        const chosen = [];
+        const from = function (indices, key, on) {
+            const n = Math.min(need - chosen.length, indices.length);
+            if (n <= 0) return;
+            pickBankIndices(key, indices.length, n).forEach(function (k) { chosen.push({ idx: indices[k], on: on }); });
+        };
+        from(split.onTopic, apSubjectId + "|" + tier + "|" + kind + "|topic:" + topicKey, true);
+        if (!onlyMatching) from(split.general, apSubjectId + "|" + tier + "|" + kind + (wanted ? "|general:" + topicKey : ""), false);
+        return chosen;
+    };
+    // On-topic items read with the student's topic; the others with the course name, so a
+    // template never claims to be about a topic it doesn't test.
+    const filler = function (on) {
+        const focus = on ? wanted : course;
+        return function (text) { return String(text || "").replace(/\{focus\}/g, focus); };
+    };
+    // Where this item's result is counted: the requested topic, else its own tagged skill,
+    // else nothing (the course's general bucket).
+    const topicFor = function (item, on) {
+        if (on) return requestedSkill ? requestedSkill.name : wanted;
+        if (Array.isArray(item.k) && item.k.length && PS && PS.skillById) {
+            const sk = PS.skillById(apSubjectId, item.k[0]);
+            if (sk) return sk.name;
+        }
+        return "";
+    };
+    const build = function (kind, item, c, n) {
+        const fill = filler(c.on);
+        const q = {
+            id: (kind === "mcq" ? "mcq-demo-" : "sa-demo-") + Date.now() + "-" + n + "-" + c.idx,
+            type: kind === "mcq" ? "Multiple Choice" : "Short Answer",
+            question: fill(item.q),
+            answer: item.a,
+            explanation: fill(item.e || ""),
+            onTopic: c.on,
+            assignedTopic: topicFor(item, c.on)
+        };
+        if (kind === "mcq") q.options = (item.o || []).slice();
+        if (Array.isArray(item.k)) q.skills = item.k.slice();
+        return q;
+    };
+
+    const out = [];
+    if (expected.mcq > 0) pick("mcq", expected.mcq).forEach(function (c, i) { out.push(build("mcq", pack.mcq[c.idx], c, i)); });
+    if (expected.sa > 0) pick("sa", expected.sa).forEach(function (c, j) { out.push(build("sa", pack.sa[c.idx], c, j)); });
+    out.requestedSkill = requestedSkill;
+    return out;
+}
+
 // Before generating offline: what the built-in bank actually has for this course and
 // level, and how much of it is about the typed topic, so the format and topic choices
 // don't promise more than the set will hold.
+function topicFillValue() {
+    const el = document.getElementById("topicFillInput");
+    return el ? el.value : "fill";
+}
+
+// Skill suggestions for courses whose questions are tagged (AP Calculus AB): picking one
+// matches questions by tag, exactly.
+function refreshTopicOptions() {
+    const list = document.getElementById("topicOptions");
+    if (!list || !window.PracticeSelection || !window.PracticeSelection.skillsFor) return;
+    list.innerHTML = window.PracticeSelection.skillsFor(apSubjectInput.value).map(function (sk) {
+        return '<option value="' + escapeHtml(sk.name) + '" label="' + escapeHtml(sk.unit) + '"></option>';
+    }).join("");
+}
+
 function updateBankHint() {
     const el = document.getElementById("bankHint");
+    const fill = document.getElementById("topicFill");
     if (!el) return;
-    if (!healthReady || canUseLiveAI()) { el.hidden = true; return; }
+    refreshTopicOptions();
+    const topic = sanitizeText(topicInput.value);
+    if (!healthReady || canUseLiveAI()) {
+        el.hidden = true;
+        if (fill) fill.hidden = true;
+        return;
+    }
+    if (fill) fill.hidden = !topic;
     if (!window.OFFLINE_BANK) {
         el.hidden = true;
         ensureQuestionBank().then(function (ok) { if (ok) updateBankHint(); });
@@ -887,95 +987,36 @@ function updateBankHint() {
     if (want.mcq > nMcq) short.push(nMcq + " multiple choice");
     if (want.sa > nSa) short.push(nSa + " short answer");
     if (short.length) text += " This format asks for more, so the set will have " + short.join(" and ") + ".";
-    const topic = sanitizeText(topicInput.value);
-    if (topic && window.PracticeSelection && window.PracticeSelection.splitByTopic) {
-        const on = window.PracticeSelection.splitByTopic(pack.mcq, topic).onTopic.length +
-            window.PracticeSelection.splitByTopic(pack.sa, topic).onTopic.length;
-        text += on
-            ? " " + on + (on === 1 ? " is" : " are") + " about “" + topic + "”; the rest of a set is general practice for the course."
-            : " None are about “" + topic + "” at this level: you'd get a general " + subject + " set, counted toward the course overall.";
+    const PS = window.PracticeSelection;
+    if (topic && PS && PS.splitForRequest) {
+        const m = PS.splitForRequest(pack.mcq, topic, apId);
+        const a = PS.splitForRequest(pack.sa, topic, apId);
+        const name = m.skill ? m.skill.name : topic;
+        const on = m.onTopic.length + a.onTopic.length;
+        if (!on) {
+            text += " None are about “" + name + "” at this level.";
+        } else {
+            const used = Math.min(m.onTopic.length, want.mcq) + Math.min(a.onTopic.length, want.sa);
+            text += " " + on + (on === 1 ? " is" : " are") + " about “" + name + "” (" + m.onTopic.length +
+                " multiple choice, " + a.onTopic.length + " short answer); this format would use " + used + " of them.";
+        }
+        if (!m.skill && PS.skillsFor(apId).length) {
+            text += " “" + topic + "” isn't one of the listed " + subject +
+                " skills, so questions are matched by their words; pick a skill from the list to match exactly.";
+        }
     }
     el.textContent = text;
 }
 (function wireBankHint() {
-    let timer = 0;
     [apSubjectInput, difficultyInput, questionFormatInput].forEach(function (el) {
         el.addEventListener("change", updateBankHint);
     });
-    topicInput.addEventListener("input", function () {
-        clearTimeout(timer);
-        timer = setTimeout(updateBankHint, 250);
-    });
+    // Updated on every keystroke, not after a pause: the hint sits above Generate, and a
+    // late update moved the button (129 px on a phone) just as the student tapped it.
+    topicInput.addEventListener("input", updateBankHint);
+    topicInput.addEventListener("change", updateBankHint);
+    refreshTopicOptions();
 }());
-
-function createMockQuestions(topic, apSubjectId, difficulty, expected) {
-    const allBanks = (typeof window !== "undefined" && window.OFFLINE_BANK) || {};
-    const subjectBank = allBanks[apSubjectId];
-    if (!subjectBank) return null;
-
-    const tier = ({ basic: "basic", medium: "medium", challenge: "challenge" })[difficulty] || "medium";
-    const pack = subjectBank[tier] || subjectBank.medium || subjectBank.basic || subjectBank.challenge;
-    if (!pack || !Array.isArray(pack.mcq) || !Array.isArray(pack.sa)) return null;
-
-    // Bank questions are fixed, AP-style items: they are not written from the student's
-    // notes, so they never claim to be (the status line says the notes were not used).
-    const course = subjectLabelFromId(apSubjectId);
-    const wanted = sanitizeText(topic);
-    const PS = window.PracticeSelection;
-    const topicKey = wanted && window.MasteryModel ? window.MasteryModel.normalizeTopicKey(wanted) : "";
-    const pick = function (kind, need) {
-        const pool = pack[kind] || [];
-        const split = wanted && PS && PS.splitByTopic ? PS.splitByTopic(pool, wanted)
-            : { onTopic: [], general: pool.map(function (x, i) { return i; }) };
-        const chosen = [];
-        const from = function (indices, key, on) {
-            const n = Math.min(need - chosen.length, indices.length);
-            if (n <= 0) return;
-            pickBankIndices(key, indices.length, n).forEach(function (k) { chosen.push({ idx: indices[k], on: on }); });
-        };
-        from(split.onTopic, apSubjectId + "|" + tier + "|" + kind + "|topic:" + topicKey, true);
-        from(split.general, apSubjectId + "|" + tier + "|" + kind + (wanted ? "|general:" + topicKey : ""), false);
-        return chosen;
-    };
-    // On-topic items read with the student's topic; general ones with the course name,
-    // so a template never claims to be about a topic it doesn't test.
-    const filler = function (on) {
-        const focus = on ? wanted : course;
-        return function (text) { return String(text || "").replace(/\{focus\}/g, focus); };
-    };
-
-    const out = [];
-    if (expected.mcq > 0) {
-        pick("mcq", expected.mcq).forEach(function (c, i) {
-            const item = pack.mcq[c.idx];
-            const fill = filler(c.on);
-            out.push({
-                id: "mcq-demo-" + Date.now() + "-" + i + "-" + c.idx,
-                type: "Multiple Choice",
-                question: fill(item.q),
-                options: (item.o || []).slice(),
-                answer: item.a,
-                explanation: fill(item.e || ""),
-                onTopic: c.on
-            });
-        });
-    }
-    if (expected.sa > 0) {
-        pick("sa", expected.sa).forEach(function (c, j) {
-            const item = pack.sa[c.idx];
-            const fill = filler(c.on);
-            out.push({
-                id: "sa-demo-" + Date.now() + "-" + j + "-" + c.idx,
-                type: "Short Answer",
-                question: fill(item.q),
-                answer: item.a,
-                explanation: fill(item.e || ""),
-                onTopic: c.on
-            });
-        });
-    }
-    return out.length ? out : null;
-}
 
 function scoreSummary() {
     let answered = 0;
@@ -1002,15 +1043,21 @@ const ORIGIN_NAME = {
 
 // Say plainly which built-in questions are about the requested topic and where the
 // results of the others go (the course overall), so mastery feedback stays honest.
-function topicCoverageText(topic, subject, onTopic, general) {
+function topicCoverageText(topic, subject, onTopic, otherSkills, general) {
     const t = "“" + topic + "”";
-    if (!onTopic) {
-        return "No built-in " + subject + " questions at this level are about " + t +
-            ", so this is a general " + subject + " set: results count toward " + subject + " overall, not " + t + ".";
+    const parts = [];
+    if (onTopic) parts.push(onTopic + (onTopic === 1 ? " is" : " are") + " about " + t + ".");
+    else parts.push("No built-in " + subject + " questions at this level are about " + t + ".");
+    if (otherSkills) {
+        parts.push(otherSkills + (otherSkills === 1 ? " practises another " : " practise other ") + subject +
+            " skill" + (otherSkills === 1 ? "" : "s") + " and count" + (otherSkills === 1 ? "s" : "") + " toward " +
+            (otherSkills === 1 ? "that skill" : "those skills") + ", not " + t + ".");
     }
-    if (!general) return "All " + onTopic + " are about " + t + ".";
-    return onTopic + (onTopic === 1 ? " is" : " are") + " about " + t + "; the other " + general +
-        (general === 1 ? " is" : " are") + " general " + subject + " practice and count toward the course overall.";
+    if (general) {
+        parts.push(general + (general === 1 ? " is" : " are") + " general " + subject +
+            " practice and count" + (general === 1 ? "s" : "") + " toward " + subject + " overall, not " + t + ".");
+    }
+    return parts.join(" ");
 }
 
 // The result kicker stays short: course and level only (the set bar has the rest).
@@ -1107,6 +1154,7 @@ function renderQuestions() {
     resultsShown = false;
     practiceSetupOpen = false;
     practiceIndex = 0;
+    if (generatedQuestions.length && !restoringSession) snapshotSetMastery();
     if (!generatedQuestions.length) {
         quizOutput.innerHTML = "<p class='empty'>Choose a course and generate questions to begin.</p>";
         setPracticeMode();
@@ -1128,7 +1176,7 @@ function renderQuestions() {
         // them so the (intentionally) larger count reads as the feature it is.
         if (item.source === "review") {
             html += '<span class="tag review">Review · from your Mistake Log</span>';
-        } else if (currentSetMeta && currentSetMeta.requestedTopic) {
+        } else if (currentSetMeta && currentSetMeta.origin === "bank" && (item.topic || currentSetMeta.requestedTopic)) {
             // Where this question's result will be counted: the topic, or the course overall.
             html += item.topic
                 ? '<span class="tag counts">Counts toward ' + escapeHtml(item.topic) + "</span>"
@@ -1335,6 +1383,7 @@ document.addEventListener("keydown", function (ev) {
             radios[n].checked = true;
             radios[n].focus({ preventScroll: true });
             ev.preventDefault();
+            saveSession(); // keep the pick across a refresh, as a click would
         }
         return;
     }
@@ -1364,13 +1413,25 @@ document.addEventListener("studyboost:view", function (ev) {
 
 // --- P0: study streak (consecutive days) ---
 const STREAK_KEY = "studyBoostStreakV1";
+// Days are the student's own calendar days (HomeSummary.localDay), not UTC dates.
+function todayKey() {
+    return window.HomeSummary.localDay(new Date());
+}
+
 function bumpStreak() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayKey();
     let s = {};
     try { s = JSON.parse(localStorage.getItem(STREAK_KEY)) || {}; } catch (e) { s = {}; }
-    if (s.lastDay === today) return s.count || 1;            // already counted today
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    s.count = s.lastDay === yesterday ? (s.count || 0) + 1 : 1;
+    const last = window.HomeSummary.carryDay(s.lastDay, today); // a key saved in UTC days
+    if (last === today) {                                       // already counted today
+        if (s.lastDay !== today) {
+            s.lastDay = today;
+            try { localStorage.setItem(STREAK_KEY, JSON.stringify(s)); } catch (e) { /* storage full */ }
+        }
+        return s.count || 1;
+    }
+    const yesterday = window.HomeSummary.addDays(today, -1);
+    s.count = last === yesterday ? (s.count || 0) + 1 : 1;
     s.lastDay = today;
     try { localStorage.setItem(STREAK_KEY, JSON.stringify(s)); } catch (e) { /* storage full */ }
     return s.count;
@@ -1396,9 +1457,10 @@ function levelInfo(total) {
     };
 }
 function getDaily() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayKey();
     let d = {};
     try { d = JSON.parse(localStorage.getItem(DAILY_KEY)) || {}; } catch (e) { d = {}; }
+    if (d.day && window.HomeSummary.carryDay(d.day, today) === today) d.day = today; // saved under UTC
     if (d.day !== today) d = { day: today, questions: 0, reviews: 0, xp: 0 };
     return d;
 }
@@ -1424,32 +1486,70 @@ function currentMastery(subject, topic) {
     return { level: window.MasteryModel.masteryLevel(stat), stat: stat };
 }
 
-// Snapshot the practiced topic's level BEFORE grading, so completion can show movement.
-// Called once per generated set (the chosen subject+topic; review-injected items are
-// secondary). Stores "new" when the topic has no prior data.
-function snapshotPreSetMastery(subject, topic) {
-    const cur = currentMastery(subject, topic);
-    preSetMastery = { subject: subject, topic: topic, level: cur ? cur.level : "new" };
+// Snapshot, before any grading, the level of every skill this set practises, so the
+// completion screen can show real movement. Only items with a topic (a tagged skill or
+// a topic the questions are really about) are skills; general course practice is not.
+function setTopics() {
+    const seen = {};
+    const out = [];
+    generatedQuestions.forEach(function (q) {
+        const topic = String(q.topic || "").trim();
+        if (!topic) return;
+        const key = (q.subject || "") + "::" + topic.toLowerCase();
+        if (seen[key]) return;
+        seen[key] = true;
+        out.push({ key: key, subject: q.subject || "", topic: topic });
+    });
+    return out;
 }
 
-// Build the completion-screen growth line: a celebratory level-up if the practiced
-// topic crossed a threshold this set, else the current level + recent accuracy.
-// Returns "" when there's no graded data for the topic (nothing honest to show).
+function snapshotSetMastery() {
+    const levels = {};
+    setTopics().forEach(function (t) {
+        const cur = currentMastery(t.subject, t.topic);
+        levels[t.key] = cur && cur.stat && cur.stat.attempts ? cur.level : "new";
+    });
+    preSetMastery = { levels: levels };
+}
+
+// The completion screen's learning line. It never turns a set into a verdict about a
+// whole course: per skill it says what happened in this set, how much evidence there is
+// in total, and the current estimate (moved up only by questions tagged with that skill).
 function masteryGrowthHtml() {
-    if (!preSetMastery || !window.MasteryModel) return "";
-    const cur = currentMastery(preSetMastery.subject, preSetMastery.topic);
-    if (!cur || !cur.stat || !cur.stat.attempts) return "";
-    const before = preSetMastery.level;
-    const after = cur.level;
-    const rawTopic = (preSetMastery.topic || "").trim();
-    const label = escapeHtml(rawTopic || preSetMastery.subject || "This topic");
-    const acc = Math.round((cur.stat.ema || 0) * 100);
-    if ((MASTERY_RANK[after] || 0) > (MASTERY_RANK[before] || 0)) {
-        return '<p class="cc-growth is-up">' +
-            label + ": " + MASTERY_LABEL[before] + " &rarr; " + MASTERY_LABEL[after] + " &#9650; leveled up</p>";
+    if (!window.MasteryModel) return "";
+    const levels = (preSetMastery && preSetMastery.levels) || {};
+    const here = {};
+    generatedQuestions.forEach(function (q) {
+        const r = quizResults[q.id];
+        const topic = String(q.topic || "").trim();
+        if (!r || !r.done || !topic) return;
+        const key = (q.subject || "") + "::" + topic.toLowerCase();
+        here[key] = here[key] || { subject: q.subject || "", topic: topic, n: 0, right: 0 };
+        here[key].n += 1;
+        if (r.correct) here[key].right += 1;
+    });
+    const rows = Object.keys(here).map(function (k) { return here[k]; })
+        .sort(function (a, b) { return b.n - a.n || a.topic.localeCompare(b.topic); });
+    if (!rows.length) {
+        const subject = (currentSetMeta && currentSetMeta.subject) || "this course";
+        return '<p class="cc-growth">This was general ' + escapeHtml(subject) +
+            " practice, so no skill estimate changed. Pick a topic to track a skill.</p>";
     }
-    return '<p class="cc-growth">' +
-        label + " mastery: " + MASTERY_LABEL[after] + " &middot; " + acc + "% recent accuracy</p>";
+    let html = '<ul class="cc-skills">';
+    rows.slice(0, 4).forEach(function (row) {
+        const cur = currentMastery(row.subject, row.topic);
+        const stat = cur && cur.stat;
+        const before = levels[(row.subject || "") + "::" + row.topic.toLowerCase()] || "new";
+        const after = cur ? cur.level : "new";
+        const rose = (MASTERY_RANK[after] || 0) > (MASTERY_RANK[before] || 0);
+        html += "<li" + (rose ? ' class="is-up"' : "") + "><strong>" + escapeHtml(row.topic) + "</strong>: " +
+            row.right + " of " + row.n + " right in this set" +
+            (stat && stat.attempts ? " · " + stat.attempts + " graded so far, " + stat.correct + " right" : "") +
+            " · estimate: " + (rose ? MASTERY_LABEL[before] + " &rarr; " : "") + MASTERY_LABEL[after] + "</li>";
+    });
+    html += "</ul>";
+    if (rows.length > 4) html += '<p class="hint">' + (rows.length - 4) + " more skills are on the Progress page.</p>";
+    return html;
 }
 
 // B2: render a "Share feedback" anchor when a feedback form URL is configured;
@@ -1654,7 +1754,7 @@ function enterCompletionMode() {
         total: total,
         level: lvl.level,
         streak: streak,
-        subject: (preSetMastery && preSetMastery.subject) || subjectLabelFromId(apSubjectInput.value)
+        subject: (currentSetMeta && currentSetMeta.subject) || subjectLabelFromId(apSubjectInput.value)
     });
     html += '<p class="share-line"><button type="button" class="outline" data-action="share-progress">Share my progress</button></p>';
     const fb = feedbackLinkHtml("feedback-link");
@@ -2020,7 +2120,7 @@ function exportUserData() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "studyboost-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+        a.download = "studyboost-backup-" + todayKey() + ".json";
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -2182,7 +2282,7 @@ function computeLocalStats(queue) {
         subjMap[subj].answered++;
         subjMap[subj].correct += a.correct ? 1 : 0;
 
-        const day = (a.ts || "").slice(0, 10);
+        const day = a.ts ? window.HomeSummary.localDay(a.ts) : "";
         if (day) {
             if (!dayMap[day]) dayMap[day] = { answered: 0, correct: 0 };
             dayMap[day].answered++;
@@ -2196,10 +2296,9 @@ function computeLocalStats(queue) {
     }).sort(function (a, b) { return b.answered - a.answered; });
 
     const daily = [];
-    const today = new Date();
+    const today = todayKey();
     for (let i = 13; i >= 0; i--) {
-        const d = new Date(today.getTime() - i * 86400000);
-        const key = d.toISOString().slice(0, 10);
+        const key = window.HomeSummary.addDays(today, -i);
         const e = dayMap[key] || { answered: 0, correct: 0 };
         daily.push({ date: key, answered: e.answered, correct: e.correct, accuracy: e.answered ? e.correct / e.answered : 0 });
     }
@@ -2228,13 +2327,29 @@ function accuracyClass(accuracy, answered) {
     return "acc-low";
 }
 
-function renderStats(data, localOnly) {
+// offline: null when the numbers came from the server just now; otherwise
+// { syncedAt: ISO | null, pending: answers waiting on this device, live?: the read worked }.
+function renderStats(data, offline) {
     const overall = data.overall || { answered: 0, correct: 0, accuracy: 0 };
     let html = "";
 
-    if (localOnly) {
-        html += '<p class="stats-notice">Showing local-only data (server unreachable). ' +
-            'These are unsynced results queued on this device and will merge once the server is back.</p>';
+    if (offline) {
+        const n = offline.pending || 0;
+        const answers = n + (n === 1 ? " answer" : " answers");
+        let note;
+        if (offline.live) {
+            note = answers + " saved on this device " + (n === 1 ? "hasn't" : "haven't") + " uploaded yet. " +
+                (n === 1 ? "It's" : "They're") + " included here and will upload on the next try.";
+        } else if (offline.syncedAt) {
+            note = "Offline. These numbers are from your last sync (" + syncTimeText(offline.syncedAt) + ")" +
+                (n ? ", plus " + answers + " saved on this device that will upload when the connection returns."
+                   : ". Nothing new is waiting to upload.");
+        } else {
+            note = "Offline, and this device has no earlier sync to show. " + (n
+                ? "These are only the " + answers + " saved on this device; they will upload when the connection returns."
+                : "Answers you grade will show here.");
+        }
+        html += '<p class="stats-notice">' + escapeHtml(note) + "</p>";
     }
 
     if (window.HomeSummary && overall.answered) {
@@ -2317,7 +2432,13 @@ function renderStats(data, localOnly) {
 // A blank topicKey is the subject-general bucket; give it a readable label.
 function topicDisplay(stat) {
     const label = (stat && typeof stat.topic === "string") ? stat.topic.trim() : "";
-    return label || "General (no topic)";
+    return label || "General course practice";
+}
+
+// The course's general bucket mixes unrelated questions, so it is shown with its accuracy
+// but never with a skill level ("Mastered" there would describe a whole course).
+function isGeneralBucket(stat) {
+    return !(stat && typeof stat.topic === "string" && stat.topic.trim());
 }
 
 // #6: hand-rolled SVG radar of topic mastery — no charting library (the project has
@@ -2377,7 +2498,8 @@ function renderTopicMastery() {
         return;
     }
 
-    const subjectLabel = subjectLabelFromId(apSubjectInput.value);
+    // Progress has its own course filter (it never changes the Practice course).
+    const subjectLabel = subjectLabelFromId(masteryCourseInput ? masteryCourseInput.value : apSubjectInput.value);
     const summary = window.MasteryModel.summarizeMastery(masteryMap, { subject: subjectLabel });
     const topics = summary.topics || [];
 
@@ -2389,7 +2511,7 @@ function renderTopicMastery() {
     // Topic Mastery levels are deliberately distinct from SM-2's new/learning/mastered.
     const LEVEL_LABEL = { "new": "New", developing: "Developing", proficient: "Proficient", mastered: "Mastered" };
     const masteredCount = topics.filter(function (t) {
-        return window.MasteryModel.masteryLevel(t) === "mastered";
+        return !isGeneralBucket(t) && window.MasteryModel.masteryLevel(t) === "mastered";
     }).length;
     const totalGraded = topics.reduce(function (a, t) { return a + t.attempts; }, 0);
     const weakest = (summary.weakest || []).slice(0, 3); // top 3 weakest only
@@ -2412,10 +2534,12 @@ function renderTopicMastery() {
     topics.forEach(function (t) {
         const level = window.MasteryModel.masteryLevel(t);
         const pct = Math.round(t.ema * 100);
-        const rank = MASTERY_RANK[level] || 0;
+        const rank = isGeneralBucket(t) ? 0 : (MASTERY_RANK[level] || 0);
         html += '<div class="mastery-row">';
         html += '<span class="mastery-topic">' + escapeHtml(topicDisplay(t)) + "</span>";
-        html += '<span class="tag mastery-' + level + '">' + (LEVEL_LABEL[level] || level) + "</span>";
+        html += isGeneralBucket(t)
+            ? '<span class="tag">No skill level</span>'
+            : '<span class="tag mastery-' + level + '">' + (LEVEL_LABEL[level] || level) + "</span>";
         html += '<span class="rank-pips" aria-hidden="true">' + [1, 2, 3].map(function (n) {
             return "<i" + (n <= rank ? ' class="on"' : "") + "></i>";
         }).join("") + "</span>";
@@ -2426,7 +2550,7 @@ function renderTopicMastery() {
         html += '<span class="mastery-pct">' + pct + "%</span>";
         html += "</div>";
         const similar = t.sources && t.sources.variant ? t.sources.variant.attempts : 0;
-        html += '<span class="mastery-meta">' + t.attempts + " graded" + (similar ? " · " + similar + " similar" : "") + "</span>";
+        html += '<span class="mastery-meta">' + t.attempts + " graded, " + t.correct + " right" + (similar ? " · " + similar + " similar" : "") + "</span>";
         html += "</div>";
     });
     html += "</div>";
@@ -2434,7 +2558,30 @@ function renderTopicMastery() {
     topicMasteryOutput.innerHTML = html;
 }
 
-// FR3/FR4: load and render stats; FR5 fallback to local queue when offline.
+// The last stats the server returned, kept so Progress doesn't drop to the local queue
+// (often 0) when the connection drops. Counts only, for this browser's own id; a cache,
+// not backed up.
+const STATS_CACHE_KEY = "studyBoostStatsCacheV1";
+function readStatsCache(uid) {
+    try {
+        const c = JSON.parse(localStorage.getItem(STATS_CACHE_KEY));
+        if (c && c.userId === uid && c.data && c.data.overall && typeof c.at === "string") return c;
+    } catch (e) { /* unreadable: no cache */ }
+    return null;
+}
+function writeStatsCache(uid, data) {
+    try { localStorage.setItem(STATS_CACHE_KEY, JSON.stringify({ at: new Date().toISOString(), userId: uid, data: data })); } catch (e) { /* storage full */ }
+}
+function syncTimeText(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "earlier";
+    const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return window.HomeSummary.localDay(d) === todayKey() ? "today, " + time
+        : d.toLocaleDateString([], { month: "short", day: "numeric" }) + ", " + time;
+}
+
+// FR3/FR4: load and render stats. Offline: the last synced stats plus the answers still
+// queued on this device (FR5), each said for what it is.
 async function loadStats() {
     statsStatus.textContent = "Loading progress...";
     await flushAttemptQueue();
@@ -2442,22 +2589,41 @@ async function loadStats() {
     // Progress is per-user: scope the request to this browser's anonymous id.
     // If storage is unavailable (no id), fall back to the local-queue view rather
     // than requesting global data.
+    // Before the connection check finishes, wait for it (fetchHealth calls loadStats again)
+    // rather than flash "Offline".
+    if (!healthReady && window.location.protocol !== "file:") return;
     const uid = getOrCreateUserId();
+    const showOffline = function () {
+        const queue = readAttemptQueue();
+        const local = computeLocalStats(queue);
+        const cached = uid ? readStatsCache(uid) : null;
+        renderStats(cached ? window.HomeSummary.mergeStats(cached.data, local, todayKey()) : local,
+            { syncedAt: cached ? cached.at : null, pending: queue.length });
+        statsStatus.textContent = cached ? "Offline: showing your last synced progress." : "Offline: showing answers saved on this device.";
+    };
     if (window.location.protocol === "file:" || !serverHealthy || !uid) {
-        renderStats(computeLocalStats(readAttemptQueue()), true);
-        statsStatus.textContent = "Showing results saved on this device — they'll sync when the connection returns.";
+        showOffline();
         return;
     }
 
     try {
-        const res = await fetch("/api/stats?userId=" + encodeURIComponent(uid));
+        // tz: the student's UTC offset in minutes, so days end at their own midnight.
+        const tz = -new Date().getTimezoneOffset();
+        const res = await fetch("/api/stats?userId=" + encodeURIComponent(uid) + "&tz=" + tz);
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
-        renderStats(data, false);
-        statsStatus.textContent = "Progress up to date.";
+        if (!data || !data.overall) throw new Error("bad stats");
+        writeStatsCache(uid, data);
+        const queue = readAttemptQueue(); // only if an upload failed while the read worked
+        if (queue.length) {
+            renderStats(window.HomeSummary.mergeStats(data, computeLocalStats(queue), todayKey()), { live: true, pending: queue.length });
+            statsStatus.textContent = "Some answers haven't uploaded yet; they're included below.";
+        } else {
+            renderStats(data, null);
+            statsStatus.textContent = "Progress up to date.";
+        }
     } catch (e) {
-        renderStats(computeLocalStats(readAttemptQueue()), true);
-        statsStatus.textContent = "Showing results saved on this device — they'll sync when the connection returns.";
+        showOffline();
     }
 }
 
@@ -2482,11 +2648,16 @@ async function generateQuiz() {
             q.subject = subjectLabel || "Uncategorized";
             q.source = "generated";
             q.reason = "generator:new";
-            // A bank item that is not about the requested topic is general practice: its
-            // result belongs to the course's general bucket, not to that topic.
-            const general = q.onTopic === false;
-            q.topic = general ? "" : (topic || "");
-            q.topicKey = general ? "" : topicKey;
+            // Bank items say where their result counts (the request, their own tagged skill,
+            // or the course's general bucket); AI items were written for the request.
+            if (typeof q.assignedTopic === "string") {
+                q.topic = q.assignedTopic;
+                q.topicKey = window.MasteryModel ? window.MasteryModel.normalizeTopicKey(q.assignedTopic) : "";
+                delete q.assignedTopic;
+            } else {
+                q.topic = topic || "";
+                q.topicKey = topicKey;
+            }
             q.difficulty = difficulty; // similar-question practice starts from the original's level
         });
         // De-bias MCQ option positions (no more "always A") for the whole set.
@@ -2507,10 +2678,8 @@ async function generateQuiz() {
     // Only the AI reads notes; offline the set comes from the built-in bank.
     quizStatus.textContent = canUseLiveAI() ? "Generating questions from " + ctxLabel + "..." : "Picking questions from the built-in bank...";
     quizResults = {};
-    // v2 #2: remember the practiced topic's mastery level before any grading, so the
-    // completion screen can show growth. Uses the chosen subject+topic (what the user
-    // is practicing); review-injected items from other topics are secondary.
-    snapshotPreSetMastery(subjectLabel || "Uncategorized", topic || "");
+    // Skill levels before grading are snapshotted in renderQuestions (snapshotSetMastery).
+
 
     const tryDemo = async function (reason) {
         let loaded = !!window.OFFLINE_BANK;
@@ -2523,7 +2692,16 @@ async function generateQuiz() {
             quizStatus.textContent = reason + " The built-in question bank didn't load. Check your connection, then try again.";
             return;
         }
-        const demo = createMockQuestions(topic, apId, difficulty, expected);
+        const onlyMatching = !!topic && topicFillValue() === "only";
+        const demo = createMockQuestions(topic, apId, difficulty, expected, onlyMatching);
+        if (demo && !demo.length && onlyMatching) {
+            generatedQuestions = [];
+            currentSetMeta = null;
+            renderQuestions();
+            quizStatus.textContent = "No built-in " + subjectLabel + " questions at this level are about “" + topic +
+                "”. Choose “Fill with other course questions”, another level, or another topic.";
+            return;
+        }
         if (!demo || !demo.length) {
             if (reviewItems.length) {
                 generatedQuestions = reviewItems.slice();
@@ -2541,13 +2719,13 @@ async function generateQuiz() {
             return;
         }
         const onTopic = demo.filter(function (q) { return q.onTopic; }).length;
+        const skillName = demo.requestedSkill ? demo.requestedSkill.name : topic;
         generatedQuestions = finalizeSet(demo);
-        // Nothing in the bank is about the requested topic: this is a general course set,
-        // and the completion screen measures the course, not the topic.
-        if (topic && !onTopic) snapshotPreSetMastery(subjectLabel || "Uncategorized", "");
+        const fresh = generatedQuestions.filter(function (q) { return q.source !== "review"; });
+        const otherSkills = fresh.filter(function (q) { return !q.onTopic && q.topic; }).length;
         currentSetMeta = {
-            subject: subjectLabel, topic: onTopic ? topic : "", difficulty: difficulty, origin: "bank",
-            requestedTopic: topic, onTopic: onTopic, general: demo.length - onTopic
+            subject: subjectLabel, topic: onTopic ? skillName : "", difficulty: difficulty, origin: "bank",
+            requestedTopic: topic, onTopic: onTopic, otherSkills: otherSkills, general: demo.length - onTopic - otherSkills
         };
         renderQuestions();
         const demoNew = demo.length;
@@ -2555,7 +2733,7 @@ async function generateQuiz() {
         quizStatus.textContent = reason + " Showing " + demoNew + " new from the built-in bank" +
             (reviewItems.length ? " + " + reviewItems.length + " due review." : ".") +
             (demoNew < asked ? " The bank has " + demoNew + " at this level for this format, not " + asked + "." : "") +
-            (topic ? " " + topicCoverageText(topic, subjectLabel, onTopic, demoNew - onTopic) : "") +
+            (topic ? " " + topicCoverageText(skillName, subjectLabel, onTopic, otherSkills, demoNew - onTopic - otherSkills) : "") +
             (notesCtx ? " Built-in questions don't use your notes." : "");
     };
 
@@ -2657,6 +2835,9 @@ function addErrorRecord(questionId) {
         // mislabel a captured mistake.
         topic: found.topic || "",
         topicKey: found.topicKey || "",
+        // Skill tags from the built-in bank (AP Calculus AB): lets the page decide, without
+        // asking the server, whether similar questions can be built offline.
+        skills: Array.isArray(found.skills) && found.skills.length ? found.skills.slice() : undefined,
         createdAt: new Date().toISOString()
     });
     saveErrorRecords();
@@ -3047,11 +3228,13 @@ function renderLibrary(items) {
         const id = escapeHtml(item.id);
         const dueText = due ? "Due now" : (it.days === 1 ? "Next review in 1 day" : "Next review in " + it.days + " days");
         // Show what each rating would schedule, so the choice has a visible result.
+        // Recall comes first: the ratings unlock once the suggested answer has been shown.
+        const revealed = revealedErrIds.has(item.id);
         const ratingButton = function (quality, label) {
             const next = RS.review(sr, quality).intervalDays;
             const when = next === 1 ? "1 day" : next + " days";
             return '<button type="button" class="outline rate" data-action="review" data-q="' + quality + '" data-id="' + id + '"' +
-                ' data-next="' + when + '" aria-label="' + label + ", next review in " + when + '">' + label + "</button>";
+                ' data-next="' + when + '" aria-label="' + label + ", next review in " + when + '"' + (revealed ? "" : " disabled") + ">" + label + "</button>";
         };
         return (
             '<article class="error-card' + (due ? " is-due" : "") + '" data-card-id="' + id + '">' +
@@ -3066,13 +3249,13 @@ function renderLibrary(items) {
             (item.userAnswer
                 ? '<p class="your-answer"><strong>Your answer:</strong> ' + escapeHtml(item.userAnswer) + "</p>"
                 : "") +
-            '<details class="answer-box"><summary>Suggested answer</summary><p>' + escapeHtml(item.answer) + "</p></details>" +
+            '<details class="answer-box" data-reveal-id="' + id + '"' + (revealed ? " open" : "") + '><summary>Suggested answer</summary><p>' + escapeHtml(item.answer) + "</p></details>" +
             (item.explanation
                 ? '<details class="answer-box"><summary>Why</summary><p>' + escapeHtml(item.explanation) + "</p></details>"
                 : "") +
             '<p class="due-info">' + escapeHtml(dueText) + (sr && sr.reviews ? " · reviewed " + sr.reviews + "×" : "") + "</p>" +
             '<div class="actions review-actions">' +
-            '<span class="selfgrade-q">How well did you recall it?</span>' +
+            '<span class="selfgrade-q">' + (revealed ? RATE_PROMPT : RATE_PROMPT_LOCKED) + "</span>" +
             ratingButton(2, "Forgot") +
             ratingButton(3, "Hard") +
             ratingButton(5, "Got it") +
@@ -3091,23 +3274,24 @@ function renderLibrary(items) {
     typesetMath(errorOutput);
 }
 
-// One renderer for the AI and offline summaries, ending in the next step of the loop.
-// The summary reads like a page: what made it (AI or the offline extractor), a short lede,
-// then numbered key points.
+// One renderer for the AI summary and the offline excerpt, ending in the next step of the
+// loop. The AI summary reads like a page: a short lede, then numbered key points. Offline
+// nothing is rewritten, so it is called an excerpt and shows only the student's own lines.
 function renderSummary(summaryText, listHtml, source) {
-    const made = source === "ai"
-        ? "AI summary"
-        : "Offline summary · your own lines, cleaned up";
+    const ai = source === "ai";
     // Only the AI can turn these notes into questions; offline, say so instead of
     // offering a button that would quietly use the built-in bank.
     const next = canUseLiveAI()
         ? '<div class="actions"><button type="button" data-action="practice-notes">Practice these notes</button></div>'
         : '<p class="hint">Questions built from these notes need the AI connection. Offline, Practice uses the built-in bank of AP-style questions.</p>' +
             '<div class="actions"><button type="button" class="secondary" data-action="practice-notes">Go to Practice</button></div>';
-    summaryOutput.innerHTML =
-        '<p class="kicker">' + made + "</p>" +
-        '<h3>Simplified Summary</h3><p class="summary-lede">' + escapeHtml(summaryText) + "</p>" +
-        '<h3>Key Points</h3><ol class="key-points">' + listHtml + "</ol>" + next;
+    summaryOutput.innerHTML = ai
+        ? '<p class="kicker">AI summary</p>' +
+            '<h3>Simplified Summary</h3><p class="summary-lede">' + escapeHtml(summaryText) + "</p>" +
+            '<h3>Key Points</h3><ol class="key-points">' + listHtml + "</ol>" + next
+        : '<p class="kicker">Offline excerpt · your own lines, not a summary</p>' +
+            '<h3>Key lines from your notes</h3><ol class="key-points">' + listHtml + "</ol>" +
+            '<p class="hint">The first lines of your notes, one per point, with bullets and extra spaces removed. Nothing was rewritten; a real summary needs the AI connection.</p>' + next;
     typesetMath(summaryOutput);
 }
 
@@ -3120,7 +3304,7 @@ summaryBtn.addEventListener("click", async function () {
     const raw = sanitizeText(noteInput.value);
     if (!raw) {
         summaryStatus.textContent = "Paste your notes first.";
-        summaryOutput.innerHTML = "<p class='empty'>Paste your notes and generate a summary to get started.</p>";
+        summaryOutput.innerHTML = "<p class='empty'>" + (canUseLiveAI() ? "Paste your notes and generate a summary to get started." : "Paste your notes to pull out the key lines.") + "</p>";
         return;
     }
     if (!healthReady) {
@@ -3136,8 +3320,8 @@ summaryBtn.addEventListener("click", async function () {
         renderSummary(demo ? demo.simplifiedSummary : raw, demo ? demo.keyPointsHtml : "", "offline");
         lastNotesContext = raw;
         summaryStatus.textContent = serverHealthy
-            ? "Offline summary — AI summaries need the AI connection (Setup → AI connection)."
-            : "Offline summary — start the local server to enable AI. Your notes are linked to the quiz.";
+            ? "Offline excerpt: AI summaries need the AI connection (Setup → AI connection)."
+            : "Offline excerpt: start the local server to enable AI.";
         updateNotesContextUI();
         return;
     }
@@ -3155,7 +3339,7 @@ summaryBtn.addEventListener("click", async function () {
         updateNotesContextUI();
     } catch (err) {
         console.error("AI summary failed:", err); // debug detail stays out of the UI
-        summaryStatus.textContent = "AI summary unavailable right now — showing an offline summary instead.";
+        summaryStatus.textContent = "AI summary unavailable right now. Showing an offline excerpt of your notes instead.";
         const demo = summarizeNotesDemo(noteInput.value);
         renderSummary(demo ? demo.simplifiedSummary : raw, demo ? demo.keyPointsHtml : "", "offline");
         lastNotesContext = raw;
@@ -3274,6 +3458,21 @@ mistakeSubjectFilterEl.addEventListener("change", function () {
 }());
 
 // A Forgot / Hard / Got it rating, from the Mistake Log or a mistake's own page.
+// Recall ratings unlock once the answer is shown (revealedErrIds, declared at the top).
+document.addEventListener("toggle", function (ev) {
+    const box = ev.target;
+    if (!(box instanceof HTMLElement) || !box.open) return;
+    const id = box.getAttribute("data-reveal-id");
+    if (!id || revealedErrIds.has(id)) return;
+    revealedErrIds.add(id);
+    const scope = box.closest(".error-card, #mistakeOriginal") || document;
+    scope.querySelectorAll('button[data-action="review"]').forEach(function (b) {
+        if (b.getAttribute("data-id") === id) b.disabled = false;
+    });
+    const prompt = scope.querySelector(".selfgrade-q");
+    if (prompt) prompt.textContent = RATE_PROMPT;
+}, true); // toggle doesn't bubble; listen in the capture phase
+
 function rateMistake(id, quality) {
     // Count a rating toward today's reviews once. It earns no XP, so the XP totals
     // are unchanged; resurfaced practice items are counted in recordAttempt instead.
@@ -3351,16 +3550,45 @@ refreshMistakeFilterOptions();
 renderTopicMastery();
 // 2C: re-scope the Topic Mastery panel when the course selection changes. The
 // Progress page has its own course control, kept in step with the Practice one.
+// The Progress course filter only filters Progress. Until the student picks a course
+// there, it follows the Practice course (one way); after that the two are independent.
+let masteryCoursePicked = false;
+function followPracticeCourse() {
+    if (masteryCourseInput && !masteryCoursePicked && masteryCourseInput.value !== apSubjectInput.value) {
+        masteryCourseInput.value = apSubjectInput.value;
+        renderTopicMastery();
+    }
+}
+
+// A topic that is a listed skill of another course ("Chain rule" after switching from
+// Calculus AB to Biology) no longer describes the set, so it is cleared, and the status
+// line says so. Free-text topics are kept: nothing says they belong to one course.
+// Calculus BC covers every Calculus AB skill, so an AB skill stays a valid BC topic.
+const COURSE_INCLUDES = { calc_bc: ["calc_ab"] };
+function clearTopicFromOtherCourse() {
+    const PS = window.PracticeSelection;
+    const topic = sanitizeText(topicInput.value);
+    if (!topic || !PS || !PS.findSkill || PS.findSkill(apSubjectInput.value, topic)) return;
+    const owner = AP_SUBJECTS.find(function (s) { return s.id !== apSubjectInput.value && PS.findSkill(s.id, topic); });
+    if (!owner || (COURSE_INCLUDES[apSubjectInput.value] || []).indexOf(owner.id) !== -1) return;
+    topicInput.value = "";
+    quizStatus.textContent = "Cleared the topic \u201c" + topic + "\u201d: it's a " + owner.label + " skill.";
+    updateBankHint();
+}
+
 apSubjectInput.addEventListener("change", function () {
-    if (masteryCourseInput) masteryCourseInput.value = apSubjectInput.value;
-    renderTopicMastery();
+    clearTopicFromOtherCourse();
+    followPracticeCourse();
 });
 if (masteryCourseInput) {
     masteryCourseInput.addEventListener("change", function () {
-        apSubjectInput.value = masteryCourseInput.value;
+        masteryCoursePicked = true;
         renderTopicMastery();
     });
 }
+document.addEventListener("studyboost:view", function (ev) {
+    if (ev.detail && ev.detail.view === "progress") followPracticeCourse();
+});
 if (window.location.protocol === "file:") {
     loadStats();
 }
@@ -3430,7 +3658,16 @@ function variantState(record) {
 // Similar questions can be made for any course with the AI; without it only the built-in
 // AP Calculus skills work, so other courses are not recommended there.
 function canPracticeSimilar(record) {
-    return canUseLiveAI() || /calculus/i.test((record && record.subject) || "");
+    if (canUseLiveAI()) return true;
+    // Offline, the built-in generator covers a fixed list of skills (from /api/health).
+    // A mistake with skill tags is checked against that list; an older one without tags
+    // can only be judged by course, so the page lets the student try.
+    const built = healthConfig.variants && Array.isArray(healthConfig.variants.builtInSkills)
+        ? healthConfig.variants.builtInSkills : null;
+    if (record && Array.isArray(record.skills) && record.skills.length && built) {
+        return record.skills.some(function (id) { return built.indexOf(id) !== -1; });
+    }
+    return /calculus/i.test((record && record.subject) || "");
 }
 
 function rankedPractice(limit) {
@@ -3531,13 +3768,16 @@ function renderMistakeOriginal(record) {
     if (due) {
         // Due for spaced review: keep the answer folded so the review still starts from recall.
         html += '<p class="due-note">This question is due for its spaced review. Recall the answer first, then rate yourself.</p>';
-        html += '<details class="reveal"><summary>Show the answer and explanation</summary>' + answer + "</details>";
-        html += '<div class="actions review-actions"><span class="selfgrade-q">How well did you recall it?</span>' +
+        const revealed = revealedErrIds.has(record.id);
+        html += '<details class="reveal" data-reveal-id="' + escapeHtml(record.id) + '"' + (revealed ? " open" : "") +
+            '><summary>Show the answer and explanation</summary>' + answer + "</details>";
+        html += '<div class="actions review-actions"><span class="selfgrade-q">' + (revealed ? RATE_PROMPT : RATE_PROMPT_LOCKED) + "</span>" +
             [[2, "Forgot"], [3, "Hard"], [5, "Got it"]].map(function (q) {
                 const next = RS ? RS.review(sr, q[0]).intervalDays : 0;
                 const when = next === 1 ? "1 day" : next + " days";
                 return '<button type="button" class="outline rate" data-action="review" data-q="' + q[0] + '" data-id="' +
-                    escapeHtml(record.id) + '" data-next="' + when + '" aria-label="' + q[1] + ", next review in " + when + '">' + q[1] + "</button>";
+                    escapeHtml(record.id) + '" data-next="' + when + '" aria-label="' + q[1] + ", next review in " + when + '"' +
+                    (revealed ? "" : " disabled") + ">" + q[1] + "</button>";
             }).join("") + "</div>";
     } else {
         html += answer;
@@ -3556,7 +3796,9 @@ function renderMistakeAnalysis(record) {
         const fallback = (record.topic || "").trim() || record.subject || "This course";
         html += '<p class="kp"><span class="kp-label">Knowledge point</span><span class="kp-name">' + escapeHtml(fallback) + "</span></p>";
         html += '<p class="hint">' + ((record.topic || "").trim() ? "From the topic you entered." : "No topic was entered for this question.") +
-            " The full analysis (the concept, how to solve it, and what likely went wrong) appears when you start similar practice.</p>";
+            (canPracticeSimilar(record)
+                ? " The full analysis (the concept, how to solve it, and what likely went wrong) appears when you start similar practice."
+                : " How to solve it and what likely went wrong need the AI connection (Setup). The question above has the answer and its explanation.") + "</p>";
         mistakeAnalysisEl.innerHTML = html;
         return;
     }
@@ -3629,22 +3871,9 @@ function renderDrillIdle(record) {
         variantAreaEl.innerHTML = html;
         return;
     }
+    // Availability is decided here, from the course and the question's skill tags. Nothing
+    // about this mistake is sent anywhere until the student presses a start button.
     if (!canPracticeSimilar(record) && !st.history.length && !window.VariantPractice.pickPending(record, st.target.level)) {
-        if (healthReady && !variantSession.autoChecked && !variantSession.busy && serverHealthy) {
-            variantSession.autoChecked = true;
-            html += "<p>Checking what is available for " + escapeHtml(record.subject || "this course") + " without the AI connection...</p></div>";
-            variantAreaEl.innerHTML = html;
-            const sess = variantSession;
-            // If the check ends some other way (rate limit, network), fall back to the
-            // plain statement rather than leaving "Checking..." on screen.
-            startVariant().then(function () {
-                if (variantSession === sess && !sess.unavailable && !sess.item) {
-                    const rec = findErrorRecord(sess.errId);
-                    if (rec) renderDrillIdle(rec);
-                }
-            });
-            return;
-        }
         html += "<p>Similar questions for " + escapeHtml(record.subject || "this course") +
             " need the AI connection. Offline, the built-in generator covers AP Calculus derivative, integral, and limit rules.</p>";
         html += '<div class="actions"><button type="button" class="secondary" data-action="practice-course">Practice a new ' +
@@ -4020,10 +4249,9 @@ function reviewCounts() {
 function readStreak() {
     let stored = {};
     try { stored = JSON.parse(localStorage.getItem(STREAK_KEY)) || {}; } catch (e) { stored = {}; }
-    // Same UTC day boundaries as bumpStreak, so the two can never disagree.
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    return window.HomeSummary.activeStreak(stored, today, yesterday);
+    // Same local day boundaries as bumpStreak, so the two can never disagree.
+    const today = todayKey();
+    return window.HomeSummary.activeStreak(stored, today, window.HomeSummary.addDays(today, -1));
 }
 
 function dayCount(n) {
@@ -4162,8 +4390,8 @@ function renderFirstVisitCopy() {
     const dek = document.getElementById("commandDek");
     if (dek && document.getElementById("nextStep").getAttribute("data-state") === "first") {
         dek.textContent = ai
-            ? "AP-style questions from your own notes or any of 14 courses. The ones you miss come back on a spaced schedule until they stick."
-            : "AP-style questions from a built-in bank for 14 courses. The ones you miss come back on a spaced schedule until they stick.";
+            ? "AP-style questions from your own notes or any of 13 AP courses. The ones you miss come back on a spaced schedule until they stick."
+            : "AP-style questions from a built-in bank for 13 AP courses. The ones you miss come back on a spaced schedule until they stick.";
     }
     const step = document.getElementById("welcomeStepGenerate");
     if (step) {
@@ -4171,11 +4399,23 @@ function renderFirstVisitCopy() {
             ? "AP-style questions from a course, topic, and difficulty, or from your own notes."
             : "AP-style questions for a course, topic, and difficulty from the built-in bank. With an AI connection, from your own notes too.");
     }
+    // Notes: offline nothing is summarized, so the page promises key lines, not a summary.
+    const notesTitle = document.getElementById("summary-title");
+    if (notesTitle) notesTitle.textContent = ai ? "AI Note Summary" : "Key Lines From Your Notes";
+    const notesDek = document.getElementById("notesDek");
+    if (notesDek) {
+        notesDek.textContent = ai
+            ? "Paste what you have. Get a short summary and key points, then practice on the same material."
+            : "Paste what you have. Offline, StudyBoost pulls out your key lines as they are; with an AI connection it writes a summary.";
+    }
+    if (summaryBtn) summaryBtn.textContent = ai ? "Generate Summary" : "Pull out key lines";
+    const summaryEmpty = summaryOutput && summaryOutput.querySelector(".empty");
+    if (summaryEmpty) summaryEmpty.textContent = ai ? "Paste your notes and generate a summary to get started." : "Paste your notes to pull out the key lines.";
     const why = document.getElementById("whyQuestions");
     if (why) {
         why.textContent = ai
             ? "AI generates practice from your own notes"
-            : "A built-in AP question bank for 14 courses; with an AI connection, questions from your own notes";
+            : "A built-in question bank for 13 AP courses; with an AI connection, questions from your own notes";
     }
 }
 
@@ -4477,6 +4717,12 @@ function saveSessionNow() {
         quizOutput.querySelectorAll("[data-sa-input]").forEach(function (ta) {
             if (ta.value && !ta.readOnly) drafts[ta.getAttribute("data-sa-input")] = ta.value;
         });
+        // A picked but unchecked option is a draft too.
+        quizOutput.querySelectorAll(".qa-card[data-qid]").forEach(function (card) {
+            const qid = card.getAttribute("data-qid");
+            const picked = card.querySelector('.mcq-options input[type="radio"]:checked');
+            if (picked && !picked.disabled && !(quizResults[qid] && quizResults[qid].done)) drafts[qid] = { pick: picked.value };
+        });
     }
     const data = {
         savedAt: Date.now(),
@@ -4511,7 +4757,13 @@ function restoreCardState(item, drafts) {
     const fb = card.querySelector('[data-feedback="' + cssEscape(qid) + '"]');
     const radios = card.querySelectorAll('.mcq-options input[type="radio"]');
     if (card.querySelector(".check-mcq")) {
-        if (!r.done) return;
+        if (!r.done) {
+            const draft = drafts && drafts[qid];
+            if (draft && typeof draft.pick === "string") {
+                radios.forEach(function (radio) { radio.checked = radio.value === draft.pick; });
+            }
+            return;
+        }
         radios.forEach(function (radio) { radio.checked = radio.value === item.userAnswer; });
         markMcqOptions(card, item);
         revealAnswer(card, qid);
@@ -4529,7 +4781,7 @@ function restoreCardState(item, drafts) {
     const ta = card.querySelector("[data-sa-input]");
     if (!ta) return;
     if (!r.submitted && !r.done) {
-        if (drafts && drafts[qid]) ta.value = drafts[qid];
+        if (drafts && typeof drafts[qid] === "string") ta.value = drafts[qid];
         return;
     }
     ta.value = item.userAnswer || "";
@@ -4585,6 +4837,7 @@ function restoreSession() {
 
 (function wireSessionSaving() {
     quizOutput.addEventListener("input", saveSession);   // short-answer drafts
+    quizOutput.addEventListener("change", saveSession);  // option picks
     quizOutput.addEventListener("click", saveSession);   // checks, grades, navigation
     noteInput.addEventListener("input", saveSession);
     // A phone can drop the page without warning once it is in the background.

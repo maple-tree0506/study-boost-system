@@ -1,7 +1,9 @@
 // End-to-end tests of the redesigned flows in a real browser: the Home command center,
 // Practice focus mode (keyboard included) and the result sequence, the Review Orbit
 // (filters, keyboard selection, list view) with the Mistake Library (search, confirmed
-// delete), the offline Notes summary, and the Reduce-motion setting.
+// delete), the offline Notes excerpt, and the Reduce-motion setting. The last section
+// covers trustworthy learning feedback: skill tags, per-skill evidence, offline Progress,
+// the separate Progress course filter, locked recall ratings, and refresh-safe picks.
 //
 //   node --test tests/e2e/redesign-flow.e2e.js
 //
@@ -304,7 +306,8 @@ test("Notes: the offline summary keeps one key point per line", async () => {
     await page.waitForSelector("#summaryOutput .key-points li");
     const points = await page.locator("#summaryOutput .key-points li").allTextContents();
     assert.deepEqual(points.map((t) => t.trim()), ["Chain rule", "Differentiate the outside", "Multiply by the inside derivative", "Product rule"]);
-    assert.match(await page.textContent("#summaryOutput .kicker"), /Offline summary/);
+    assert.match(await page.textContent("#summaryOutput .kicker"), /Offline excerpt/);
+    assert.equal(await page.locator("#summaryOutput .summary-lede").count(), 0, "offline nothing is rewritten, so no summary lede");
     assert.deepEqual(page.errors, []);
     await page.close();
 });
@@ -391,7 +394,9 @@ test("a topic the bank does not cover gives a clearly general set", async () => 
     await page.waitForFunction(() => /None are about/.test(document.getElementById("bankHint").textContent));
     await page.click("#quizBtn");
     await page.waitForSelector(".qa-card.is-current");
-    assert.match(await page.textContent("#quizStatus"), /general AP Biology set: results count toward AP Biology overall/);
+    // The status names what happened: nothing on the topic, so general course practice.
+    assert.match(await page.textContent("#quizStatus"), /No built-in AP Biology questions at this level are about .Quantum tunnelling./);
+    assert.match(await page.textContent("#quizStatus"), /are general AP Biology practice and count toward AP Biology overall/);
     assert.match(await page.textContent(".set-meta"), /General practice \(no built-in questions on Quantum tunnelling\)/);
     assert.ok(await page.evaluate(() => generatedQuestions.every((q) => q.topic === "")));
     assert.deepEqual(page.errors, []);
@@ -476,6 +481,198 @@ test("offline, a non-calculus mistake says on its card that similar questions ne
     assert.match(await bio.textContent(), /Similar questions for AP Biology need the AI connection/);
     assert.equal(await bio.locator(".similar-btn").count(), 0);
     assert.equal(await calc.locator(".similar-btn").count(), 1);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+// --- Trustworthy learning feedback (design review, November 2026) --------------------
+
+async function answerCurrentSet(page) {
+    const n = await page.evaluate(() => generatedQuestions.length);
+    for (let i = 0; i < n; i++) {
+        await page.waitForFunction((k) => practiceIndex === k, i);
+        const qid = await page.locator(".qa-card.is-current").getAttribute("data-qid");
+        await page.locator(".qa-card.is-current input[type=radio]").first().check();
+        await page.click(".qa-card.is-current .check-mcq");
+        await page.waitForFunction((id) => quizResults[id] && quizResults[id].done, qid);
+        await page.click(".qa-card.is-current .q-next");
+    }
+    await page.waitForSelector("#completionCard:not([hidden])");
+}
+
+test("Calc AB · Medium · Chain rule finds the tagged bank questions, and 'only this topic' keeps the set to them", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#difficultyInput", "medium");
+    await page.selectOption("#questionFormatInput", "5:0");
+    assert.equal(await page.locator('#topicOptions option[value="Chain rule"]').count(), 1, "the topic list offers the course's skills");
+    await page.fill("#topicInput", "chain rule");
+    await page.waitForSelector("#topicFill:not([hidden])");
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current");
+    let set = await page.evaluate(() => generatedQuestions.map((q) => ({ q: q.question, topic: q.topic, skills: q.skills || [] })));
+    assert.equal(set.length, 5);
+    const chain = set.filter((x) => x.topic === "Chain rule");
+    assert.equal(chain.length, 2, "both tagged chain-rule questions at this level");
+    assert.ok(chain.every((x) => x.skills.indexOf("chain-rule") !== -1));
+    assert.ok(set.some((x) => /ln\(5x\^2 \+ 1\)/.test(x.q)), "the ln(5x^2+1) question is found by its tag");
+    // The fillers count toward their own tagged skill, never toward Chain rule.
+    for (const x of set.filter((y) => y.topic !== "Chain rule")) {
+        assert.notEqual(x.skills[0], "chain-rule");
+        assert.ok(x.topic.length > 0, "a tagged filler names its own skill");
+    }
+
+    // Only this topic: a shorter set, every question on the skill.
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#difficultyInput", "medium");
+    await page.selectOption("#questionFormatInput", "5:0");
+    await page.fill("#topicInput", "Chain rule");
+    await page.waitForSelector("#topicFill:not([hidden])");
+    await page.selectOption("#topicFillInput", "only");
+    await page.click("#quizBtn");
+    await page.waitForFunction(() => generatedQuestions.length === 2 && document.querySelector(".qa-card.is-current"));
+    set = await page.evaluate(() => generatedQuestions.map((q) => q.topic));
+    assert.deepEqual(set, ["Chain rule", "Chain rule"]);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("a general set never claims a course-level mastery change on the result screen", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "bio");
+    await page.selectOption("#questionFormatInput", "5:0");
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current .check-mcq");
+    await answerCurrentSet(page);
+    const card = await page.textContent("#completionCard");
+    assert.match(card, /This was general AP Biology practice, so no skill estimate changed/);
+    assert.doesNotMatch(card, /Mastered|Proficient|New\s*→/);
+    // Progress shows the course bucket with its accuracy but no level.
+    await open(page, server.base, "progress");
+    await page.waitForSelector("#topicMasteryOutput .mastery-row");
+    assert.match(await page.textContent("#topicMasteryOutput .mastery-row"), /General course practice/);
+    assert.match(await page.textContent("#topicMasteryOutput .mastery-row"), /No skill level/);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("a tagged set reports each skill with its evidence on the result screen", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#difficultyInput", "medium");
+    await page.selectOption("#questionFormatInput", "5:0");
+    await page.fill("#topicInput", "Chain rule");
+    await page.waitForSelector("#topicFill:not([hidden])");
+    await page.selectOption("#topicFillInput", "only");
+    await page.click("#quizBtn");
+    await page.waitForFunction(() => generatedQuestions.length === 2 && document.querySelector(".qa-card.is-current .check-mcq"));
+    await answerCurrentSet(page);
+    const line = await page.textContent("#completionCard .cc-skills");
+    assert.match(line, /Chain rule: \d of 2 right in this set · 2 graded so far, \d right · estimate: (New|Developing)/);
+    assert.doesNotMatch(await page.textContent("#completionCard"), /AP Calculus AB: /, "no course-level claim");
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("Progress keeps the last synced numbers offline, and its course filter leaves Practice alone", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    const uid = await page.evaluate(() => getOrCreateUserId());
+    for (const correct of [true, true, false]) {
+        const res = await fetch(server.base + "api/attempt", {
+            method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ subject: "AP Biology", type: "Multiple Choice", correct, userId: uid, source: "generated" })
+        });
+        assert.equal(res.status, 200);
+    }
+    // The Progress course filter follows Practice until it is changed, then stays separate.
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.fill("#topicInput", "Chain rule");
+    await open(page, server.base, "progress");
+    await page.waitForFunction(() => /67%/.test(document.getElementById("statsOutput").textContent));
+    assert.match(await page.textContent("#statsStatus"), /up to date/);
+    assert.match(await page.textContent("#statsOutput .stat-cards"), /67%[\s\S]*3[\s\S]*2/);
+    assert.equal(await page.inputValue("#masteryCourseInput"), "calc_ab");
+    await page.selectOption("#masteryCourseInput", "bio");
+    assert.equal(await page.inputValue("#apSubjectInput"), "calc_ab");
+    assert.equal(await page.inputValue("#topicInput"), "Chain rule");
+
+    // The connection drops: the synced numbers stay, labelled with when they were synced.
+    await page.route("**/api/stats**", (route) => route.abort());
+    await page.reload();
+    await page.waitForFunction(() => /Offline/.test(document.getElementById("statsStatus").textContent));
+    assert.match(await page.textContent("#statsOutput .stats-notice"), /from your last sync \(today, /);
+    assert.match(await page.textContent("#statsOutput .stat-cards"), /67%[\s\S]*3[\s\S]*2/);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("switching Practice to another course clears a skill that belongs to the old one", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.fill("#topicInput", "Chain rule");
+    await page.selectOption("#apSubjectInput", "calc_bc");
+    assert.equal(await page.inputValue("#topicInput"), "Chain rule", "Calculus BC covers the AB skills");
+    await page.selectOption("#apSubjectInput", "bio");
+    assert.equal(await page.inputValue("#topicInput"), "");
+    assert.match(await page.textContent("#quizStatus"), /Cleared the topic .Chain rule.: it's a AP Calculus AB skill/);
+    await page.fill("#topicInput", "Glycolysis");
+    await page.selectOption("#apSubjectInput", "chem");
+    assert.equal(await page.inputValue("#topicInput"), "Glycolysis", "a free-text topic is kept");
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("recall ratings unlock only after the answer is shown", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, LOG);
+    await open(page, server.base, "review");
+    const card = page.locator('[data-card-id="err-due-enzyme"]');
+    await card.waitFor();
+    assert.equal(await card.locator('[data-action="review"]').first().isDisabled(), true);
+    assert.match(await card.textContent(), /Try to recall the answer, then show it to rate yourself/);
+    await card.locator("details.answer-box summary").first().click();
+    await page.waitForFunction(() => !document.querySelector('[data-card-id="err-due-enzyme"] [data-action="review"]').disabled);
+    assert.match(await card.textContent(), /How well did you recall it\?/);
+    // The mistake page works the same way.
+    await page.goto(server.base + "#mistake/err-due-chain");
+    await page.waitForSelector('#mistakeOriginal [data-action="review"]');
+    assert.equal(await page.isDisabled('#mistakeOriginal [data-action="review"]'), true);
+    await page.click("#mistakeOriginal details.reveal summary");
+    await page.waitForFunction(() => !document.querySelector('#mistakeOriginal [data-action="review"]').disabled);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("a picked but unchecked option survives a refresh", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#questionFormatInput", "5:0");
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current .check-mcq");
+    const qid = await page.locator(".qa-card.is-current").getAttribute("data-qid");
+    await page.locator(".qa-card.is-current .qa-title").focus();
+    await page.keyboard.press("c"); // keyboard pick, no click
+    const picked = await page.locator(".qa-card.is-current input[type=radio]:checked").getAttribute("value");
+    await page.waitForTimeout(400);
+    await page.reload();
+    await page.waitForFunction(() => document.getElementById("aiChip").dataset.state !== "checking");
+    await page.waitForSelector(".qa-card.is-current");
+    assert.equal(await page.locator(".qa-card.is-current input[type=radio]:checked").getAttribute("value"), picked);
+    assert.equal(await page.evaluate((id) => !!(quizResults[id] && quizResults[id].done), qid), false, "still not graded");
     assert.deepEqual(page.errors, []);
     await page.close();
 });

@@ -156,3 +156,28 @@ test("bank size sanity: total item count is reported", () => {
     }
     assert.ok(mcq > 0 && sa > 0, "bank should contain MCQ and SA items");
 });
+
+// Skill tags (`k`): every tag must name a skill in the course's catalog
+// (js/practice-selection.js SKILLS), and a course with a catalog is fully tagged, so
+// practice by skill, mistakes, and mastery all use the same skill ids.
+test("skill tags: known ids only, and AP Calculus AB is fully tagged", () => {
+    const PS = require("../js/practice-selection.js");
+    for (const subject of Object.keys(BANK)) {
+        const catalog = PS.skillsFor(subject).map((s) => s.id);
+        for (const tier of TIERS) {
+            for (const kind of ["mcq", "sa"]) {
+                (BANK[subject][tier] && BANK[subject][tier][kind] || []).forEach((q, i) => {
+                    const loc = subject + "." + tier + "." + kind + "[" + i + "]";
+                    if (q.k === undefined) {
+                        if (catalog.length) fail(loc, "course has a skill catalog, so every item needs k tags");
+                        return;
+                    }
+                    if (!Array.isArray(q.k) || !q.k.length) fail(loc, "k must be a non-empty array of skill ids");
+                    q.k.forEach((id) => {
+                        if (!catalog.includes(id)) fail(loc, "unknown skill id '" + id + "' (add it to SKILLS or fix the tag)");
+                    });
+                });
+            }
+        }
+    }
+});

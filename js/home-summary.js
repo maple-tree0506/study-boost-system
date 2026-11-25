@@ -7,6 +7,9 @@
  * invents data: a missing value produces an empty state, never a placeholder score.
  *
  *   levelProgress(totalXp, perLevel)            -> { level, into, toNext, pct }
+ *   localDay(date?)                             -> "YYYY-MM-DD" on the device's own calendar
+ *   addDays(day, n)                             -> the day key n days away ("YYYY-MM-DD")
+ *   carryDay(storedDay, today)                  -> today when storedDay is today's old UTC key, else storedDay
  *   activeStreak(stored, today, yesterday)      -> { count, doneToday }
  *   dayPart(hour)                               -> "Morning" | ... | "Late night"
  *   missions({ daily, due })                    -> [{ id, label, value, target, pct, state, note }]
@@ -15,6 +18,7 @@
  *   orbitAngle(id)                              -> stable angle in radians
  *   orbitPoints(records, daysUntilDue, isDue)   -> [{ id, days, due, r, angle, ... }]
  *   weekTopLine(daily, bySubject)               -> { text, answered, correct }
+ *   mergeStats(base, extra, today)              -> /api/stats shape: last synced stats + unsynced answers
  *
  * Browser: window.HomeSummary. Node: module.exports.
  */
@@ -49,13 +53,39 @@
         };
     }
 
+    function pad2(n) { return (n < 10 ? "0" : "") + n; }
+
+    // The student's own calendar day. Missions, the streak, and the 14-day chart all use
+    // this, so "today" ends at the student's midnight, not at midnight UTC.
+    function localDay(date) {
+        var d = date instanceof Date ? date : new Date(date == null ? Date.now() : date);
+        if (isNaN(d.getTime())) return "";
+        return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+    }
+
+    // Calendar arithmetic on a day key (no daylight-saving drift: a day is a date, not 24 h).
+    function addDays(day, n) {
+        var p = String(day || "").split("-");
+        if (p.length !== 3) return "";
+        var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2] + (n || 0)));
+        return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+    }
+
+    // Days used to be stored as UTC dates, which run up to one day ahead of the student's
+    // own (California after 4 pm). A stored key for "tomorrow" is today's old UTC key, so
+    // it counts as today; anything else is kept as it is.
+    function carryDay(storedDay, today) {
+        return storedDay && storedDay === addDays(today, 1) ? today : storedDay;
+    }
+
     // A stored streak only counts while it is still alive: studied today, or
     // yesterday (today's session can still extend it). Older streaks read as 0.
     function activeStreak(stored, today, yesterday) {
         var s = stored && typeof stored === "object" ? stored : {};
         var count = s.count > 0 ? s.count : 0;
-        if (s.lastDay === today) return { count: count, doneToday: true };
-        if (s.lastDay === yesterday) return { count: count, doneToday: false };
+        var last = carryDay(s.lastDay, today);
+        if (last === today) return { count: count, doneToday: true };
+        if (last === yesterday) return { count: count, doneToday: false };
         return { count: 0, doneToday: false };
     }
 
@@ -253,6 +283,58 @@
         return { text: parts.join(" "), answered: answered, correct: correct };
     }
 
+    // Progress while the server can't be reached: the last stats the server returned plus
+    // the answers still waiting on this device (never in those stats: an answer leaves the
+    // queue only once the server stored it). Both are /api/stats shapes. The 14-day window
+    // is rebuilt to end on `today`, so a snapshot from an earlier day still lines up.
+    function mergeStats(base, extra, today) {
+        var a = base || {};
+        var b = extra || {};
+        function rate(v) { return v.answered ? v.correct / v.answered : 0; }
+        function add(list, key, into, order) {
+            (list || []).forEach(function (row) {
+                var k = row[key];
+                if (!into[k]) { into[k] = { answered: 0, correct: 0 }; order.push(k); }
+                into[k].answered += row.answered || 0;
+                into[k].correct += row.correct || 0;
+            });
+        }
+        function merged(key, listA, listB) {
+            var into = {};
+            var order = [];
+            add(listA, key, into, order);
+            add(listB, key, into, order);
+            return order.map(function (k) {
+                var row = {};
+                row[key] = k;
+                row.answered = into[k].answered;
+                row.correct = into[k].correct;
+                row.accuracy = rate(into[k]);
+                return row;
+            });
+        }
+        var oa = a.overall || {};
+        var ob = b.overall || {};
+        var overall = {
+            answered: (oa.answered || 0) + (ob.answered || 0),
+            correct: (oa.correct || 0) + (ob.correct || 0)
+        };
+        overall.accuracy = rate(overall);
+        var bySubject = merged("subject", a.bySubject, b.bySubject);
+        bySubject.sort(function (x, y) { return y.answered - x.answered || (x.subject < y.subject ? -1 : 1); });
+        var bySource = merged("source", a.bySource, b.bySource);
+        var SOURCE_ORDER = ["generated", "review", "variant", "other"];
+        bySource.sort(function (x, y) { return SOURCE_ORDER.indexOf(x.source) - SOURCE_ORDER.indexOf(y.source); });
+        var dayRows = {};
+        merged("date", a.daily, b.daily).forEach(function (d) { dayRows[d.date] = d; });
+        var daily = [];
+        for (var i = 13; i >= 0; i--) {
+            var key = addDays(today, -i);
+            daily.push(dayRows[key] || { date: key, answered: 0, correct: 0, accuracy: 0 });
+        }
+        return { overall: overall, bySubject: bySubject, bySource: bySource, daily: daily };
+    }
+
     var api = {
         MISSION_QUESTIONS: MISSION_QUESTIONS,
         MISSION_XP: MISSION_XP,
@@ -260,6 +342,9 @@
         ORBIT_CORE: ORBIT_CORE,
         ORBIT_EDGE: ORBIT_EDGE,
         levelProgress: levelProgress,
+        localDay: localDay,
+        addDays: addDays,
+        carryDay: carryDay,
         activeStreak: activeStreak,
         dayPart: dayPart,
         missions: missions,
@@ -267,7 +352,8 @@
         orbitRadius: orbitRadius,
         orbitAngle: orbitAngle,
         orbitPoints: orbitPoints,
-        weekTopLine: weekTopLine
+        weekTopLine: weekTopLine,
+        mergeStats: mergeStats
     };
 
     // Browser: attach to window. Node (tests): export the same object.

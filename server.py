@@ -580,6 +580,15 @@ def stats():
     # empty stats (Progress has no identity to report). Matches the trim/length
     # rules used when storing attempts.
     user_id = (str(request.args.get("userId") or "").strip()[:64]) or None
+    # Optional: the student's UTC offset in minutes (e.g. -480 in California), so "today"
+    # and the 14-day trend use their own days, as the browser's daily missions do.
+    # Missing or invalid means UTC, the old behaviour.
+    try:
+        tz_minutes = int(request.args.get("tz", "0"))
+    except (TypeError, ValueError):
+        tz_minutes = 0
+    tz_minutes = max(-840, min(840, tz_minutes))
+    tz_shift = timedelta(minutes=tz_minutes)
     try:
         with closing(_db()) as conn:
             if user_id is None:
@@ -607,7 +616,7 @@ def stats():
         subj["answered"] += 1
         subj["correct"] += int(r["correct"])
 
-        day = (r["created_at"] or "")[:10]
+        day = _local_day(r["created_at"] or "", tz_shift)
         if day:
             by_day_map[day]["answered"] += 1
             by_day_map[day]["correct"] += int(r["correct"])
@@ -636,9 +645,9 @@ def stats():
         if by_source_map.get(name, {}).get("answered")
     ]
 
-    # Use UTC to match created_at (stored in UTC); date.today() is server-local
-    # and would drop "today" from the window when local date < UTC date.
-    today = datetime.now(timezone.utc).date()
+    # created_at is stored in UTC; shift by the student's offset (0 = UTC). date.today()
+    # would be server-local and could drop "today" from the window.
+    today = (datetime.now(timezone.utc) + tz_shift).date()
     daily = []
     for i in range(13, -1, -1):
         d = (today - timedelta(days=i)).isoformat()
@@ -664,6 +673,21 @@ def stats():
             "daily": daily,
         }
     )
+
+
+def _local_day(created_at: str, shift: timedelta) -> str:
+    """The calendar day of a stored UTC timestamp, shifted to the student's offset."""
+    if not created_at:
+        return ""
+    if not shift:
+        return created_at[:10]
+    try:
+        moment = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    except ValueError:
+        return created_at[:10]
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return (moment.astimezone(timezone.utc) + shift).date().isoformat()
 
 
 def _valid_iso(value: str) -> bool:

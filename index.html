@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>StudyBoost — AP Practice That Brings Back What You Miss</title>
-    <meta name="description" content="Adaptive practice for AP students: AP-style questions for 14 courses, missed ones brought back by SM-2 spaced repetition, and topic mastery that shows what to review next. With an AI connection, questions from your own notes.">
+    <meta name="description" content="Adaptive practice for AP students: AP-style questions for 13 AP courses, missed ones brought back by SM-2 spaced repetition, and topic mastery that shows what to review next. With an AI connection, questions from your own notes.">
     <meta name="theme-color" content="#0C97E6">
     <link rel="canonical" href="https://studyboostai.pythonanywhere.com/">
     <!-- Link previews. og:image must be an absolute URL, so these point at the
@@ -46,10 +46,10 @@
       "operatingSystem": "Any modern web browser",
       "inLanguage": "en",
       "isAccessibleForFree": true,
-      "description": "AP-style practice questions for 14 courses, with SM-2 spaced repetition for missed questions and topic-mastery analytics. With an AI connection, questions can also be generated from your own notes.",
+      "description": "AP-style practice questions for 13 AP courses, with SM-2 spaced repetition for missed questions and topic-mastery analytics. With an AI connection, questions can also be generated from your own notes.",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "featureList": [
-        "AP-style practice questions for 14 courses, offline",
+        "AP-style practice questions for 13 AP courses, offline",
         "AI practice questions from your own notes (with an AI connection)",
         "SM-2 spaced repetition for missed questions",
         "Topic-mastery analytics and progress tracking"
@@ -178,7 +178,7 @@
                     <p class="kicker" id="commandKicker">Adaptive AP practice</p>
                     <p class="command-figure" id="commandFigure" hidden></p>
                     <h1 id="home-title" tabindex="-1">Practice that brings back what you miss.</h1>
-                    <p class="command-dek" id="commandDek">AP-style questions from a built-in bank for 14 courses. The ones you miss come back on a spaced schedule until they stick.</p>
+                    <p class="command-dek" id="commandDek">AP-style questions from a built-in bank for 13 AP courses. The ones you miss come back on a spaced schedule until they stick.</p>
                     <ol class="command-list" id="commandList" aria-label="Due now" hidden></ol>
                     <div class="command-actions">
                         <button type="button" class="hero-cta" id="nextStepBtn">Start studying</button>
@@ -223,7 +223,7 @@
 
             <section class="why-it-works" aria-label="Why it works">
                 <ul>
-                    <li id="whyQuestions">A built-in AP question bank for 14 courses; with an AI connection, questions from your own notes</li>
+                    <li id="whyQuestions">A built-in question bank for 13 AP courses; with an AI connection, questions from your own notes</li>
                     <li>Mistakes automatically enter spaced review</li>
                     <li>Progress tracks your weak topics over time</li>
                 </ul>
@@ -234,8 +234,8 @@
         <section class="view" id="view-notes" data-view="notes" aria-labelledby="summary-title" hidden>
             <header class="view-head">
                 <p class="kicker">Step 1 &middot; Notes</p>
-                <h2 id="summary-title" tabindex="-1">AI Note Summary</h2>
-                <p>Paste what you have. Get a short summary and key points, then practice on the same material.</p>
+                <h2 id="summary-title" tabindex="-1">Key Lines From Your Notes</h2>
+                <p id="notesDek">Paste what you have. Offline, StudyBoost pulls out your key lines as they are; with an AI connection it writes a summary.</p>
             </header>
             <div class="notes-layout">
                 <section class="panel" aria-label="Your notes">
@@ -252,13 +252,13 @@
                         <p class="hint">Up to 12,000 characters per request. Wrap formulas in $…$ to render them, like $\Delta x$ or $\frac{dv}{dt}$, or tap a button above.</p>
                     </div>
                     <div class="actions">
-                        <button id="summaryBtn" type="button">Generate Summary</button>
+                        <button id="summaryBtn" type="button">Pull out key lines</button>
                     </div>
                     <div class="status" id="summaryStatus" aria-live="polite"></div>
                 </section>
                 <section class="panel panel-output" aria-label="Your summary">
                     <div class="output" id="summaryOutput">
-                        <p class="empty">Paste your notes and generate a summary to get started.</p>
+                        <p class="empty">Paste your notes to pull out the key lines.</p>
                     </div>
                 </section>
             </div>
@@ -298,8 +298,16 @@
                 </div>
                 <div class="field">
                     <label for="topicInput">Focus topic (optional)</label>
-                    <input id="topicInput" type="text" placeholder="e.g. Related rates, Glycolysis, Kirchhoff's laws">
+                    <input id="topicInput" type="text" list="topicOptions" autocomplete="off" placeholder="e.g. Related rates, Glycolysis, Kirchhoff's laws">
+                    <datalist id="topicOptions"></datalist>
                     <p class="hint bank-hint" id="bankHint" aria-live="polite" hidden></p>
+                    <div class="topic-fill" id="topicFill" hidden>
+                        <label for="topicFillInput">If there aren't enough questions on this topic</label>
+                        <select id="topicFillInput">
+                            <option value="fill" selected>Fill the set with other questions from the course</option>
+                            <option value="only">Only questions on this topic (a shorter set)</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="field">
                     <label class="check-row" for="useNotesContextInput">
@@ -439,7 +447,7 @@
                 <section class="panel" aria-labelledby="topic-mastery-title">
                     <h3 id="topic-mastery-title">Topic Mastery</h3>
                     <div class="field">
-                        <label for="masteryCourseInput">Course</label>
+                        <label for="masteryCourseInput">Show course</label>
                         <select id="masteryCourseInput"></select>
                     </div>
                     <p class="hint">Estimated per topic from your graded questions (new practice, resurfaced reviews, and similar questions built from your mistakes): recent accuracy plus a minimum number of attempts. It does not count your Forgot, Hard, or Got it ratings in Review.</p>
