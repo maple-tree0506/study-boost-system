@@ -64,10 +64,10 @@ Tests (all must pass before you commit):
 ```bash
 pytest -q
 node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tests/mastery-model.test.js tests/question-bank.test.js tests/home-summary.test.js tests/variant-practice.test.js tests/review-orbit.test.js
-node --test tests/e2e/variant-flow.e2e.js      # needs: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
+node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js   # needs: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
 ```
 
-Current counts: pytest 237, JS unit 93, end-to-end 5. The JS file list is explicit on
+Current counts: pytest 237, JS unit 107, end-to-end 13 (5 similar-question + 8 redesign). The JS file list is explicit on
 purpose: never run bare `node --test tests/` (newer Node mis-handles the directory).
 
 ## 3. Repository map
@@ -384,8 +384,9 @@ Full design: `docs/VARIANT-PRACTICE.md`. Summary:
 | Suite | Command | Covers |
 |---|---|---|
 | Python | `pytest -q` | `test_api.py` (attempts, stats, chat proxy JSON mode, migrations, seed, rate limit), `test_mathcheck.py`, `test_variant_templates.py`, `test_variant_engine.py` (every gate, repair, diagnosis, fallbacks with a scripted fake LLM), `test_variants_api.py` (endpoint with a mocked provider: success, repair, 429, timeouts, 401/404/500, quota, legacy DB, "no question text in the DB"). Uses a temp DB via `conftest.py`. |
-| JS unit | `node --test <explicit list>` (section 2) | SM-2, practice selection, mastery, bank validator, Home logic, similar-question rules. |
-| End to end | `node --test tests/e2e/variant-flow.e2e.js` | Starts two `server.py` copies on free ports (no key; a scripted mock OpenAI-compatible provider) and drives Chromium: capture, the full loop to "likely mastered", the honest no-generator path, the AI path with a rate limit, key never in the browser, phone width. Set `KATEX_DIST=<katex/dist>` to render math offline; otherwise the CDN is blocked and math stays raw text. |
+| JS unit | `node --test <explicit list>` (section 2) | SM-2, practice selection, mastery, bank validator, Home logic (incl. the Progress top line), Review Orbit and library rules, similar-question rules. |
+| End to end | `node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js` | `variant-flow`: two `server.py` copies on free ports (no key; a scripted mock OpenAI-compatible provider) drive Chromium through capture, the full loop to "likely mastered", the honest no-generator path, the AI path with a rate limit, key never in the browser, phone width. `redesign-flow`: Home command center (returning and first visit), Practice focus mode with keyboard answers and the result sequence, typing never triggers shortcuts, Review Orbit filters / keyboard selection / list view / search / confirmed delete, the offline Notes summary keeps one point per line, Reduce motion applied before first paint, 320px width. Set `KATEX_DIST=<katex/dist>` to render math offline; otherwise the CDN is blocked and math stays raw text. |
+| Visual review (not CI) | `node tests/visual/capture.js <outDir> [--only=a,b] [--perf] [--axe] [--sizes]` | Screenshots of 14 labelled-fixture states, console errors, horizontal overflow at 7 sizes, axe-core (WCAG 2.x A/AA tags, needs `AXE_JS`), lab timings (LCP, CLS, long tasks; median of 3 plus a 4x CPU run). Lab numbers are diagnostics, not field Core Web Vitals. |
 
 CI (`.github/workflows/ci.yml`, on push/PR to `main`): jobs `test` (pytest, Python 3.12),
 `js-test` (Node 20), `e2e` (installs `playwright@1.49.1` + Chromium). No real AI provider is

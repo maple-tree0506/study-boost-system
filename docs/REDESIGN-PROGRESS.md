@@ -13,7 +13,7 @@ committed under `docs/redesign/` at the end.
 | 2 Art direction (3 prototypes, choose) | done: hybrid on direction A |
 | 4 Home, Practice, Review Orbit | implemented; iteration round 1 done |
 | 5-6 Other pages, functional fixes | done; iteration round 2 done |
-| 7-10 Browser iterations, regression, delivery | pending |
+| 7-10 Browser iterations, regression, delivery | done (3 iteration rounds; results below) |
 
 Branch `claude/zen-ramanujan-t57aza` (PR #3 open, CI green, not merged). Redesign
 commits stay local until the owner authorizes a push.
@@ -279,3 +279,69 @@ horizontal overflow in all captured states.
 
 Tests after round 2: JS unit 107/107, end-to-end 5/5; 14 states × their sizes: 0 console
 errors, 0 horizontal overflow.
+
+### Performance fixes found by measuring (between rounds 2 and 3)
+
+| Measurement (lab, Chromium, local server) | Cause found | Change | Re-measured |
+|---|---|---|---|
+| First-visit Home CLS 0.29 in some runs (0 in others) | `layout-shift` sources: the JS-filled date line grew the top bar 6px about 90 ms after first paint and pushed the whole view | `#todayDate` seeded with a no-break space so the line has its final height and baseline | 0.0014 in 6 of 6 runs |
+| Practice deep link at 4x CPU: LCP ~1.8 s | Entrance keyframes started at `opacity: 0`, so the heading counted as painted only after the animation | All entrance keyframes are transform-only | 144-176 ms |
+| Review at 4x CPU: CLS 0.314 | The orbit SVG is drawn after first paint and pushed the library down | `.orbit-canvas:empty` reserves the chart's square (Home's orbit link too) | 0.005 |
+| "Kilobytes" rose to 715 | The idle prefetch of the bank lands inside the 2.5 s window | Harness now also reports bytes finished by the load event | 470 KB at load (Home, Review) |
+
+### Iteration round 3 (320, 390, 1024, 1920 checks)
+
+| Issue | Change | Re-check |
+|---|---|---|
+| 320px: the date line wrapped into four fragments ("Wed, Nov / 25", "Late / night") | Date kept on one line; "Late night" hidden under 400px; top bar may wrap the connection chip | 320x640 |
+| Headline orphan: "QUESTIONS ARE / DUE" at 1440-1920 | `text-wrap: balance` on headlines | "QUESTIONS / ARE DUE" at 320 and 1920 |
+| 1024x768: Review stacked the selected-mistake card under the chart, out of view | Chart and card stay side by side down to 900px | 1024x768: both visible |
+| Phones: the orbit kept 70 units of label margin while the labels were hidden; the chart started below the fold | Under 520px wide the chart is drawn without labels (the legend names courses) and redrawn when Review opens or the width crosses the threshold; course filter and Chart/List share a row; the Review intro gives way on phones | 390x844 and 320x640: the orbit starts on the first screen |
+
+## Open issues and limits (honest list)
+
+- **Research depth.** Every full-page read failed under this environment's network policy;
+  the research table is built from search excerpts and is marked secondhand.
+- **Production not checked.** studyboostai.pythonanywhere.com is unreachable from here; it
+  still serves `main`. Nothing was deployed.
+- **Browsers and devices.** Verified in Chromium only (Playwright), at 7 emulated sizes. Not
+  run on real phones, Safari/WebKit, or Firefox. Features with recent support floors:
+  `:has()` (Firefox 121+, Safari 15.4+), `text-wrap: balance` (degrades to normal wrapping),
+  `aspect-ratio`.
+- **Assistive tech.** axe-core found 0 violations and the keyboard flows have automated
+  end-to-end tests, but no manual screen-reader pass (NVDA, VoiceOver) was done.
+- **Performance numbers are lab diagnostics** on a local server (no network throttling, one
+  machine), not field Core Web Vitals. INP was not measured (it needs real interactions);
+  the "blocking ms" column is long-task time over 50 ms, not INP.
+- **Returning Home CLS ~0.055.** The page ships the first-visit text and swaps in the
+  returning student's task once their local data is read; under 0.1, not zero.
+- **Fonts.** `font-display: optional`: on a very slow first visit the fallback fonts stay for
+  that visit.
+- **Bank on demand.** The first offline set now needs one more request for the bank; if the
+  network drops before the idle prefetch, Practice says the bank did not load instead of
+  showing questions.
+- **Orbit density.** 160 mistakes stay legible (dots shrink to a 3.2px floor); far larger logs
+  would need aggregation, which is not built. Positions are deterministic but shift when the
+  mix of courses changes (sector sizes follow counts).
+- **Not redesigned in depth:** the Practice setup form and the mistake page keep their
+  structure (new kicker, key badges, signal button). The AI-generated path renders through
+  the same components but was not exercised against a real provider here.
+- **CI** has not run on these commits (they are local until a push is authorized).
+
+## Manual verification steps
+
+1. `python server.py`, open <http://127.0.0.1:8765/> (or `start.bat` on Windows).
+2. First visit: Home shows "Turn your notes into adaptive practice." and the welcome card.
+3. Practice: AP Calculus AB, "5 multiple choice only", Generate. The setup folds into the
+   set bar ("Built-in question bank"), the band shows 01 / 05. Press a letter, Enter (check),
+   Enter (next). Miss one on purpose. On the last question: "See results", then "See the
+   answer" and "Practice similar" on the missed one.
+4. Review: the missed questions sit in the core. Click a dot, or Tab into the chart and use
+   the arrows and Enter. Try Due now / Next 7 days / Later, a course, List, a search such as
+   `3x+1`, and Delete (Cancel keeps it).
+5. Home again: "N questions are due" with the list; "Start review" opens Review filtered to due.
+6. Notes: paste several lines, Generate Summary: one numbered point per line, labelled offline.
+7. Setup: Reduce motion, reload: no page wipe or entrance motion; the choice is in
+   "Download my data".
+8. DevTools device mode at 390x844 and 320x640: no sideways scrolling; the orbit is on the
+   first Review screen.

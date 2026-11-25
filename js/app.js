@@ -2804,7 +2804,10 @@ function renderReviewOrbit(items) {
     chartEl.hidden = orbitView !== "chart";
     listEl.hidden = orbitView !== "list";
     if (orbitView === "chart") {
-        chartEl.innerHTML = orbitSvg(items, { size: 440, labels: true, interactive: true, filter: reviewFilter, selected: orbitSelectedId });
+        // On a narrow screen the course labels would be too small to read: the chart drops
+        // them (and their margin) and the legend under it names the courses instead.
+        const narrow = chartEl.clientWidth > 0 && chartEl.clientWidth < 520;
+        chartEl.innerHTML = orbitSvg(items, { size: 440, labels: !narrow, interactive: true, filter: reviewFilter, selected: orbitSelectedId });
     } else {
         listEl.innerHTML = orbitListHtml(items);
     }
@@ -3033,6 +3036,32 @@ clearErrorsBtn.addEventListener("click", clearErrorRecords);
 mistakeSubjectFilterEl.addEventListener("change", function () {
     setReviewFilter({ course: mistakeSubjectFilterEl.value });
 });
+
+(function redrawOrbitOnResize() {
+    let timer = 0;
+    let wasNarrow = null;
+    window.addEventListener("resize", function () {
+        clearTimeout(timer);
+        timer = setTimeout(function () {
+            if (!window.Shell || window.Shell.current() !== "review" || orbitView !== "chart") return;
+            const el = document.getElementById("reviewOrbitChart");
+            const narrow = !!el && el.clientWidth > 0 && el.clientWidth < 520;
+            if (narrow !== wasNarrow) {
+                wasNarrow = narrow;
+                renderReviewOrbit(reviewItems());
+            }
+        }, 200);
+    });
+    // The chart is drawn while Review is hidden at start-up (width 0), so draw it again
+    // at its real width when the page opens.
+    document.addEventListener("studyboost:view", function (ev) {
+        if (ev.detail && ev.detail.view === "review" && orbitView === "chart") {
+            const el = document.getElementById("reviewOrbitChart");
+            wasNarrow = !!el && el.clientWidth > 0 && el.clientWidth < 520;
+            renderReviewOrbit(reviewItems());
+        }
+    });
+}());
 
 (function wireReviewTools() {
     const stage = document.getElementById("orbitStage");

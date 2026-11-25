@@ -371,6 +371,7 @@ body[data-band="count"] .band-stripes { display: none; }
    no-break space, so the line has its final height (and baseline) from the start and
    nothing below it moves when the date appears (it was a layout shift on Home). */
 .today { margin: 0; display: flex; align-items: baseline; gap: 10px; }
+.today strong { white-space: nowrap; }
 .today strong { font: 700 24px/1 var(--display); color: var(--white); }
 .ai-chip { position: relative; margin: 0; padding-left: 20px; }
 .ai-chip::before {
@@ -394,7 +395,7 @@ body[data-view="home"] .today strong { color: var(--black); }
 body[data-view="home"] .ai-chip { color: var(--white); }
 
 .view-head { margin-bottom: 24px; }
-.view-head h2 { font-size: clamp(40px, 4.6vw, 66px); line-height: .94; }
+.view-head h2 { font-size: clamp(40px, 4.6vw, 66px); line-height: .94; text-wrap: balance; }
 .view-head p { max-width: 64ch; margin: 12px 0 0; color: var(--mute); }
 
 /* Kicker: the small line above a headline that says where you are. */
@@ -1362,6 +1363,7 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
 }
 .command h1 {
     max-width: 15em;
+    text-wrap: balance;
     font-size: clamp(40px, 4.4vw, 70px);
     line-height: .92;
     text-transform: uppercase;
@@ -1369,7 +1371,7 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
 /* Due reviews: the headline carries the giant count beside its words. */
 .command h1.has-num { display: flex; align-items: flex-end; gap: 6px 20px; max-width: none; margin-left: -6px; }
 .h1-num { flex: none; font-size: clamp(132px, 17vw, 250px); line-height: .76; letter-spacing: -.02em; }
-.h1-words { display: block; max-width: 6.2em; padding-bottom: .06em; }
+.h1-words { display: block; max-width: 6.2em; padding-bottom: .06em; text-wrap: balance; }
 /* First visit: the product promise is the headline, poster size. */
 .command[data-state="first"] h1 { max-width: none; font-size: clamp(58px, 7.4vw, 124px); line-height: .9; }
 .command-dek { max-width: 46ch; margin: 16px 0 20px; font-size: 18px; line-height: 1.45; }
@@ -1915,8 +1917,7 @@ dialog.confirm p { color: var(--mute); }
     .band-count span { margin: 0; font-size: 32px; }
     .band-count em { display: none; }
     body[data-band="count"] .band-word { visibility: visible; }
-    .orbit-body { grid-template-columns: minmax(0, 1fr); }
-    .orbit-detail { max-width: 560px; }
+
     .status-sheet .status-level { max-width: 420px; }
     .status-sheet .status-cells { padding: 10px 0 0; }
     .welcome-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1926,6 +1927,10 @@ dialog.confirm p { color: var(--mute); }
 }
 
 /* --- Narrow tablet: the command stacks, the orbit slab moves underneath --------------- */
+@media (max-width: 899px) {
+    .orbit-body { grid-template-columns: minmax(0, 1fr); }
+    .orbit-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; max-width: 560px; }
+}
 @media (max-width: 959px) {
     .command { grid-template-columns: minmax(0, 1fr); padding-bottom: 0; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 48px), 0 100%); }
     .command .orbit {
@@ -2015,8 +2020,11 @@ dialog.confirm p { color: var(--mute); }
     .q-nav { width: 100%; }
     .q-nav button { flex: 1 1 auto; }
     .review-filters { align-items: stretch; }
-    .review-filters .filter-field, .library-tools .filter-field { flex: 1 1 100%; }
+    .review-filters .filter-field { flex: 1 1 150px; min-width: 0; }
+    .library-tools .filter-field { flex: 1 1 100%; }
     .view-toggle { margin-left: 0; }
+    #view-review .view-head p:not(.kicker) { display: none; }
+    .scene-top { flex-wrap: wrap; row-gap: 2px; }
     /* The chips already carry the counts on a phone; the chart comes first. */
     .review-readouts { display: none; }
     .orbit-canvas .ob-svg { margin-top: 0; }
@@ -2050,6 +2058,12 @@ dialog.confirm p { color: var(--mute); }
 
     .legal { padding: 104px 16px 48px; }
     .legal-back { margin-bottom: 14px; }
+}
+
+/* --- Narrowest phones ------------------------------------------------------------------- */
+@media (max-width: 400px) {
+    #todayPart { display: none; }
+    .chip-row button.chip { padding: 6px 12px; }
 }
 
 /* --- Reduced motion: state changes stay, movement goes --------------------------------
