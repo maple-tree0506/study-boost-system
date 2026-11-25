@@ -298,6 +298,45 @@ errors, 0 horizontal overflow.
 | 1024x768: Review stacked the selected-mistake card under the chart, out of view | Chart and card stay side by side down to 900px | 1024x768: both visible |
 | Phones: the orbit kept 70 units of label margin while the labels were hidden; the chart started below the fold | Under 520px wide the chart is drawn without labels (the legend names courses) and redrawn when Review opens or the width crosses the threshold; course filter and Chart/List share a row; the Review intro gives way on phones | 390x844 and 320x640: the orbit starts on the first screen |
 
+## Final results (2026-11-25)
+
+**Tests:** pytest 237/237; JS unit 107/107 (93 before; new: 12 Review Orbit, 2 Progress top
+line); end-to-end 13/13 (5 similar-question + 8 new redesign tests: Home returning and first
+visit, Practice keyboard flow and results, typing never triggers shortcuts, Review Orbit
+filters / keyboard / list / search / confirmed delete, Notes line split, Reduce motion before
+first paint, 320px width). CI runs all of them (workflow updated) once the branch is pushed.
+
+**Visual / accessibility sweep** (`tests/visual/capture.js`, 14 states, 38 screenshots):
+
+| Check | Before | After |
+|---|---|---|
+| Console errors | 0 | 0 |
+| Horizontal overflow (8 pages × 7 sizes, 1920 to 320 wide) | 0 of 56 | 0 of 56 |
+| axe-core, WCAG 2.x A/AA tags, 14 states | 1 serious (KaTeX text contrast, extreme set) | 0 |
+
+**Lab timings** (Chromium, local server, 1440x900, no network throttling; median of 3 runs,
+plus one run at 4x CPU slowdown; a clean run with nothing else on the machine). Run-to-run
+variance on this shared container is tens of milliseconds, so small differences are noise.
+"Long tasks" is long-task time over 50 ms, not INP.
+
+| Page (fixture) | LCP before → after | CLS before → after | LCP at 4x CPU | CLS at 4x CPU | Long tasks at 4x CPU |
+|---|---|---|---|---|---|
+| Home, first visit | 100 → 72 ms | 0.254 → 0.001 | 116 → 236 ms | 0.070 → 0.001 | 22 → 34 ms |
+| Home, returning | 72 → 116 ms | 0.127 → 0.055 | 440 → 192 ms | 0.000 → 0.055 | 149 → 195 ms |
+| Practice (deep link) | 1612 → 104 ms | 0.001 → 0.001 | 1784 → 200 ms | 0.001 → 0.002 | 85 → 248 ms |
+| Review (deep link) | 1616 → 88 ms | 0.028 → 0.012 | 1852 → 160 ms | 0.017 → 0.001 | 266 → 248 ms |
+| Progress | 64 → 72 ms | 0.006 → 0.004 | 212 → 168 ms | 0.004 → 0.002 | 123 → 117 ms |
+
+Transfer by the load event: 625 → 472 KB on Home, Review, Progress (the question bank no
+longer loads up front); 717 KB once the bank is prefetched at idle. Practice opened directly
+fetches the bank at start (715 KB), and parsing it is most of that page's extra long-task
+time at 4x CPU: a deliberate trade (the bank is needed there) rather than an improvement.
+Regressions are listed as they are: Home returning LCP +44 ms (still ~0.1 s) and its CLS
+0.055 at 4x CPU (the returning content replaces the first-visit text).
+
+**Screenshots:** `docs/redesign/` (before/after pairs for 10 desktop and 4 phone states, and
+the three prototypes).
+
 ## Open issues and limits (honest list)
 
 - **Research depth.** Every full-page read failed under this environment's network policy;
