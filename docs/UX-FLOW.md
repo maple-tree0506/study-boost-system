@@ -16,7 +16,7 @@ student never has to look for their next task. Evidence and decisions:
 | **Review** | The orbit: every saved mistake by course and days until review; the soonest-due one selected | Review it now (on the selected mistake) | Filters (All / Due now / Next 7 days / Later, course), chart or list, readouts, legend |
 | **Mistake Library** (on Review) | Cards for the filtered mistakes, soonest due first | Forgot / Hard / Got it (with the interval each sets) | Search, sort, Practice similar, Delete (confirmed), Clear log (folded away) |
 | **Mistake page** | The original question with the student's pick, what it tests | Generate / Check a similar question | Unchanged flow (see VARIANT-PRACTICE.md); options now use the same key badges as Practice |
-| **Notes** | The student's notes (the manuscript) | Generate Summary, then Practice these notes | Summary page says how it was made (AI or offline lines) and numbers the key points |
+| **Notes** | The student's notes (the manuscript) | Generate Summary (AI) or Pull out key lines (offline), then Practice these notes (AI only) | The AI summary and the offline excerpt say how they were made and number the key points; the excerpt is never called a summary |
 | **Progress** | One plain sentence about the last 7 days | (none: a reading page) | Readouts, by subject, by practice type, 14-day bars with counts, topic mastery (radar only with 5+ topics) |
 | **Setup** | Motion setting and Your data | Download my data | AI connection folded away for whoever runs the server |
 

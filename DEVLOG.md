@@ -11,6 +11,49 @@ Newest entries first.
 
 ---
 
+## 2026-11 — Trustworthy learning feedback (product design review)
+**Why:** a design review of the live site found that the app's feedback could not be trusted
+in four places. Each fix below changes what the student is told, not only how it looks.
+**Course-level "Mastered" from a mixed set:** the result screen showed "AP Calculus AB:
+New → Mastered" after a set that mixed unrelated questions. Now it lists each skill that
+was practised, with its evidence ("Chain rule: 1 of 2 right in this set · 2 graded so far,
+1 right · estimate: New → Developing"), from levels snapshotted when the set was drawn. A set
+with no skill topics says it was general practice and changes no skill. The course's
+general bucket on Progress shows its accuracy but never a level.
+**A topic reported missing when the bank had it:** "Calc AB → Medium → Chain rule" said
+nothing matched while the ln(5x²+1) question was in the bank (the word "chain" isn't in it).
+The AP Calculus AB bank is now tagged with skills (`k`, 23 skills over Units 1–8, ids shared
+with the built-in similar-question generator). A typed topic that names a skill is matched
+by tag; the setup lists the skills, counts the matching questions per format, and offers
+"only questions on this topic (a shorter set)". The bank validator requires every Calc AB
+item to be tagged with known ids. Other courses still match by words until they are tagged.
+**Progress contradictions:** offline, Progress replaced the synced numbers with the local
+queue (often 0). It now keeps the last synced reply (`studyBoostStatsCacheV1`) and adds the
+answers still waiting to upload, saying when it last synced. The Progress course filter no
+longer changes the Practice course (it follows Practice until the student picks one), and
+switching Practice to another course clears a topic that is the old course's skill.
+"Today" rolled over at 4 pm in California because missions, the streak, and the 14-day chart
+used UTC dates: they now use the student's local date, and `/api/stats` takes a `tz` offset.
+Streak and daily keys saved under the old UTC day are carried over once (a key one day ahead
+counts as today), so nobody loses a streak to the switch. A student east of UTC can see one
+extra streak day at the switch; we accepted that over adding migration state.
+**Data sent without a click:** opening a mistake page offline sent its question, answer,
+and explanation to `/api/variants` to find out whether a generator existed. Availability is
+now decided in the browser (the record's skill tags against `/api/health`'s built-in skills,
+or the course for untagged records), and the mistake is sent only when the student presses a
+start button. The privacy page says so, and lists the stats cache and the `tz` offset.
+**Smaller honesty fixes:** the chip says "Built-in question bank"; copy says 13 AP courses
+(there are 13 plus Other / General); offline Notes makes an "excerpt", not a summary, and its
+page and button say so; recall ratings unlock only after the answer is shown; an option that
+was picked but not checked survives a refresh. While taking phone screenshots, the topic
+hint (updated 250 ms after typing) pushed Generate down 129 px under a quick tap; it now
+updates on every keystroke.
+**Tests:** pytest 239 (tz bucketing), JS unit 117 (local days, carry-over, stats merge, skill
+catalog), end-to-end 27 (7 new for this round; one wording assertion updated for the renamed
+excerpt and one for the new general-set status line).
+
+---
+
 ## 2026-11 — Fixes from a walkthrough of the public site
 **Why:** a desktop and 390px walkthrough of the live (keyless) site found five problems.
 **Topic attribution (high):** practising "AP Biology → Glycolysis" served a codon-mutation
@@ -28,7 +71,8 @@ after a refresh without grading or scoring anything again.
 and "Go to Practice", and the setup's notes checkbox is disabled with the reason.
 **Similar questions (medium):** offline, non-calculus mistakes say on their card that
 similar questions need the AI connection, and their page checks availability on open
-instead of after a click.
+instead of after a click. (Superseded: that check sent the mistake to the server on open;
+availability is now decided in the browser. See the entry above.)
 **Question count (low):** the setup shows how many built-in questions the course and level
 have, how many match the topic, and when a format asks for more than exist.
 Records saved before this fix keep whatever topic they were given.

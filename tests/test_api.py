@@ -250,3 +250,34 @@ def test_attempt_rate_limited(client, monkeypatch):
     # Stored attempts should be only the 3 that were accepted.
     data = _stats(client)
     assert data["overall"]["answered"] == 3
+
+
+def test_stats_daily_uses_the_students_utc_offset(client):
+    # 02:00 UTC is still the previous evening in California (UTC-8). With tz=-480 the
+    # attempt lands on the student's own day; without tz the old UTC bucketing stays.
+    from datetime import timedelta
+
+    now = datetime.now(timezone.utc)
+    early = (now - timedelta(days=1)).replace(hour=2, minute=0, second=0, microsecond=0)
+    _attempt(client, ts=early.isoformat().replace("+00:00", "Z"), correct=True)
+
+    utc = client.get("/api/stats?userId=" + _USER).get_json()
+    utc_days = {d["date"]: d["answered"] for d in utc["daily"]}
+    assert utc_days[early.date().isoformat()] == 1
+
+    local = client.get("/api/stats?userId=" + _USER + "&tz=-480").get_json()
+    local_days = {d["date"]: d["answered"] for d in local["daily"]}
+    assert local_days.get(early.date().isoformat(), 0) == 0
+    assert local_days[(early.date() - timedelta(days=1)).isoformat()] == 1
+    # the window ends on the student's own today
+    assert local["daily"][-1]["date"] == (now - timedelta(minutes=480)).date().isoformat()
+    # overall counts never depend on the offset
+    assert local["overall"]["answered"] == utc["overall"]["answered"] == 1
+
+
+def test_stats_ignores_a_bad_tz(client):
+    _attempt(client, correct=True)
+    for bad in ("abc", "", "99999"):
+        data = client.get("/api/stats?userId=" + _USER + "&tz=" + bad).get_json()
+        assert data["overall"]["answered"] == 1
+        assert len(data["daily"]) == 14

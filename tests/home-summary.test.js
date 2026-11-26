@@ -21,6 +21,31 @@ test("activeStreak keeps a streak alive through yesterday, then drops it", () =>
     assert.deepEqual(Home.activeStreak(null, "2026-11-05", "2026-11-04"), { count: 0, doneToday: false });
 });
 
+test("localDay uses the device calendar; addDays is plain date arithmetic", () => {
+    // 2026-11-26 01:00 UTC is still the evening of Nov 25 in California. Run under
+    // TZ=America/Los_Angeles this must say the 25th; in any zone it must match the local date.
+    const moment = new Date(Date.UTC(2026, 10, 26, 1, 0));
+    const expected = moment.getFullYear() + "-" + String(moment.getMonth() + 1).padStart(2, "0") + "-" + String(moment.getDate()).padStart(2, "0");
+    assert.equal(Home.localDay(moment), expected);
+    if (process.env.TZ === "America/Los_Angeles") assert.equal(Home.localDay(moment), "2026-11-25");
+    assert.equal(Home.localDay("not a date"), "");
+    assert.equal(Home.addDays("2026-11-25", 1), "2026-11-26");
+    assert.equal(Home.addDays("2026-03-01", -1), "2026-02-28");
+    assert.equal(Home.addDays("2026-12-31", 1), "2027-01-01");
+    assert.equal(Home.addDays("2026-11-08", -13), "2026-10-26");
+    assert.equal(Home.addDays("bad", 1), "");
+});
+
+test("a day saved under the old UTC key (one day ahead) counts as today, once", () => {
+    // Studied at 5 pm in California on Nov 25; the old code saved the UTC day, the 26th.
+    const stored = { count: 4, lastDay: "2026-11-26" };
+    assert.deepEqual(Home.activeStreak(stored, "2026-11-25", "2026-11-24"), { count: 4, doneToday: true });
+    assert.equal(Home.carryDay("2026-11-26", "2026-11-25"), "2026-11-25");
+    assert.equal(Home.carryDay("2026-11-24", "2026-11-25"), "2026-11-24");
+    assert.equal(Home.carryDay("2026-11-30", "2026-11-25"), "2026-11-30", "only one day ahead is carried");
+    assert.equal(Home.carryDay(undefined, "2026-11-25"), undefined);
+});
+
 test("dayPart covers the whole clock", () => {
     assert.equal(Home.dayPart(5), "Morning");
     assert.equal(Home.dayPart(12), "Afternoon");
@@ -189,4 +214,32 @@ test("weekTopLine is honest with no data and never invents a comparison", () => 
         { subject: "B", answered: 4, correct: 2, accuracy: 0.5 }
     ]);
     assert.doesNotMatch(tie.text, /Strongest/);
+});
+
+test("mergeStats adds unsynced answers to the last synced stats and keeps the 14-day window current", () => {
+    const synced = {
+        overall: { answered: 12, correct: 9, accuracy: 0.75 },
+        bySubject: [{ subject: "AP Calculus AB", answered: 12, correct: 9, accuracy: 0.75 }],
+        bySource: [{ source: "review", answered: 2, correct: 2, accuracy: 1 }, { source: "generated", answered: 10, correct: 7, accuracy: 0.7 }],
+        daily: [{ date: "2026-11-23", answered: 12, correct: 9, accuracy: 0.75 }]
+    };
+    const queued = {
+        overall: { answered: 3, correct: 1, accuracy: 1 / 3 },
+        bySubject: [{ subject: "AP Biology", answered: 3, correct: 1, accuracy: 1 / 3 }],
+        bySource: [{ source: "generated", answered: 3, correct: 1, accuracy: 1 / 3 }],
+        daily: [{ date: "2026-11-25", answered: 3, correct: 1, accuracy: 1 / 3 }]
+    };
+    const m = Home.mergeStats(synced, queued, "2026-11-25");
+    assert.deepEqual(m.overall, { answered: 15, correct: 10, accuracy: 10 / 15 });
+    assert.deepEqual(m.bySubject.map((s) => [s.subject, s.answered]), [["AP Calculus AB", 12], ["AP Biology", 3]]);
+    assert.deepEqual(m.bySource.map((s) => [s.source, s.answered, s.correct]), [["generated", 13, 8], ["review", 2, 2]]);
+    assert.equal(m.daily.length, 14);
+    assert.equal(m.daily[13].date, "2026-11-25");
+    assert.equal(m.daily[13].answered, 3);
+    assert.equal(m.daily[11].date, "2026-11-23");
+    assert.equal(m.daily[11].answered, 12);
+    assert.equal(m.daily[0].date, "2026-11-12");
+    // no snapshot: the queue alone, never invented numbers
+    assert.equal(Home.mergeStats(null, queued, "2026-11-25").overall.answered, 3);
+    assert.equal(Home.mergeStats(null, null, "2026-11-25").overall.accuracy, 0);
 });

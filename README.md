@@ -4,7 +4,7 @@
 
 **Live demo:** <https://studyboostai.pythonanywhere.com/> — runs in **offline mode**
 (no AI key on the demo server): practice questions come from the built-in bank for
-all 14 AP subjects, and the adaptive loop (spaced repetition, mistake review, topic
+13 AP courses (plus an Other / General set), and the adaptive loop (spaced repetition, mistake review, topic
 mastery) is fully functional. Progress, Mistake Log, and Topic Mastery are all
 **per-user and start empty** — Progress is scoped to an anonymous per-browser id on
 the server; Mistake Log and Topic Mastery live in your own browser. Answer a few
@@ -31,8 +31,8 @@ them back or move them to another device.
    close it to stop the server.
 2. (For AI features) add your API key first — see "Run locally (manual)" step 2
    below. Without a key,
-   the app still works in **offline mode** (built-in question bank for all 14 AP
-   subjects), so you can try the full workflow with no setup.
+   the app still works in **offline mode** (built-in question bank for 13 AP
+   courses), so you can try the full workflow with no setup.
 
 ## For other people running this
 - They need [Python 3](https://www.python.org/) installed, then double-click
@@ -56,8 +56,9 @@ them back or move them to another device.
 ## Notes
 - This project uses a local proxy (`server.py`). The key stays on the server side.
 - If the API key is missing or an AI call fails, the UI falls back to an offline
-  question bank that covers **all 14 AP subjects** (basic / medium / challenge
-  tiers). Subjects without a bank degrade honestly instead of showing
+  question bank that covers **13 AP courses** plus an Other / General set (basic /
+  medium / challenge tiers). AP Calculus AB questions are tagged with 23 course skills,
+  so a topic like "Chain rule" gets exactly the questions on that skill. Subjects without a bank degrade honestly instead of showing
   wrong-subject questions.
 
 ## Math rendering
@@ -176,7 +177,7 @@ This is a **local, single-user** tool; the security model is scoped to that, and
 - `js/shell.js`: views, page transitions, navigation marker, dialog
 - `js/home-summary.js`: Home logic (pure and tested)
 - `js/review-orbit.js`: Review Orbit and Mistake Library rules (pure and tested)
-- `js/question-bank.js`: offline question bank (all 14 AP subjects, 3 tiers), loaded on demand
+- `js/question-bank.js`: built-in question bank (13 AP courses plus Other, 3 tiers; Calc AB skill-tagged), loaded on demand
 - `js/variant-practice.js`: similar-question adaptive rules (pure and tested)
 - `mathcheck.py`: safe math expressions for verifying answer keys (no `eval`)
 - `variant_templates.py`: built-in generator for AP Calculus similar questions

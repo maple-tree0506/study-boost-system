@@ -874,6 +874,8 @@ button.rate:not(:disabled):hover::after { transform: none; }
 .review-actions .danger { margin-left: auto; }
 .similar-note { margin-top: 6px; }
 .bank-hint { margin-top: 8px; }
+.topic-fill { margin-top: 10px; max-width: 520px; }
+.topic-fill label { font-weight: 400; color: var(--mute); }
 
 .review-stats, .stat-cards {
     display: grid;
@@ -1157,6 +1159,8 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
 .cc-detail { grid-column: 1 / -1; margin-top: 12px; }
 .cc-detail p { margin: 0 0 3px; }
 .cc-growth { font-weight: 700; }
+.cc-skills { margin: 0 0 8px; padding: 0; list-style: none; display: grid; gap: 4px; }
+.cc-skills li { line-height: 1.45; }
 .cc-actions { grid-column: 1 / -1; margin-top: 14px; }
 .share-line, .feedback-line { grid-column: 1 / -1; margin: 8px 0 0; }
 .completion-card .kicker { color: var(--black); }

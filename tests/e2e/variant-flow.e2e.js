@@ -334,15 +334,19 @@ test("offline: the full loop from a weak topic to likely mastered", async () => 
 
 test("offline: a topic without a built-in generator is honest and offers a real next step", async () => {
     const page = await newPage(browser);
+    // Opening a mistake sends nothing: availability is decided in the browser from the
+    // course and the question's skill tags, so no start button that cannot work is shown.
+    const variantRequests = [];
+    page.on("request", (r) => { if (r.url().includes("/api/variants")) variantRequests.push(r.url()); });
     await seed(page, offline.base, [bioMistake("err-seed-bio", "Enzymes")], {});
     await page.goto(offline.base + "#mistake/err-seed-bio");
-    // No click needed: offline, a course without a built-in generator is checked as soon as
-    // the page opens, so the student never presses a start button that cannot work.
     await page.waitForSelector('#variantArea [data-action="practice-course"]');
     assert.equal(await page.locator('#variantDrill [data-action="variant-start"]').count(), 0);
     assert.match(await page.textContent("#variantArea"), /need the AI connection/);
     assert.match(await page.textContent("#mistakeAnalysis .kp-name"), /Enzymes/);
-    assert.match(await page.textContent("#mistakeAnalysis .diag"), /Not enough information/);
+    assert.match(await page.textContent("#mistakeAnalysis"), /need the AI connection/);
+    await page.waitForTimeout(300);
+    assert.deepEqual(variantRequests, [], "nothing about the mistake is sent when its page opens");
     await page.click('[data-action="practice-course"]');
     await page.waitForFunction(() => location.hash === "#practice");
     assert.equal(await page.inputValue("#apSubjectInput"), "bio");

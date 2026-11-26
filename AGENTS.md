@@ -18,7 +18,8 @@ is an adaptive AP study app for high-school students:
 
 1. **Notes**: paste class notes; get an AI summary (or an offline summary without a key).
 2. **Practice**: generate AP-style questions (multiple choice + short answer) for one
-   of 14 AP courses, at basic / medium / challenge difficulty, optionally from the notes.
+   of 13 AP courses (plus an Other / General set), at basic / medium / challenge difficulty,
+   optionally from the notes.
 3. **Review**: every missed question enters a Mistake Log scheduled by SM-2 spaced
    repetition; due mistakes also resurface inside new practice sets.
 4. **Similar questions** (newest feature): from any saved mistake, practise new
@@ -67,7 +68,7 @@ node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tes
 node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js   # needs: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
 ```
 
-Current counts: pytest 237, JS unit 111, end-to-end 20 (5 similar-question + 15 redesign and walkthrough fixes). The JS file list is explicit on
+Current counts: pytest 239, JS unit 117, end-to-end 27 (5 similar-question + 22 redesign, walkthrough, and learning-feedback fixes). The JS file list is explicit on
 purpose: never run bare `node --test tests/` (newer Node mis-handles the directory).
 
 ## 3. Repository map
@@ -91,7 +92,7 @@ js/shell.js               Views, hash routing (incl. #mistake/<id>), page wipe, 
 js/question-bank.js       window.OFFLINE_BANK: 14 subjects x {basic, medium, challenge} x {mcq, sa}
 js/spaced-repetition.js   SM-2 scheduler (pure, pluggable)
 js/mastery-model.js       Topic mastery: EMA + volume-gated levels + per-source counts (pure)
-js/practice-selection.js  Injects due mistakes into new sets (pure)
+js/practice-selection.js  Injects due mistakes into new sets; skill catalog (SKILLS) and topic matching (pure)
 js/home-summary.js        Home logic: level, streak, missions, next step, Progress top line (pure)
 js/review-orbit.js        Review Orbit + Mistake Library rules: filter, sort, chart layout, snippet (pure)
 js/variant-practice.js    Similar-question rules: staircase, mastery evidence, SM-2 nudge, ranking (pure)
@@ -202,12 +203,13 @@ is treated as untrusted input:
 | `studyBoostUserIdV1` | Anonymous id `u-<uuid>` (no PII). |
 | `studyBoostUIPrefsV1` | `{ model, motion }` (`motion`: `"system"` or `"reduce"`; older records lack it) |
 | `studyBoostXpV1` | Total XP (string integer). 100 XP per level. |
-| `studyBoostStreakV1` | `{ count, lastDay }` (UTC dates). |
-| `studyBoostDailyV1` | `{ day, questions, reviews, xp }` for today's missions. |
+| `studyBoostStreakV1` | `{ count, lastDay }` (the student's local dates, `HomeSummary.localDay`; keys saved under the old UTC days are carried over once by `HomeSummary.carryDay`). |
+| `studyBoostDailyV1` | `{ day, questions, reviews, xp }` for today's missions (`day` is a local date). |
 | `studyBoostAttemptQueueV1` | Unsynced attempts (max 500). Not backed up (re-import would double-submit). |
 | `studyBoostAiReliabilityV1` | `{ kind: { ok, repaired, failed, total } }` diagnostics. Not backed up. |
 | `studyBoostOnboardedV1` | `"1"` once the first-run welcome card was dismissed. |
-| `studyBoostSessionV1` | `{ savedAt, notes, set: { questions, results, index, meta, preSet, drafts } \| null }`: the Notes box and an unfinished practice set, restored after a refresh (24 h max). Restore only redraws; nothing is graded or scored twice. Dropped when a set completes. Not backed up. |
+| `studyBoostSessionV1` | `{ savedAt, notes, set: { questions, results, index, meta, preSet, drafts } \| null }`: the Notes box and an unfinished practice set, restored after a refresh (24 h max). Restore only redraws; nothing is graded or scored twice. Dropped when a set completes. Not backed up. `drafts[qid]` is a string (short-answer draft) or `{ pick }` (an option chosen but not checked). |
+| `studyBoostStatsCacheV1` | `{ at, userId, data }`: the last `/api/stats` reply (counts only). Offline, Progress shows it plus the unsynced queue (`HomeSummary.mergeStats`) and says when it was synced. Not backed up. |
 
 "Download my data" / "Restore from file" (Setup) write and read a JSON backup
 `{ app, type: "studyboost-backup", version: 2, exportedAt, data: { key: rawString } }`
@@ -225,6 +227,7 @@ streak, daily. Restore replaces, it does not merge.
   difficulty: "basic" | "medium" | "challenge" | "",
   subject: "AP Calculus AB", topic: "Chain rule", topicKey: "chain rule",
   sr: { algo: "sm2", reps, ef, intervalDays, due: ISO, reviews, lastQuality, nudgedAt? },
+  skills: ["chain-rule", ...],               // bank questions with skill tags (k), main skill first
   createdAt: ISO,
   analysis: { coreConcept, conceptKey, conceptTerms, solutionMethod, difficulty,
               diagnosis: { status: "diagnosed" | "insufficient_information", likelyError, evidence,
@@ -266,7 +269,7 @@ Migrations are additive and idempotent, run on every start (`_init_db`):
 | `GET /about`, `/privacy`, `/terms`, `/robots.txt`, `/sitemap.xml` | Trust and SEO pages. |
 | `GET /api/health` | `{ ok, openai_configured, variants: { ai, builtInSkills: [...] } }` |
 | `POST /api/attempt` | Body `{ subject, type, correct, ts, userId, source }`; stores one graded result. Unknown `source` is stored as NULL. Limit `ATTEMPT_RATE_LIMIT_PER_MIN`. |
-| `GET /api/stats?userId=` | `{ overall, bySubject, bySource, daily (14 UTC days) }` for that user only; no `userId` gives empty stats. |
+| `GET /api/stats?userId=&tz=` | `{ overall, bySubject, bySource, daily (14 days) }` for that user only; no `userId` gives empty stats. `tz` is the student's UTC offset in minutes (the browser sends `-getTimezoneOffset()`, clamped to ±840); days are bucketed in that offset. Missing or invalid `tz` means UTC. |
 | `POST /api/chat` | Generic proxy `{ model, messages, json }` to the provider; returns `{ content }`. Limits: `RATE_LIMIT_PER_MIN`, `MAX_MESSAGES`, `MAX_MESSAGE_CHARS`, `MAX_TOTAL_CHARS`. 503 without a key. |
 | `POST /api/variants` | Similar questions for one mistake (section 8). |
 
@@ -292,11 +295,21 @@ use only, currently retired), `RATE_LIMIT_PER_MIN` (10), `ATTEMPT_RATE_LIMIT_PER
   Levels: mastered (attempts >= 4, EMA >= 0.85), proficient (>= 3, >= 0.70), developing
   (>= 1), new. "Weakest" needs >= 2 attempts. Fed by every graded practice answer, tagged
   with its source; Review ratings (Forgot/Hard/Got it) do NOT feed it.
-- **Topic attribution offline** (`PracticeSelection.splitByTopic`): bank items carry no topic
-  tags, so a requested topic is matched against each item's question and correct answer
-  (the `{focus}` template token never counts). Matching items carry the topic; the rest of
-  the set is general practice with `topic: ""` (the course's general bucket), and the card,
-  set bar, and status line say so. AI sets keep the requested topic.
+- **Topic attribution offline** (`PracticeSelection.splitForRequest`): when the course has a
+  skill catalog (`SKILLS`; AP Calculus AB: 23 skills, Units 1–8) and the typed topic names a
+  skill (name, id, or alias), items are matched by their `k` tags. Otherwise
+  `splitByTopic` matches the topic against each item's question and correct answer (the
+  `{focus}` template token never counts). Matching items carry the topic; tagged fillers
+  carry their own main skill; untagged fillers are general practice with `topic: ""` (the
+  course's general bucket). The card, set bar, and status line say which is which. The setup
+  offers the catalog as a list (`#topicOptions`), counts matching questions (`#bankHint`), and
+  a choice to fill the set or keep only matching questions (`#topicFill`). AI sets keep the
+  requested topic. Changing the Practice course clears a topic that is another course's
+  catalog skill (Calculus BC keeps AB skills).
+- **Result screen**: one line per skill practised in the set ("a of b right in this set ·
+  N graded so far, M right · estimate: Before → After"), from the skill levels snapshotted
+  when the set was drawn. A set with no skill topics says it was general practice and
+  changes no skill estimate. The general bucket never shows a mastery level on Progress.
 - **Review injection R1** (`js/practice-selection.js`): up to 3 due mistakes (same subject,
   or no subject) lead each new set, tagged `source: "review"`, rendered as recall cards.
   A wrong new question is auto-captured into the Mistake Log.
@@ -315,6 +328,10 @@ Full design: `docs/VARIANT-PRACTICE.md`. Summary:
   questions next" recommendations above the log (weakest topic first); Home next step.
   The page `#mistake/<id>` shows the original with the student's pick, "What it tests"
   (knowledge point, method, likely error), and a practice strip.
+- **Availability and data timing**: `canPracticeSimilar` decides in the browser, from the
+  AI connection, the record's `skills` and `/api/health` `variants.builtInSkills`, or (for
+  untagged records) the course. Opening a mistake page sends nothing; the mistake is sent
+  to `/api/variants` only when the student presses a start button.
 - **Request**: `POST /api/variants` with `{ mistake: {id, subject, topic, question,
   options, answer, userAnswer, explanation, difficulty}, level, count (1-3), avoid
   (stems already seen, max 12), analysis (from an earlier round), model, userId }`.
@@ -391,7 +408,7 @@ Full design: `docs/VARIANT-PRACTICE.md`. Summary:
 |---|---|---|
 | Python | `pytest -q` | `test_api.py` (attempts, stats, chat proxy JSON mode, migrations, seed, rate limit), `test_mathcheck.py`, `test_variant_templates.py`, `test_variant_engine.py` (every gate, repair, diagnosis, fallbacks with a scripted fake LLM), `test_variants_api.py` (endpoint with a mocked provider: success, repair, 429, timeouts, 401/404/500, quota, legacy DB, "no question text in the DB"). Uses a temp DB via `conftest.py`. |
 | JS unit | `node --test <explicit list>` (section 2) | SM-2, practice selection, mastery, bank validator, Home logic (incl. the Progress top line), Review Orbit and library rules, similar-question rules. |
-| End to end | `node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js` | `variant-flow`: two `server.py` copies on free ports (no key; a scripted mock OpenAI-compatible provider) drive Chromium through capture, the full loop to "likely mastered", the honest no-generator path, the AI path with a rate limit, key never in the browser, phone width. `redesign-flow`: Home command center (returning and first visit), Practice focus mode with keyboard answers and the result sequence, typing never triggers shortcuts, Review Orbit filters / keyboard selection / list view / search / confirmed delete, the offline Notes summary keeps one point per line, Reduce motion applied before first paint, 320px width. Set `KATEX_DIST=<katex/dist>` to render math offline; otherwise the CDN is blocked and math stays raw text. |
+| End to end | `node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js` | `variant-flow`: two `server.py` copies on free ports (no key; a scripted mock OpenAI-compatible provider) drive Chromium through capture, the full loop to "likely mastered", the honest no-generator path, the AI path with a rate limit, key never in the browser, phone width. `redesign-flow`: Home command center (returning and first visit), Practice focus mode with keyboard answers and the result sequence, typing never triggers shortcuts, Review Orbit filters / keyboard selection / list view / search / confirmed delete, the offline Notes excerpt keeps one point per line, Reduce motion applied before first paint, 320px width, plus skill-tag matching, the only-matching option, per-skill result lines, offline Progress and its separate course filter, stale-topic clearing, locked recall ratings, and a refresh-safe pick. Set `KATEX_DIST=<katex/dist>` to render math offline; otherwise the CDN is blocked and math stays raw text. |
 | Visual review (not CI) | `node tests/visual/capture.js <outDir> [--only=a,b] [--perf] [--axe] [--sizes]` | Screenshots of 14 labelled-fixture states, console errors, horizontal overflow at 7 sizes, axe-core (WCAG 2.x A/AA tags, needs `AXE_JS`), lab timings (LCP, CLS, long tasks; median of 3 plus a 4x CPU run). Lab numbers are diagnostics, not field Core Web Vitals. |
 
 CI (`.github/workflows/ci.yml`, on push/PR to `main`): jobs `test` (pytest, Python 3.12),
@@ -423,8 +440,11 @@ is per user). New similar-question code needs no new packages or settings.
   say so and offer a general set for the course.
 - Conceptual (non-math) questions cannot be machine-checked; they pass the schema,
   concept, and duplicate gates and are labelled.
-- Topic identity is the student's free-text topic (no synonym merging); a blank topic
-  feeds the course's general bucket.
+- Topic identity is the student's free-text topic (no synonym merging) except for catalog
+  skills; only AP Calculus AB has a catalog and tagged bank so far. A blank topic feeds the
+  course's general bucket.
+- Recall ratings in Review unlock only after the answer is shown (`revealedErrIds`, per page
+  session).
 - Rate limits are in memory per process; a multi-instance deployment needs a shared
   store. `/api/chat` (older code) still returns provider error text to the browser.
 - Answers ship to the browser (client-side answer gating); a determined user can read them.
@@ -438,6 +458,17 @@ is per user). New similar-question code needs no new packages or settings.
 - Default branch: `main`. Similar-question practice and the flagship redesign were
   developed on branch `claude/zen-ramanujan-t57aza`. Merge it into `main`, or point your
   tools at that branch, to work on the newest code.
+- November 2026, trustworthy learning feedback (from a product design review):
+  - AP Calculus AB bank tagged with skills (`k`), skill catalog and picker, tag-first topic
+    matching, "only questions on this topic" option, per-skill evidence on the result
+    screen, no level for the general bucket.
+  - Progress: last synced numbers kept offline (`studyBoostStatsCacheV1`), its course filter
+    no longer changes Practice, and missions, streak, and the 14-day chart use local dates
+    (`tz` on `/api/stats`).
+  - Mistake page sends nothing until a start button is pressed; ratings unlock after the
+    answer is shown; picked-but-unchecked options survive a refresh; "Built-in question
+    bank" chip; "13 AP courses"; the offline Notes output is an excerpt, not a summary;
+    the topic hint updates on every keystroke so Generate no longer moves under a tap.
 - November 2026, flagship redesign ("Signal Blue", record in `docs/REDESIGN-PROGRESS.md`):
   - Home command center (real next task first), Practice focus mode (one question at a
     time, set bar, keyboard keys, band shows the question number), result sequence,
@@ -485,3 +516,6 @@ is per user). New similar-question code needs no new packages or settings.
   if it is a new `localStorage` key that the student would miss, add it to `BACKUP_KEYS`.
 - **Add a subject to the bank**: follow `docs/QUESTION-BANK-STANDARD.md`, add the id to
   `AP_SUBJECTS` in `app.js`, keep `tests/question-bank.test.js` green.
+- **Tag a course with skills**: add its catalog to `SKILLS` in `js/practice-selection.js`, tag
+  every item with `k` (main skill first), reuse the built-in generator's ids where they
+  overlap; the bank validator then requires full coverage (`docs/QUESTION-BANK-STANDARD.md`).

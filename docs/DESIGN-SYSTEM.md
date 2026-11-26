@@ -159,7 +159,14 @@ targets are fixed goals in `js/home-summary.js`. They award no XP and no achieve
 - Where questions came from is always said: the set bar names the source (AI-generated,
   built-in question bank, or due reviews), and built-in questions never claim to come
   from the student's notes.
-- The offline Notes summary is labelled as "your own lines, cleaned up", not as AI.
+- Offline, Notes makes an **excerpt** ("your own lines, not a summary"): the first lines,
+  one per point, never rewritten and never called a summary.
+- Skill levels come only from questions tagged with that skill, with their evidence
+  ("a of b right in this set · N graded so far"). A general set changes no skill level, and
+  the course's general bucket shows accuracy but no level.
+- Offline, Progress shows the last synced numbers and says when they were synced and how
+  many answers are waiting to upload; it never drops to 0 because the connection did.
+- Recall ratings (Forgot / Hard / Got it) unlock only after the answer is shown.
 - The radar on Progress only appears with 5+ topics; fewer would draw a shape that says
   less than the bars.
 - On the mistake page, an **Answer checked** tag appears only when a program recomputed

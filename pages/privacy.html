@@ -14,7 +14,7 @@
 <main class="container legal">
     <p class="legal-back"><a href="/">&larr; Back to StudyBoost</a></p>
     <h1>Privacy</h1>
-    <p class="legal-updated">Last updated: 2026-11-24</p>
+    <p class="legal-updated">Last updated: 2026-11-25</p>
 
     <p>StudyBoost has no accounts. You are never asked for a name, an email address,
     or a password, and there is nothing to sign up for.</p>
@@ -28,6 +28,7 @@
         <li>Your XP, level, streak, and daily totals</li>
         <li>Interface preferences and whether you have seen the welcome card</li>
         <li>Any notes you paste into the notes box, and an unfinished practice set (its questions, your answers so far, and short-answer drafts) so a refresh doesn't lose them. These are kept for one day and are not part of "Download my data".</li>
+        <li>A copy of the Progress numbers the server last returned (counts only), so Progress can still show them when the connection drops. It is replaced on every sync and is not part of "Download my data".</li>
     </ul>
     <p>Because this lives in your browser, clearing your browser data erases it, and it
     does not follow you to another device. You can back it up yourself with
@@ -47,8 +48,12 @@
     <p>The anonymous ID is a random value with no connection to your identity. It exists
     so your own Progress panel can show your own results. This data is used only to
     understand whether the study loop works.</p>
-    <p><strong>When you ask for similar questions.</strong> Pressing <strong>Practice similar
-    questions</strong> on a saved mistake sends that one question to our server: its text,
+    <p>When Progress loads, your browser asks for your own results with that ID and your
+    time-zone offset (for example <code>-480</code> minutes in California), so each day ends
+    at your midnight. The offset is used to answer that request and is not stored.</p>
+    <p><strong>When you ask for similar questions.</strong> Opening a saved mistake's page
+    sends nothing. Pressing <strong>Practice similar questions</strong> (or <strong>Next similar
+    question</strong>) on it sends that one question to our server: its text,
     answer choices, correct answer, explanation, course and topic, and the answer you gave.
     The server uses it to work out what the question tests and to build and check new
     questions on the same idea. This text is processed in memory and <strong>is not

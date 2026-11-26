@@ -179,3 +179,25 @@ test("the real AP Biology bank: a glycolysis request never matches a codon-mutat
         }
     }
 });
+
+test("findSkill resolves names, ids, and aliases; unknown topics and courses give null", () => {
+    assert.equal(PSel.findSkill("calc_ab", "Chain rule").id, "chain-rule");
+    assert.equal(PSel.findSkill("calc_ab", "  chain RULE ").id, "chain-rule");
+    assert.equal(PSel.findSkill("calc_ab", "MVT").id, "mvt");
+    assert.equal(PSel.findSkill("calc_ab", "u sub").id, "u-substitution");
+    assert.equal(PSel.findSkill("calc_ab", "Glycolysis"), null);
+    assert.equal(PSel.findSkill("bio", "Chain rule"), null);
+});
+
+test("splitForRequest uses skill tags: a formula-only chain-rule question is found", () => {
+    global.window = global.window || {};
+    require("../js/question-bank.js");
+    const pool = global.window.OFFLINE_BANK.calc_ab.medium.mcq;
+    const split = PSel.splitForRequest(pool, "Chain rule", "calc_ab");
+    assert.equal(split.byTag, true);
+    const stems = split.onTopic.map((i) => pool[i].q);
+    assert.ok(stems.some((q) => /ln\(5x\^2 \+ 1\)/.test(q)), "the ln(5x^2+1) question is a chain-rule question");
+    assert.ok(stems.every((q, n) => pool[split.onTopic[n]].k.includes("chain-rule")));
+    // A topic outside the catalog falls back to word matching.
+    assert.equal(PSel.splitForRequest(pool, "Glycolysis", "calc_ab").byTag, false);
+});

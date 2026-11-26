@@ -76,7 +76,7 @@ def main():
         y += 96
 
     f_body = text_font(28)
-    d.text(px(x, y + 20), "AP-style questions for 14 courses,", font=f_body, fill=BLACK)
+    d.text(px(x, y + 20), "AP-style questions for 13 AP courses,", font=f_body, fill=BLACK)
     d.text(px(x, y + 58), "on a spaced review schedule.", font=f_body, fill=BLACK)
 
     # Diagonal black floor with the wordmark, the same cut as the Home hero.
