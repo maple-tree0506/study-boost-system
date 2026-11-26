@@ -68,7 +68,7 @@ node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tes
 node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js   # needs: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
 ```
 
-Current counts: pytest 239, JS unit 117, end-to-end 27 (5 similar-question + 22 redesign, walkthrough, and learning-feedback fixes). The JS file list is explicit on
+Current counts: pytest 241, JS unit 121, end-to-end 38 (5 similar-question + 33 redesign, walkthrough, learning-feedback, and phone-path tests). The JS file list is explicit on
 purpose: never run bare `node --test tests/` (newer Node mis-handles the directory).
 
 ## 3. Repository map
@@ -94,7 +94,7 @@ js/spaced-repetition.js   SM-2 scheduler (pure, pluggable)
 js/mastery-model.js       Topic mastery: EMA + volume-gated levels + per-source counts (pure)
 js/practice-selection.js  Injects due mistakes into new sets; skill catalog (SKILLS) and topic matching (pure)
 js/home-summary.js        Home logic: level, streak, missions, next step, Progress top line (pure)
-js/review-orbit.js        Review Orbit + Mistake Library rules: filter, sort, chart layout, snippet (pure)
+js/review-orbit.js        Review Orbit + Mistake Library rules: filter, sort, chart layout, snippet, review queue order (pure)
 js/variant-practice.js    Similar-question rules: staircase, mastery evidence, SM-2 nudge, ranking (pure)
 pages/about.html, privacy.html, terms.html   Trust pages served at /about, /privacy, /terms
 assets/og-image.png       Social preview card (regenerate with scripts/make_og_image.py, needs Pillow)
@@ -205,10 +205,10 @@ is treated as untrusted input:
 | `studyBoostXpV1` | Total XP (string integer). 100 XP per level. |
 | `studyBoostStreakV1` | `{ count, lastDay }` (the student's local dates, `HomeSummary.localDay`; keys saved under the old UTC days are carried over once by `HomeSummary.carryDay`). |
 | `studyBoostDailyV1` | `{ day, questions, reviews, xp }` for today's missions (`day` is a local date). |
-| `studyBoostAttemptQueueV1` | Unsynced attempts (max 500). Not backed up (re-import would double-submit). |
+| `studyBoostAttemptQueueV1` | Unsynced attempts (max 500), each with an `eventId`. Uploaded one flush at a time (`attemptFlush`); an attempt leaves the queue only after the server accepted it. Not backed up (re-import would double-submit). |
 | `studyBoostAiReliabilityV1` | `{ kind: { ok, repaired, failed, total } }` diagnostics. Not backed up. |
 | `studyBoostOnboardedV1` | `"1"` once the first-run welcome card was dismissed. |
-| `studyBoostSessionV1` | `{ savedAt, notes, set: { questions, results, index, meta, preSet, drafts } \| null }`: the Notes box and an unfinished practice set, restored after a refresh (24 h max). Restore only redraws; nothing is graded or scored twice. Dropped when a set completes. Not backed up. `drafts[qid]` is a string (short-answer draft) or `{ pick }` (an option chosen but not checked). |
+| `studyBoostSessionV1` | `{ savedAt, notes, summary, set: { questions, results, index, meta, preSet, drafts, complete, stats, shown } \| null }`: the Notes box, the last summary or excerpt (`{ source, text, points, notes }`), and the current practice set, restored after a refresh (24 h max). A finished set keeps what it earned (`stats: { streak, setXp, daily }`) and whether its result was on screen, and is redrawn read-only. Restore only redraws; nothing is graded or scored twice. Cleared when a new set starts. Not backed up. `drafts[qid]` is a string (short-answer draft) or `{ pick }` (an option chosen but not checked). |
 | `studyBoostStatsCacheV1` | `{ at, userId, data }`: the last `/api/stats` reply (counts only). Offline, Progress shows it plus the unsynced queue (`HomeSummary.mergeStats`) and says when it was synced. Not backed up. |
 
 "Download my data" / "Restore from file" (Setup) write and read a JSON backup
@@ -249,14 +249,16 @@ collapsed whitespace; `""` is the subject-general bucket) to
 
 ```sql
 attempts (id INTEGER PK, subject TEXT, qtype TEXT, correct INTEGER, created_at TEXT,
-          user_id TEXT NULL, source TEXT NULL)          -- source in {generated, review, variant}
+          user_id TEXT NULL, source TEXT NULL,          -- source in {generated, review, variant}
+          event_id TEXT NULL)                           -- random id per answer; unique where not NULL
 ai_generation_log (id, created_at, user_id, kind, generator, outcome, error_code,
           requested, accepted, rejected, verified, rejection_reasons /* JSON of fixed codes */,
           llm_calls, prompt_tokens, completion_tokens, latency_ms, model)
 ```
 
 Migrations are additive and idempotent, run on every start (`_init_db`):
-`_migrate_attempts_columns` adds `user_id`/`source` to old 4-column tables;
+`_migrate_attempts_columns` adds `user_id`/`source`/`event_id` to old tables and a partial
+unique index on `event_id`;
 `_create_generation_log` uses `CREATE TABLE IF NOT EXISTS`. Rows with
 `user_id IS NULL` (legacy) or `'demo-seed'` (synthetic) are excluded from metrics.
 **The server never stores notes, question text, answers, or explanations.**
@@ -268,7 +270,7 @@ Migrations are additive and idempotent, run on every start (`_init_db`):
 | `GET /` and `/css/*`, `/js/*`, `/assets/*` | The app and its static files (explicit routes only). |
 | `GET /about`, `/privacy`, `/terms`, `/robots.txt`, `/sitemap.xml` | Trust and SEO pages. |
 | `GET /api/health` | `{ ok, openai_configured, variants: { ai, builtInSkills: [...] } }` |
-| `POST /api/attempt` | Body `{ subject, type, correct, ts, userId, source }`; stores one graded result. Unknown `source` is stored as NULL. Limit `ATTEMPT_RATE_LIMIT_PER_MIN`. |
+| `POST /api/attempt` | Body `{ subject, type, correct, ts, userId, source, eventId }`; stores one graded result and returns `{ ok, duplicate }`. A repeated `eventId` (8-64 of `A-Za-z0-9_-`) is stored once (`INSERT OR IGNORE`); a missing or malformed one is stored as NULL. Unknown `source` is stored as NULL. Limit `ATTEMPT_RATE_LIMIT_PER_MIN`. |
 | `GET /api/stats?userId=&tz=` | `{ overall, bySubject, bySource, daily (14 days) }` for that user only; no `userId` gives empty stats. `tz` is the student's UTC offset in minutes (the browser sends `-getTimezoneOffset()`, clamped to ±840); days are bucketed in that offset. Missing or invalid `tz` means UTC. |
 | `POST /api/chat` | Generic proxy `{ model, messages, json }` to the provider; returns `{ content }`. Limits: `RATE_LIMIT_PER_MIN`, `MAX_MESSAGES`, `MAX_MESSAGE_CHARS`, `MAX_TOTAL_CHARS`. 503 without a key. |
 | `POST /api/variants` | Similar questions for one mistake (section 8). |
@@ -312,8 +314,19 @@ use only, currently retired), `RATE_LIMIT_PER_MIN` (10), `ATTEMPT_RATE_LIMIT_PER
   changes no skill estimate. The general bucket never shows a mastery level on Progress.
 - **Review injection R1** (`js/practice-selection.js`): up to 3 due mistakes (same subject,
   or no subject) lead each new set, tagged `source: "review"`, rendered as recall cards.
-  A wrong new question is auto-captured into the Mistake Log.
-- **Home** (`js/home-summary.js`): next step priority is due reviews, then a weak topic
+  A strict "only questions on this topic" set takes only the due mistakes on that topic
+  (`keep: recordMatchesRequest`); the rest are counted in `metadata.heldBack` and linked
+  from the set bar. A wrong new question is auto-captured into the Mistake Log. A new set
+  replaces the current one only once it exists (`installSet`), after a confirmation if the
+  current one is unfinished.
+- **Review queue**: Review opens with "N reviews are due now · Start review"
+  (`#reviewToday`); Home's review step and the result screen start it too. Due mistakes are
+  shown one at a time on their own page (`#queueBar`), most overdue first
+  (`ReviewOrbit.queueOrder`); ratings unlock after the answer is shown; after each rating
+  the bar says when it comes back and offers the next one, or a similar question first after
+  Forgot or Hard. SM-2 still does all the scheduling.
+- **Home** (`js/home-summary.js`): next step priority is a set in progress ("Continue at
+  question N"), then due reviews (which start the review queue), then a weak topic
   with a saved mistake that can be practised (similar questions), then the weakest topic
   (new set), then "start". Missions: 5 new questions, clear due reviews, 50 XP. XP: correct
   10, wrong 4, +5 for a review, +20 per completed set. Orbit rings at 1, 6, 15, 38 days.
@@ -408,7 +421,7 @@ Full design: `docs/VARIANT-PRACTICE.md`. Summary:
 |---|---|---|
 | Python | `pytest -q` | `test_api.py` (attempts, stats, chat proxy JSON mode, migrations, seed, rate limit), `test_mathcheck.py`, `test_variant_templates.py`, `test_variant_engine.py` (every gate, repair, diagnosis, fallbacks with a scripted fake LLM), `test_variants_api.py` (endpoint with a mocked provider: success, repair, 429, timeouts, 401/404/500, quota, legacy DB, "no question text in the DB"). Uses a temp DB via `conftest.py`. |
 | JS unit | `node --test <explicit list>` (section 2) | SM-2, practice selection, mastery, bank validator, Home logic (incl. the Progress top line), Review Orbit and library rules, similar-question rules. |
-| End to end | `node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js` | `variant-flow`: two `server.py` copies on free ports (no key; a scripted mock OpenAI-compatible provider) drive Chromium through capture, the full loop to "likely mastered", the honest no-generator path, the AI path with a rate limit, key never in the browser, phone width. `redesign-flow`: Home command center (returning and first visit), Practice focus mode with keyboard answers and the result sequence, typing never triggers shortcuts, Review Orbit filters / keyboard selection / list view / search / confirmed delete, the offline Notes excerpt keeps one point per line, Reduce motion applied before first paint, 320px width, plus skill-tag matching, the only-matching option, per-skill result lines, offline Progress and its separate course filter, stale-topic clearing, locked recall ratings, and a refresh-safe pick. Set `KATEX_DIST=<katex/dist>` to render math offline; otherwise the CDN is blocked and math stays raw text. |
+| End to end | `node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js` | `variant-flow`: two `server.py` copies on free ports (no key; a scripted mock OpenAI-compatible provider) drive Chromium through capture, the full loop to "likely mastered", the honest no-generator path, the AI path with a rate limit, key never in the browser, phone width. `redesign-flow`: Home command center (returning and first visit), Practice focus mode with keyboard answers and the result sequence, typing never triggers shortcuts, Review Orbit filters / keyboard selection / list view / search / confirmed delete, the offline Notes excerpt keeps one point per line, Reduce motion applied before first paint, 320px width, plus skill-tag matching, the only-matching option, per-skill result lines, offline Progress and its separate course filter, stale-topic clearing, locked recall ratings, a refresh-safe pick, strict sets without other skills' reviews, replacing a set safely, the Home button with real and fallback fonts at 4 sizes, the phone band, the review queue, the full phone path (miss → feedback → similar → due review), upload retries counted once, finished sets and the Notes excerpt after a refresh, phone touch targets, and Continue on Home. Set `KATEX_DIST=<katex/dist>` to render math offline; otherwise the CDN is blocked and math stays raw text. |
 | Visual review (not CI) | `node tests/visual/capture.js <outDir> [--only=a,b] [--perf] [--axe] [--sizes]` | Screenshots of 14 labelled-fixture states, console errors, horizontal overflow at 7 sizes, axe-core (WCAG 2.x A/AA tags, needs `AXE_JS`), lab timings (LCP, CLS, long tasks; median of 3 plus a 4x CPU run). Lab numbers are diagnostics, not field Core Web Vitals. |
 
 CI (`.github/workflows/ci.yml`, on push/PR to `main`): jobs `test` (pytest, Python 3.12),
@@ -445,6 +458,9 @@ is per user). New similar-question code needs no new packages or settings.
   course's general bucket.
 - Recall ratings in Review unlock only after the answer is shown (`revealedErrIds`, per page
   session).
+- The display-font fallback is width-matched (`Big Shoulders Fallback*` faces with
+  `size-adjust`) for Arial/Liberation/Helvetica, Roboto, and DejaVu; another system font
+  would still wrap differently. Checked with the fonts blocked at 320, 390, 1100, 1440 px.
 - Rate limits are in memory per process; a multi-instance deployment needs a shared
   store. `/api/chat` (older code) still returns provider error text to the browser.
 - Answers ship to the browser (client-side answer gating); a determined user can read them.
@@ -458,6 +474,20 @@ is per user). New similar-question code needs no new packages or settings.
 - Default branch: `main`. Similar-question practice and the flagship redesign were
   developed on branch `claude/zen-ramanujan-t57aza`. Merge it into `main`, or point your
   tools at that branch, to work on the newest code.
+- November 2026, design review round 2 (first screens and the phone path):
+  - Strict topic sets no longer carry other skills' due reviews; a failed or empty request
+    keeps the current set; replacing an unfinished set asks first.
+  - Home first visit: width-matched fallback fonts, the headline sized by its own column,
+    a shorter phone headline, the step number said once (not in the band); the button is in
+    the first screen at 320-1440 px with real or fallback fonts.
+  - Phone path: compact practice header with the set's source, layered wrong-answer
+    feedback, a result screen led by one next step, a review queue (Review "Today" card,
+    queue bar, Home and results start it), "Continue at question N" on Home.
+  - Data safety: one attempt upload at a time, removal by `eventId`, server dedup
+    (`event_id` column); finished sets and the Notes excerpt survive a refresh; backup
+    restore shows the backup date and counts first.
+  - Accessibility: `--control-edge` (3:1+) for control borders, 44 px formula buttons on
+    phones, orbit tap targets up to 44 px without overlap.
 - November 2026, trustworthy learning feedback (from a product design review):
   - AP Calculus AB bank tagged with skills (`k`), skill catalog and picker, tag-first topic
     matching, "only questions on this topic" option, per-skill evidence on the result

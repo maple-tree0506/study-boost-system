@@ -161,3 +161,14 @@ test("shortCourse names every built-in course briefly and trims unknown ones", (
     assert.equal(Orbit.shortCourse("AP Comparative Government and Politics"), "Comparative Gov…");
     assert.equal(Orbit.shortCourse(""), "");
 });
+
+test("queueOrder takes only what is due, most overdue first; nextDue says when the next one comes back", () => {
+    const items = [rec("later", "A", 9), rec("due1", "A", 0), rec("soon", "B", 2), rec("due2", "B", 0), rec("soon2", "C", 2)]
+        .map((r) => Orbit.toItem(r, RS));
+    // due1 and due2 are both due; make due2 the older one
+    items.find((i) => i.id === "due2").dueAt = new Date(Date.now() - 5 * DAY).toISOString();
+    assert.deepEqual(Orbit.queueOrder(items).map((i) => i.id), ["due2", "due1"]);
+    assert.deepEqual(Orbit.nextDue(items), { days: 2, count: 2 });
+    assert.equal(Orbit.nextDue(items.filter((i) => i.due)), null);
+    assert.deepEqual(Orbit.queueOrder([]), []);
+});

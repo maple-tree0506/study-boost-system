@@ -11,6 +11,55 @@ Newest entries first.
 
 ---
 
+## 2026-11 — Design review round 2: first screens and the phone path
+**Why:** a second design review of the live site (matching PR #6) kept the visual identity
+and asked for the strongest look to stay on Home, the orbit, and the result, while answering,
+explanations, and settings get compact and readable. Its findings were checked before
+changing anything; the measurements below were reproduced here first.
+**Strict topic sets:** "Calc AB → Medium → Chain rule → only questions on this topic" said
+2 questions and served 3: a due definite-integral review was put in front. Due reviews in a
+strict set are now filtered by the same topic (`PracticeSelection.recordMatchesRequest`:
+skill tags, then the topic name, then words); the others are counted and linked from the
+set bar ("1 due review on another topic · open Review"). While fixing this, a request that
+found nothing used to wipe the set in progress (and `quizResults` was reset before any new
+questions existed): sets are now swapped only once the new one exists (`installSet`), and
+replacing an unfinished set asks first.
+**Home with the fallback font:** the button started at y=528 on a 320×568 screen (tab bar at
+508), and with the fallback font at y=763 (1100×768) and y=895 (1440×900); "PROGRESS" ran
+into the band's step number at 390 px. The fallback is now width-matched (`size-adjust`
+faces over Arial/Liberation/Helvetica, Roboto, and DejaVu, measured on uppercase display
+text: 0.70, 0.73, 0.63), the first-visit headline is sized by its own column and the window
+height (container units), phones get a shorter headline and a slimmer band, the date waits
+until there is activity, and the band no longer repeats the step number (the kicker and the
+rail say it). The button is now in the first screen at all four sizes with either font; a
+test checks it with the fonts blocked.
+**Phone path, miss → explanation → similar → due review:** during a set on a phone the page
+heading and date step aside (the band already says "01 / 05") and the set's source shows
+again. A wrong answer says what was picked, what the answer is, where the reasoning is, and
+that it was saved. The result screen leads with the skills and one next step (a similar
+question on a miss when one can be made, else the due reviews, else a new set), with XP after
+the list on phones. Review opens with "N reviews are due now · Start review"; the review queue
+shows due mistakes one at a time on their own page, says when each comes back after a
+rating, and offers a similar question first after Forgot or Hard. Home's due step and the
+result screen start the queue; a set in progress comes first on Home ("Continue at
+question 4"). Starting the queue on the mistake already open used to do nothing (the
+address didn't change); it redraws in place.
+**Data safety:** the upload queue could post the same answer twice (two flushes at once) and
+could erase an answer queued during an upload (it wrote back its old snapshot). Uploads now
+run one at a time, each answer has a random `eventId`, it leaves the queue only after the
+server accepts it, and the server stores an `eventId` once (`event_id` column, additive
+migration with a partial unique index). A finished set and its result, and the Notes excerpt,
+now survive a refresh (read-only; nothing is counted again). Restoring a backup shows the
+backup's date and mistake count against what is in the browser now.
+**Accessibility:** control borders get their own token (`--control-edge`, 3.77:1 on panels;
+`--line` stays for decoration at 1.94:1), formula buttons are 44 px tall on phones, and orbit
+tap targets grow to about 44 px without overlapping (at least 24 px when dots are close).
+**Changed test expectations (intended behaviour changes):** Home's "Start review" now opens
+the review queue instead of Review filtered to due items.
+**Tests:** pytest 241, JS unit 121, end-to-end 38 (11 new).
+
+---
+
 ## 2026-11 — Trustworthy learning feedback (product design review)
 **Why:** a design review of the live site found that the app's feedback could not be trusted
 in four places. Each fix below changes what the student is told, not only how it looks.

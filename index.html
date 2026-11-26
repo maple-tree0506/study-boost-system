@@ -177,7 +177,7 @@
                 <div class="command-copy">
                     <p class="kicker" id="commandKicker">Adaptive AP practice</p>
                     <p class="command-figure" id="commandFigure" hidden></p>
-                    <h1 id="home-title" tabindex="-1">Practice that brings back what you miss.</h1>
+                    <h1 id="home-title" tabindex="-1"><span class="h1-wide">Practice that brings back what you miss.</span><span class="h1-narrow">Practice AP. Review what you miss.</span></h1>
                     <p class="command-dek" id="commandDek">AP-style questions from a built-in bank for 13 AP courses. The ones you miss come back on a spaced schedule until they stick.</p>
                     <ol class="command-list" id="commandList" aria-label="Due now" hidden></ol>
                     <div class="command-actions">
@@ -336,6 +336,9 @@
                 <p>Each saved mistake, by course and by days until SM-2 spaced repetition brings it back. Rate your recall in the library below.</p>
             </header>
 
+            <!-- Today's reviews first: how many are due and one button that starts them. -->
+            <section class="review-today" id="reviewToday" aria-label="Today's reviews" hidden></section>
+
             <section class="orbit-stage" id="orbitStage" aria-label="Review orbit">
                 <div class="review-filters">
                     <div class="chip-row" role="group" aria-label="Show">
@@ -408,6 +411,8 @@
                 <h2 id="mistake-title" tabindex="-1">Practice Similar Questions</h2>
                 <p>A question you missed, the idea it tests, and new questions on that same idea with different numbers and setups. The spaced review of the original stays on its schedule.</p>
             </header>
+            <!-- During a review queue: where you are, and the next step after each rating. -->
+            <div class="queue-bar" id="queueBar" role="region" aria-label="Review queue" aria-live="polite" hidden></div>
             <div class="mistake-grid">
                 <section class="panel mistake-original" id="mistakeOriginal" aria-label="The question you missed"></section>
                 <section class="panel mistake-analysis" id="mistakeAnalysis" aria-labelledby="analysis-title"></section>
@@ -480,7 +485,8 @@
                 </section>
                 <section class="panel" aria-labelledby="data-title">
                     <h3 class="data-heading" id="data-title">Your data</h3>
-                    <p class="hint">Your mistake log, topic mastery, XP, streak, and settings are stored in this browser. Back them up, or restore them on another device. Restoring replaces what is here.</p>
+                    <p class="hint">Your mistake log, topic mastery, XP, streak, and settings are stored in this browser. Back them up, or restore them on another device. Restoring replaces those; before it does, it shows the backup's date and how many mistakes it holds.</p>
+                    <p class="hint">Not in a backup: the Notes box, the practice set in progress, and answers still waiting to upload. They stay in this browser.</p>
                     <div class="actions">
                         <button id="exportDataBtn" type="button" class="secondary">Download my data</button>
                         <button id="importDataBtn" type="button" class="outline">Restore from file</button>

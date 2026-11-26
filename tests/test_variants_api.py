@@ -309,7 +309,7 @@ def test_legacy_database_migrates_without_losing_rows(monkeypatch):
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(attempts)")}
         tables = {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         old = conn.execute("SELECT subject, correct, user_id, source FROM attempts").fetchall()
-    assert {"user_id", "source"} <= cols and "ai_generation_log" in tables
+    assert {"user_id", "source", "event_id"} <= cols and "ai_generation_log" in tables
     assert [tuple(r) for r in old] == [("AP Biology", 1, None, None)]
     server.app.config["TESTING"] = True
     with server.app.test_client() as c:

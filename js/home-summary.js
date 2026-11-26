@@ -13,7 +13,7 @@
  *   activeStreak(stored, today, yesterday)      -> { count, doneToday }
  *   dayPart(hour)                               -> "Morning" | ... | "Late night"
  *   missions({ daily, due })                    -> [{ id, label, value, target, pct, state, note }]
- *   nextStep({ due, weakest, hasActivity, weakMistake }) -> { kind, title, body, cta, view, pct? }
+ *   nextStep({ due, weakest, hasActivity, weakMistake, openSet }) -> { kind, title, body, cta, view, pct? }
  *   orbitRadius(days)                           -> radius in chart units
  *   orbitAngle(id)                              -> stable angle in radians
  *   orbitPoints(records, daysUntilDue, isDue)   -> [{ id, days, due, r, angle, ... }]
@@ -148,7 +148,23 @@
         var weakest = input && input.weakest;
         var hasActivity = !!(input && input.hasActivity);
         var weakMistake = input && input.weakMistake;
+        var openSet = input && input.openSet;
 
+        // A set in progress comes first: it is the work the student already started.
+        if (openSet && openSet.total > 0 && openSet.next >= 0 && openSet.next < openSet.total) {
+            var answered = Math.max(0, Math.min(openSet.answered || 0, openSet.total));
+            return {
+                kind: "continue",
+                title: "Continue your set",
+                body: (openSet.subject ? openSet.subject + ": " : "") + answered + " of " + openSet.total +
+                    " answered. The answers you checked are saved.",
+                cta: "Continue at question " + (openSet.next + 1),
+                view: "practice",
+                next: openSet.next,
+                total: openSet.total,
+                answered: answered
+            };
+        }
         if (due > 0) {
             return {
                 kind: "review",

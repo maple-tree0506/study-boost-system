@@ -201,3 +201,27 @@ test("splitForRequest uses skill tags: a formula-only chain-rule question is fou
     // A topic outside the catalog falls back to word matching.
     assert.equal(PSel.splitForRequest(pool, "Glycolysis", "calc_ab").byTag, false);
 });
+
+test("keep: a strict topic set leaves other skills' due reviews out and counts them", () => {
+    const PS = require("../js/practice-selection.js");
+    const chain = Object.assign(rec("c", "AP Calculus AB"), { topic: "Chain rule", skills: ["chain-rule", "basic-derivatives"] });
+    const integral = Object.assign(rec("i", "AP Calculus AB"), { topic: "Evaluating definite integrals", skills: ["definite-integral"] });
+    const oldChain = Object.assign(rec("o", "AP Calculus AB"), { topic: "chain rule" });        // saved before tags
+    const untagged = Object.assign(rec("u", "AP Calculus AB"), { topic: "", question: "Find the area under y = x" });
+    const keep = (r) => PS.recordMatchesRequest(r, "Chain rule", "calc_ab");
+    const plan = PS.planPracticeSelection({ reviews: [chain, integral, oldChain, untagged], subject: "AP Calculus AB", isDue: alwaysDue, keep });
+    assert.deepStrictEqual(plan.selected.map((s) => s.errId).sort(), ["c", "o"]);
+    assert.strictEqual(plan.metadata.heldBack, 2);
+    // without keep nothing is held back (the normal mixed set keeps leading with reviews)
+    assert.strictEqual(PS.planPracticeSelection({ reviews: [chain, integral], isDue: alwaysDue }).metadata.heldBack, 0);
+});
+
+test("recordMatchesRequest: tags first, then topic name, then words for untagged courses", () => {
+    const PS = require("../js/practice-selection.js");
+    assert.strictEqual(PS.recordMatchesRequest({ skills: ["chain-rule"], topic: "" }, "composite functions", "calc_ab"), true, "alias of the skill");
+    assert.strictEqual(PS.recordMatchesRequest({ skills: ["product-rule"], topic: "Chain rule" }, "Chain rule", "calc_ab"), false, "tags win over a typed topic");
+    assert.strictEqual(PS.recordMatchesRequest({ topic: "Glycolysis", question: "?" }, "glycolysis", "bio"), true);
+    assert.strictEqual(PS.recordMatchesRequest({ topic: "", question: "Glycolysis splits glucose", answer: "pyruvate" }, "Glycolysis", "bio"), true);
+    assert.strictEqual(PS.recordMatchesRequest({ topic: "Enzymes", question: "Boiling an enzyme", answer: "denatured" }, "Glycolysis", "bio"), false);
+    assert.strictEqual(PS.recordMatchesRequest({ topic: "Enzymes" }, "", "bio"), false);
+});

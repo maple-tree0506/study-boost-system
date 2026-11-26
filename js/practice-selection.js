@@ -6,8 +6,12 @@
  * (spaced-repetition due-ness). Future selectors (mastery, coverage, analytics)
  * plug in behind the SAME stable public contract, so callers never change:
  *
- *   planPracticeSelection({ reviews, subject, cap = 3, isDue })
- *     -> { selected: [...], metadata: { reviewCount } }
+ *   planPracticeSelection({ reviews, subject, cap = 3, isDue, keep })
+ *     -> { selected: [...], metadata: { reviewCount, heldBack } }
+ *
+ * keep (optional) is a predicate on the saved record: due records it rejects stay out
+ * of the set and are counted in metadata.heldBack. A strict "only this topic" set uses
+ * it (recordMatchesRequest) so it never carries reviews of other skills.
  *
  * Each selected entry is provenance-tagged:
  *   { id, errId, type, question, answer, options, subject,
@@ -61,10 +65,12 @@
         var subject = opts.subject;
         var cap = (typeof opts.cap === "number" && opts.cap >= 0) ? opts.cap : DEFAULT_CAP;
         var isDue = resolveIsDue(opts.isDue);
+        var keep = typeof opts.keep === "function" ? opts.keep : null;
 
-        var eligible = reviews.filter(function (r) {
+        var due = reviews.filter(function (r) {
             return r && isDue(r.sr) && matchesSubject(r, subject);
         });
+        var eligible = keep ? due.filter(function (r) { return keep(r); }) : due;
 
         // Most urgent (soonest-due) first.
         eligible.sort(function (a, b) { return dueTime(a.sr) - dueTime(b.sr); });
@@ -90,7 +96,7 @@
             };
         });
 
-        return { selected: selected, metadata: { reviewCount: selected.length } };
+        return { selected: selected, metadata: { reviewCount: selected.length, heldBack: due.length - eligible.length } };
     }
 
     // --- Topic matching for the built-in bank ---------------------------------------
@@ -240,8 +246,24 @@
         return split;
     }
 
+    // Is a saved mistake about the requested topic? For a catalog skill: its skill tags
+    // when it has them, else its own topic when that names a skill. Otherwise its topic
+    // name, or the topic's words in its question and answer (as splitByTopic does).
+    function recordMatchesRequest(record, topic, courseId) {
+        if (!record || !norm(topic)) return false;
+        var skill = findSkill(courseId, topic);
+        if (skill) {
+            if (Array.isArray(record.skills) && record.skills.length) return record.skills.indexOf(skill.id) !== -1;
+            var own = findSkill(courseId, record.topic);
+            if (own) return own.id === skill.id;
+        }
+        if (norm(record.topic) && norm(record.topic) === norm(topic)) return true;
+        return textMatchesTerms(String(record.question || "") + " " + String(record.answer || ""), topicTerms(topic));
+    }
+
     var api = {
         planPracticeSelection: planPracticeSelection,
+        recordMatchesRequest: recordMatchesRequest,
         skillsFor: skillsFor,
         skillById: skillById,
         findSkill: findSkill,

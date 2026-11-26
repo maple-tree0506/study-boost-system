@@ -289,8 +289,26 @@
         return s.length > 16 ? s.slice(0, 15).trim() + "…" : s;
     }
 
+    // The review queue: what is due now, most overdue first (the order SM-2 would want).
+    function queueOrder(items) {
+        return sortItems((items || []).filter(function (it) { return it.due; }), "due");
+    }
+
+    // When the next review comes back once nothing is due: { days, count } or null.
+    function nextDue(items) {
+        var best = null;
+        (items || []).forEach(function (it) {
+            if (it.due) return;
+            if (!best || it.days < best.days) best = { days: it.days, count: 1 };
+            else if (it.days === best.days) best.count += 1;
+        });
+        return best;
+    }
+
     var api = {
         RINGS: RINGS,
+        queueOrder: queueOrder,
+        nextDue: nextDue,
         SORTS: SORTS,
         searchText: searchText,
         toItem: toItem,

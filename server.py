@@ -114,6 +114,15 @@ def _migrate_attempts_columns(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE attempts ADD COLUMN user_id TEXT")
     if "source" not in existing:
         conn.execute("ALTER TABLE attempts ADD COLUMN source TEXT")
+    # event_id: a random id the browser gives each graded answer, so an upload that is
+    # retried (its reply was lost) is stored once. Old rows keep NULL; the partial index
+    # only covers rows that have one.
+    if "event_id" not in existing:
+        conn.execute("ALTER TABLE attempts ADD COLUMN event_id TEXT")
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_attempts_event_id ON attempts (event_id) "
+        "WHERE event_id IS NOT NULL"
+    )
 
 
 def _create_generation_log(conn: sqlite3.Connection) -> None:
@@ -538,6 +547,9 @@ def health():
     )
 
 
+_EVENT_ID_RE = re.compile(r"[A-Za-z0-9_-]{8,64}")
+
+
 @app.route("/api/attempt", methods=["POST"])
 def record_attempt():
     if _rate_limited(_client_ip(), _attempt_rate_history, ATTEMPT_RATE_LIMIT_PER_MIN):
@@ -558,20 +570,25 @@ def record_attempt():
     # whitelist: a new question, a scheduled review of a saved mistake, or a similar
     # ("variant") question generated from a saved mistake
     source = source if source in ("review", "generated", "variant") else None
+    # Optional random id per answer (letters, digits, dash, underscore). The same id twice
+    # is a retry of one answer: stored once, and the retry still gets ok.
+    event_id = str(body.get("eventId") or "").strip()
+    event_id = event_id if _EVENT_ID_RE.fullmatch(event_id) else None
 
     try:
         with closing(_db()) as conn:
-            conn.execute(
-                "INSERT INTO attempts (subject, qtype, correct, created_at, user_id, source) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (subject, qtype, correct, ts, user_id, source),
+            cur = conn.execute(
+                "INSERT OR IGNORE INTO attempts (subject, qtype, correct, created_at, user_id, source, event_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (subject, qtype, correct, ts, user_id, source, event_id),
             )
             conn.commit()
+            duplicate = cur.rowcount == 0
     except Exception as e:  # noqa: BLE001
         print("[StudyBoost ERROR] attempt insert", repr(e), file=sys.stderr)
         return jsonify({"error": "Could not store attempt"}), 500
 
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "duplicate": duplicate})
 
 
 @app.route("/api/stats")

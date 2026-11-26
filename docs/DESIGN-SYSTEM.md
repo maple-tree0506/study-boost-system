@@ -52,7 +52,8 @@ Tokens live at the top of `css/styles.css`.
 | `--navy` | `#071426` | Sunken areas inside a sheet, readouts |
 | `--panel` | `#0C1E38` | Sheets and cards |
 | `--raise` | `#122A4C` | Selected rows, key badges at rest |
-| `--line` | `#2B4D78` | Control borders, empty bar tracks, rules |
+| `--line` | `#2B4D78` | Empty bar tracks, rules, decorative edges (1.94:1 on panels) |
+| `--control-edge` | `#527AAD` | Edges that identify a control: inputs, answer options, formula buttons (3.77:1 on panels, 4.48:1 on ink) |
 | `--royal` | `#0B36B2` | Subject tags, page wipe |
 | `--field` | `#0C97E6` | Poster blue: band, command center, selected mistake, results |
 | `--cyan` | `#00D9FF` | Signal on ink, links, selection, chart data |
@@ -77,7 +78,12 @@ Rules:
 Both are SIL OFL, subset to Latin, and self-hosted in `assets/fonts/` with their licenses.
 `font-display: optional` plus preloads for the three faces used above the fold: the fonts
 are normally ready for the first paint, and a slow first visit keeps the fallback rather
-than re-flowing the page (a late swap shifted the whole Home view, CLS 0.25).
+than re-flowing the page (a late swap shifted the whole Home view, CLS 0.25). That fallback
+is width-matched to Big Shoulders (`Big Shoulders Fallback*` faces: `size-adjust` 70% over
+Arial/Liberation/Helvetica, 73% over Roboto, 63% over DejaVu), so headlines wrap where
+they would in Big Shoulders. The first-visit headline is sized by its own column (container
+units) and by the window height, and phones get a shorter line, so the button below it
+stays in the first screen at 320-1440 px with either font.
 
 ## Space and shape
 
@@ -96,9 +102,11 @@ than re-flowing the page (a late swap shifted the whole Home view, CLS 0.25).
 | Command center (`.command`, `#nextStep`) | Home | Field + black orbit slab; headline carries the real count; one white signal; a quiet second move |
 | Review Orbit (`orbitSvg` in `app.js`, rules in `js/review-orbit.js`) | Home (passive), Review (interactive) | Sectors, rings, core, state-coloured dots, labels, legend; nodes focusable (arrows, Enter) |
 | Selected-mistake card (`.od-card`) | Review | Field blue; "Review it now" (signal) + "Practice similar" |
-| Set bar (`.score-banner`) | Practice | Set meta (course, topic, level, source), numbered cells that navigate, score, Change set |
+| Set bar (`.score-banner`) | Practice | Set meta (course, topic, level, source; also on phones), numbered cells that navigate, score, Change set; a link to due reviews a strict set left out |
+| Today card (`.review-today`) | Review | How many reviews are due now and Start review, or when the next comes back; first on the page |
+| Queue bar (`.queue-bar`) | Mistake page | During the review queue: "1 of 3 due", then after a rating when it comes back, Next, and a similar question first after Forgot or Hard; outside the queue a quieter way on |
 | Question card (`.qa-card`) | Practice, mistake page | One at a time; key badges; feedback, answer, explanation; Previous / Next |
-| Result sequence (`.completion-card`) | Practice | Score, XP, every question in order (Right / Not yet), missed items with actions |
+| Result sequence (`.completion-card`) | Practice | Score, per-skill evidence, one next step, missed items, every question in order (Right / Not yet), XP (after the list on phones) |
 | Readouts (`.readout`) | Review | Number + label + status-coloured top rule |
 | Chips (`button.chip`) | Review | `aria-pressed`; counts in the label |
 | Ledger (`.mission`) | Home | Label, count, thin slanted meter |
@@ -116,7 +124,10 @@ phone    < 720px      horizontal band on top, tab bar at the bottom
 ```
 
 The giant band word repeats the page name and is `aria-hidden`; every view also has a
-real heading, now compact (the band already shows the name). During a practice set the
+real heading, now compact (the band already shows the name). The step number is said once,
+in the kicker (and the rail's numbers on wider screens), not again in the band. During a
+set on a phone, the page heading (kept for screen readers) and the date step aside so the
+question comes first. During a practice set the
 band shows the real question number ("02 / 07"), then the score (`Shell.setBand`).
 Checked sizes: 1920x1080, 1440x900, 1366x768, 1024x768, 768x1024, 390x844, 320x640.
 
@@ -148,7 +159,9 @@ all movement; state changes stay.
   count.
 - Keyboard: Practice A–D / 1–4 choose, Enter checks or moves on, N next (never while
   typing in a field); Review Orbit arrows/Home/End move, Enter/Space select.
-- Touch targets: 44px tall on phones (set cells 40x44).
+- Touch targets: 44px tall on phones (set cells 40x44, formula buttons 44x44). Orbit dots
+  get an invisible target of up to 28 chart units (about 44 px on a phone), never past
+  halfway to the nearest dot, and at least 24 px; the visible selection ring stays small.
 
 ## Data honesty
 
@@ -167,6 +180,8 @@ targets are fixed goals in `js/home-summary.js`. They award no XP and no achieve
 - Offline, Progress shows the last synced numbers and says when they were synced and how
   many answers are waiting to upload; it never drops to 0 because the connection did.
 - Recall ratings (Forgot / Hard / Got it) unlock only after the answer is shown.
+- A strict "only this topic" set holds only that topic, due reviews included; the set bar
+  links to the due reviews it left out. The setup's count and the set's size agree.
 - The radar on Progress only appears with 5+ topics; fewer would draw a shape that says
   less than the bars.
 - On the mistake page, an **Answer checked** tag appears only when a program recomputed
