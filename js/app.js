@@ -1675,6 +1675,28 @@ function maybeShowCompletion() {
     enterCompletionMode();
 }
 
+// The result poster's ring: one numbered dot per question of the set, in order from the
+// top, filled by its real result (right / not yet). Decorative: the list below says the same.
+function resultRingSvg() {
+    const n = generatedQuestions.length;
+    if (!n) return "";
+    const c = 100, r = 82;
+    const dot = n > 10 ? 8 : n > 7 ? 10 : 12;
+    let h = '<svg class="cc-ring" viewBox="0 0 200 200" aria-hidden="true" focusable="false">';
+    h += '<circle class="cc-ring-line" cx="100" cy="100" r="' + r + '"/>';
+    h += '<circle class="cc-ring-core" cx="100" cy="100" r="38"/>';
+    generatedQuestions.forEach(function (q, i) {
+        const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
+        const x = (c + r * Math.cos(a)).toFixed(1);
+        const y = (c + r * Math.sin(a)).toFixed(1);
+        const ok = !!(quizResults[q.id] && quizResults[q.id].correct);
+        h += '<g class="cc-ring-dot ' + (ok ? "is-ok" : "is-miss") + '" style="--i:' + i + '">' +
+            '<circle cx="' + x + '" cy="' + y + '" r="' + dot + '"/>' +
+            '<text x="' + x + '" y="' + y + '" dy=".36em" text-anchor="middle">' + (i + 1) + "</text></g>";
+    });
+    return h + "</svg>";
+}
+
 function enterCompletionMode(savedStats) {
     if (document.getElementById("completionCard")) return;  // already built for this set
     const total = generatedQuestions.length;
@@ -1710,7 +1732,7 @@ function enterCompletionMode(savedStats) {
 
     const card = document.createElement("section");
     card.id = "completionCard";
-    card.className = "completion-card";
+    card.className = "completion-card paper";
     card.hidden = true;
     card.setAttribute("aria-labelledby", "ccTitle");
     card.setAttribute("data-xp", String(setXp));
@@ -1720,7 +1742,7 @@ function enterCompletionMode(savedStats) {
     html += '<div class="cc-result">';
     html += '<p class="kicker">' + escapeHtml(resultKicker()) + "</p>";
     html += '<h3 class="cc-title" id="ccTitle" tabindex="-1">' + (wrong === 0 ? "Perfect set." : "Set complete.") + "</h3>";
-    html += '<p class="cc-score"><span aria-hidden="true">' + s.correct + '<span class="cc-of"> / ' + total + "</span></span>" +
+    html += '<p class="cc-score">' + resultRingSvg() + '<span class="cc-num" aria-hidden="true">' + s.correct + '<span class="cc-of"> / ' + total + "</span></span>" +
         '<span class="sr-only">' + s.correct + " of " + total + " right</span></p>";
     html += "</div>";
     html += '<div class="cc-reward">';
@@ -4694,9 +4716,8 @@ function renderNextStep(counts) {
     if (!returning) {
         kicker.textContent = "Adaptive AP practice";
         figure.hidden = true;
-        // Static markup: the wide brand line, and a shorter one for phones (CSS picks one).
-        title.innerHTML = '<span class="h1-wide">Practice that brings back what you miss.</span>' +
-            '<span class="h1-narrow">Practice AP. Review what you miss.</span>';
+        // Static markup: one giant word on the blue plane, the rest of the line on a slab.
+        title.innerHTML = '<span class="h1-big">Practice</span> <span class="h1-tag">that brings back what you miss.</span>';
         renderFirstVisitCopy();
         list.hidden = true;
         list.innerHTML = "";

@@ -31,7 +31,7 @@ const SIZES = ARGS.includes("--sizes");
 const VIEWPORTS = {
     xl: { width: 1920, height: 1080 }, desk: { width: 1440, height: 900 }, laptop: { width: 1366, height: 768 },
     tabletL: { width: 1024, height: 768 }, tabletP: { width: 768, height: 1024 }, phone: { width: 390, height: 844 },
-    narrow: { width: 320, height: 640 }
+    narrow: { width: 320, height: 640 }, small: { width: 320, height: 568 }, laptopS: { width: 1100, height: 768 }
 };
 
 function freePort() {
@@ -82,9 +82,22 @@ async function seedAttempts(base, attempts) {
     }
 }
 
-async function openState(browser, server, fixture, viewport, hash) {
+async function openState(browser, server, fixture, viewport, hash, opts) {
     const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, reducedMotion: process.env.REDUCED_MOTION ? "reduce" : "no-preference" });
     const page = await ctx.newPage();
+    // A fixed random seed, so the built-in bank draws the same questions in the same order on
+    // every run: before/after captures show the same content.
+    await page.addInitScript(() => {
+        let t = 20261126;
+        Math.random = function () {
+            t += 0x6D2B79F5;
+            let r = Math.imul(t ^ (t >>> 15), 1 | t);
+            r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+            return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+        };
+    });
+    // The font files never arrive: what a slow first visit keeps (font-display: optional).
+    if (opts && opts.blockFonts) await page.route("**/assets/fonts/**", (route) => route.abort());
     const errors = [];
     page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text()); });
@@ -137,7 +150,8 @@ async function answerAll(page, pickCorrect, limit) {
 
 // Each state: fixture, hash, optional setup actions, and which viewports to capture.
 const STATES = [
-    { name: "home-first", fixture: "empty", hash: "home", shots: ["desk", "laptop", "phone"] },
+    { name: "home-first", fixture: "empty", hash: "home", shots: ["desk", "laptop", "phone", "small"] },
+    { name: "home-first-fallback", fixture: "empty", hash: "home", blockFonts: true, shots: ["small", "phone", "laptopS", "desk"] },
     { name: "home-returning", fixture: "returning", hash: "home", shots: ["xl", "desk", "laptop", "tabletP", "phone"], full: true },
     { name: "home-dense", fixture: "dense", hash: "home", shots: ["desk"] },
     { name: "notes", fixture: "returning", hash: "notes", shots: ["desk", "phone"], setup: async (p) => {
@@ -174,6 +188,13 @@ const STATES = [
     } },
     { name: "review", fixture: "returning", hash: "review", shots: ["desk", "laptop", "phone"], full: true },
     { name: "review-dense", fixture: "dense", hash: "review", shots: ["desk"] },
+    { name: "review-queue", fixture: "returning", hash: "review", shots: ["desk", "phone"], setup: async (p) => {
+        await p.click('#reviewToday [data-action="queue-start"]');
+        await p.waitForSelector("#queueBar:not([hidden])");
+        await p.click("#mistakeOriginal details.reveal summary");
+        await p.waitForTimeout(400);
+        await p.evaluate(() => window.scrollTo(0, 0));
+    } },
     { name: "mistake", fixture: "returning", hash: "mistake/fixture-err-001", shots: ["desk", "phone"], full: true, setup: async (p) => {
         await p.locator('#variantDrill [data-action="variant-start"]').first().click();
         await p.waitForSelector(".variant-card");
@@ -241,7 +262,7 @@ async function measurePerf(browser, server, fixture, hash, throttle) {
             if (ONLY.length && !ONLY.includes(st.name)) continue;
             report.states[st.name] = { errors: [] };
             for (const vp of st.shots) {
-                const { ctx, page, errors } = await openState(browser, server, st.fixture, VIEWPORTS[vp], st.hash);
+                const { ctx, page, errors } = await openState(browser, server, st.fixture, VIEWPORTS[vp], st.hash, { blockFonts: st.blockFonts });
                 if (st.setup) await st.setup(page, x);
                 const file = path.join(OUT, st.name + "-" + vp + ".png");
                 await page.screenshot({ path: file, fullPage: false });

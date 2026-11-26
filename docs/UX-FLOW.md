@@ -1,5 +1,10 @@
 # StudyBoost — UX Flow
 
+## v4: "Cut Poster" (November 2026)
+
+The screens below keep their order and actions; V4 changes their composition (masthead planes,
+the Home poster, paper sheets, the result poster). See `docs/REDESIGN-V4.md`.
+
 ## v3: the flagship redesign (November 2026)
 
 The spine below (v2) still holds. v3 changes what each screen puts first, so a returning
@@ -10,7 +15,7 @@ student never has to look for their next task. Evidence and decisions:
 |---|---|---|---|
 | **Home, first visit** | "Practice that brings back what you miss." (the subline says where questions come from: the built-in bank, or your notes when the AI is connected) | Start studying | Welcome card (the 4-step loop), empty orbit with a caption |
 | **Home, returning** | The real next task: a set in progress ("Continue at question 4"), "4 questions are due" with the due list, a weak topic's recent accuracy, or days to the next review | Continue / Start review (opens the review queue) / Practice similar questions / Practice this / Start a new set | A quieter second move (the weak topic after the reviews), the passive orbit (links to Review), missions ledger, Coming up (reviews per day, 7 days) |
-| **Practice, setup** | Course, format, difficulty, topic, notes toggle | Generate Practice Questions | Status line says where questions come from (AI, built-in bank, due reviews) and whether notes were used |
+| **Practice, setup** | A paper form: course, then topic (with the bank's counts and the fill or only-this-topic choice) | Start practice (kept above the tab bar on a phone) | The set's options beside it: format, difficulty, notes; the status line says where questions come from and whether notes were used |
 | **Practice, focus** | One question; the band shows "02 / 07" (on a phone the page heading and date step aside) | Check answer, then Next question | Set bar (source line, numbered cells that navigate, score, Change set, a link to due reviews a strict set left out); keys A–D / 1–4, Enter, N; a wrong answer says the pick, the answer, where the reasoning is, and that it was saved |
 | **Results** | "Set complete." with the score, then each skill's evidence | One next step: Practice a similar question (a miss that can have one), else Review due mistakes, else Start a new set | Missed questions with See the answer / Practice similar, every question in order (Right / Not yet), XP and level (after the list on phones). The last answer's explanation is read first; results open on "See results"; a refresh brings them back read-only |
 | **Review** | Today: "N reviews are due now", or when the next comes back | Start review (the review queue) | The orbit (every saved mistake by course and days until review, the soonest-due selected, Review it now), filters, chart or list, readouts, legend |

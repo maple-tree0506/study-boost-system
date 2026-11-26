@@ -113,6 +113,18 @@ async function seed(page, base, records, extra) {
     }, [records, extra || {}]);
 }
 
+// Waits for the practice status line to say something, and on a timeout says which wait it
+// was and what the line said instead (a bare waitForFunction timeout says neither).
+async function waitForStatus(page, re, label) {
+    try {
+        await page.waitForFunction((src) => new RegExp(src).test(document.getElementById("quizStatus").textContent), re.source, { timeout: 20000 });
+    } catch (e) {
+        const now = await page.textContent("#quizStatus").catch(() => "(unreadable)");
+        const dialog = await page.evaluate(() => document.getElementById("confirmDialog").open).catch(() => "?");
+        throw new Error(label + ": waited for " + re + "; status was " + JSON.stringify(now) + "; dialog open: " + dialog);
+    }
+}
+
 async function open(page, base, hash) {
     await page.goto(base + "#" + hash);
     await page.waitForFunction(() => document.getElementById("aiChip").dataset.state !== "checking");
@@ -725,8 +737,15 @@ test("a new set asks before replacing an unfinished one, and a failed request ke
     await page.click("#quizBtn");
     await page.waitForSelector(".qa-card.is-current .check-mcq");
     const firstId = await page.locator(".qa-card.is-current").getAttribute("data-qid");
-    await page.locator(".qa-card.is-current input[type=radio]").first().check();
+    // Answer it correctly, so no mistake is saved: a saved chain-rule miss (the set is drawn
+    // at random) would rightly make the strict "Chain rule" request below a set of its due
+    // review, and this test is about a request that finds nothing.
+    const answer = await page.evaluate((id) => generatedQuestions.find((q) => q.id === id).answer, firstId);
+    for (const radio of await page.locator(".qa-card.is-current input[type=radio]").all()) {
+        if ((await radio.getAttribute("value")) === answer) { await radio.check(); break; }
+    }
     await page.click(".qa-card.is-current .check-mcq");
+    assert.equal(await page.evaluate(() => errorRecords.length), 0);
     const before = await page.evaluate(() => generatedQuestions.map((q) => q.id));
 
     // Cancel: nothing changes.
@@ -735,7 +754,7 @@ test("a new set asks before replacing an unfinished one, and a failed request ke
     await page.waitForSelector("#confirmDialog[open]");
     assert.match(await page.textContent("#confirmBody"), /1 of 5 answered/);
     await page.click('#confirmDialog button[value="cancel"]');
-    await page.waitForFunction(() => /Kept your current set/.test(document.getElementById("quizStatus").textContent));
+    await waitForStatus(page, /Kept your current set/, "after Cancel");
     assert.deepEqual(await page.evaluate(() => generatedQuestions.map((q) => q.id)), before);
     assert.equal(await page.evaluate((id) => quizResults[id] && quizResults[id].done, firstId), true);
 
@@ -747,7 +766,7 @@ test("a new set asks before replacing an unfinished one, and a failed request ke
     await page.click("#quizBtn");
     await page.waitForSelector("#confirmDialog[open]");
     await page.click("#confirmOk");
-    await page.waitForFunction(() => /Your current set is unchanged/.test(document.getElementById("quizStatus").textContent));
+    await waitForStatus(page, /Your current set is unchanged/, "after Start new set with nothing matching");
     assert.deepEqual(await page.evaluate(() => generatedQuestions.map((q) => q.id)), before);
     assert.equal(await page.evaluate((id) => quizResults[id] && quizResults[id].done, firstId), true);
     assert.deepEqual(page.errors, []);
@@ -768,15 +787,21 @@ test("first visit: the Home button is fully on screen with the real fonts and wi
             await page.waitForSelector('#nextStep[data-state="first"]');
             const m = await page.evaluate(() => {
                 const btn = document.getElementById("nextStepBtn").getBoundingClientRect();
-                const title = document.getElementById("home-title").getBoundingClientRect();
+                // The headline's own letters: the giant word and the slab (the h1's box spans the poster).
+                const parts = [...document.querySelectorAll("#home-title .h1-big, #home-title .h1-tag")].map((el) => el.getBoundingClientRect());
+                const title = { right: Math.max(...parts.map((r) => r.right)) };
                 const tabs = document.querySelector(".rail").getBoundingClientRect();
-                // On a phone the rail is the bottom tab bar; elsewhere it's a side column.
+                // On a phone the rail is the bottom tab bar; elsewhere it's the top bar.
                 const usable = tabs.top > innerHeight / 2 ? tabs.top : innerHeight;
                 const orbit = document.getElementById("orbit").getBoundingClientRect();
-                return { top: btn.top, bottom: btn.bottom, usable, titleRight: title.right, orbitLeft: orbit.left, orbitTop: orbit.top, titleBottom: title.bottom };
+                // Nothing (a plane, the orbit, the tab bar) lies over the button's centre.
+                const hit = document.elementFromPoint(btn.left + btn.width / 2, btn.top + btn.height / 2);
+                const clickable = !!hit && document.getElementById("nextStepBtn").contains(hit);
+                return { top: btn.top, bottom: btn.bottom, usable, clickable, titleRight: title.right, orbitLeft: orbit.left, orbitTop: orbit.top, titleBottom: title.bottom };
             });
             const where = fonts + " " + w + "x" + h;
             assert.ok(m.top >= 0 && m.bottom <= m.usable, where + ": button " + Math.round(m.top) + "-" + Math.round(m.bottom) + " vs usable " + Math.round(m.usable));
+            assert.ok(m.clickable, where + ": the button's centre is not covered");
             if (w >= 960) assert.ok(m.titleRight <= m.orbitLeft + 1, where + ": the headline stays out of the orbit column");
             assert.deepEqual(page.errors, []);
             await page.close();

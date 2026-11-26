@@ -85,9 +85,13 @@ different numbers or setups.
   need the AI connection and say so.
 Details: [docs/VARIANT-PRACTICE.md](docs/VARIANT-PRACTICE.md).
 
-## How it looks and flows (Nov 2026 redesign)
-- **Home** leads with your real next task ("4 questions are due" and which ones), or your
-  weakest topic's recent accuracy, with one button; first-time visitors see what the app does.
+## How it looks and flows (V4 "Cut Poster", Nov 2026)
+- **The look**: every page is a composition of flat planes split by one steep cut: a blue
+  plane with the page's name or headline set huge and cropped, the dark desk for navigation
+  and charts, and a warm paper sheet where you read and answer.
+- **Home** is a poster that leads with your real next task ("4 questions are due" and which
+  ones), or your weakest topic's recent accuracy, with one button on the paper; first-time
+  visitors see what the app does.
 - **Practice** shows one question at a time with a set bar (course, level, and where the
   questions came from: AI, the built-in bank, or due reviews). Keys: A–D or 1–4 choose,
   Enter checks, N moves on. The results list every question in order and link missed ones
@@ -97,8 +101,11 @@ Details: [docs/VARIANT-PRACTICE.md](docs/VARIANT-PRACTICE.md).
   a missed one can be followed by a similar question first. Below it, the Review Orbit shows
   each saved mistake by course and by days until SM-2 brings it back, with filters, a list
   view, and keyboard selection, above a searchable Mistake Library.
-- **Setup** has a Reduce-motion setting. Design rules: `docs/DESIGN-SYSTEM.md`; the redesign
-  record (audit, research, prototypes, iterations, results): `docs/REDESIGN-PROGRESS.md`.
+- **Results** is a score poster: your real score on a blue cell, the set's questions as
+  numbered dots on a ring, each skill's evidence, and the one next step.
+- **Setup** lists your data first and has a Reduce-motion setting. Design rules:
+  `docs/DESIGN-SYSTEM.md`; this redo's record (baseline, two prototypes, decision, before and
+  after): `docs/REDESIGN-V4.md`; the earlier V3 redesign: `docs/REDESIGN-PROGRESS.md`.
 
 ## Practice & answers
 - **Answers are gated (Khan-style):** the suggested answer stays hidden until you

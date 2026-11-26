@@ -1,189 +1,172 @@
-# StudyBoost — Design System ("Signal Blue")
+# StudyBoost — Design System ("Cut Poster", V4)
 
-The visual direction borrows the graphic grammar of modern Japanese RPG menus (flat
-poster blue, huge type, diagonal cuts, fast slanted wipes) and the instrument look of
-observatory charts. Nothing is copied: no characters, logos, screenshots, or game
-assets. How the direction was chosen (three prototypes, compared on impact, maturity,
-brand distinctiveness, readability, phone fit, cost, and long-session comfort) is in
+The art direction borrows the principles of strong game-menu art direction: whole-screen
+composition, type and image built as one thing, asymmetric division of the screen, huge
+contrasts of scale, and a rhythm to every change of state. It takes the principles only:
+no menus, characters, logos, illustrations, music, or signature transitions are copied.
+How the direction was chosen (two Home compositions compared on the same content and
+viewports) is in `docs/REDESIGN-V4.md`. The previous system ("Signal Blue") is recorded in
 `docs/REDESIGN-PROGRESS.md`.
 
 ## The one idea
 
-**The review rings.** Concentric rings are spaced at real SM-2 intervals (1, 6, 15, and
-38 days). On Home and Review they are a live chart, the **Review Orbit**: each saved
-mistake is a dot; its angle is its course (one sector per course, sized by how many
-mistakes it holds); its distance from the core is the number of days until SM-2 brings
-it back; everything due now sits in the core. Positions are deterministic, so the same
-data always draws the same picture. The same rings appear in the logo and the page
-background, so the brand mark and the spaced-repetition idea are one thing.
+**The cut.** Every page is a composition of flat planes divided by one steep diagonal: a
+blue plane that carries the page's name or its headline, the dark desk, and a warm white
+paper sheet where reading and answering happen. Big type is cropped by the planes. The
+**review rings** (SM-2 intervals at 1, 6, 15, and 38 days) stay the brand's other mark and
+the Review page's real map: the same rings sit on Home's dark desk and, on the result
+poster, carry the set's questions as numbered dots.
+
+## Three kinds of page
+
+| Density | Pages | What it does |
+|---|---|---|
+| Poster | Home, Results | Strong composition: a giant real number or one giant word, planes, the one action on the paper |
+| Map | Review | The day's task first (due count, Start review), then the orbit and the library as places to look and filter |
+| Workbench | Practice, the mistake page, Notes | Quiet: the question or text on a paper sheet with room to read; the masthead and set bar carry the context |
 
 ## Grammar
 
-1. **Field.** The poster blue (`--field`) holds one thing per page: the key real number
-   and the next action. At most one field region per view (Home: the command center;
-   Review: the selected mistake; Practice: the band's question number, then the results;
-   the mistake page: the knowledge point).
-2. **Slab and ink.** Black (`--black`) frames, list rows on the field, and the orbit's
-   backdrop. Ink (`--ink`, `--navy`, `--panel`) is the working surface for anything read
-   for more than a few seconds: questions, notes, lists.
-3. **Signal.** The next action is the one bright filled slab in its region: white on the
-   field (`--signal-on-field`), cyan on ink (`--signal-on-ink`). Secondary actions are
-   outlines or text links. Never two bright slabs side by side.
-4. **Numerals.** Big Shoulders numerals are always real counts from the student's own
-   data (due count, question index, score, days). No decorative numbers.
-5. **Slant.** One slant (`--slant`) for buttons, rows, chips, and meters. Study content
-   (questions, options, formulas, notes, explanations) is never slanted, rotated, or set
-   in display type: the shape surrounds the content.
-6. **Instrument layer.** Charts use hairline rings and ticks, plain-language labels, a
-   legend, and a written rule ("angle = course, distance = days until review").
-7. **Editorial hierarchy.** Kicker (small caps) → headline → dek → numbered list →
-   action. Pages differ in composition, not in vocabulary.
-8. **Motion explains state** (page wipe, dots settling, result rows arriving in order),
-   never blocks input or hides content, and stops under reduced motion.
+1. **Planes.** Blue (`--field`) carries a headline or page name in black. Paper
+   (`--paper`) carries the action on posters and all study content on workbenches. The
+   dark desk (`--ink`, `--black`) carries navigation, meta, and data charts. An
+   off-register royal edge (`--royal`) runs beside a cut, like a second printing.
+2. **One cut.** Plane edges are steep diagonals. Buttons, rows, chips, and meters keep the
+   small slant (`--slant`). Study content (questions, options, formulas, notes,
+   explanations) is never slanted, rotated, or set in display type.
+3. **Scale.** One giant element per screen: a real number (due count, question number,
+   score, set progress, accuracy) or the page's name in the masthead. Everything else is
+   set at reading size. Big Shoulders numerals are always real data; product facts are
+   written in words.
+4. **Crop.** Big type may be cropped by its plane's edge or the page edge. It never crosses
+   from its plane onto another one in the same colour (black on the dark desk disappears),
+   so its size is tied to the plane's width (Home's word: 16.4% of the poster's width;
+   the masthead word: `clamp(120px, 13vw, 210px)`, so PROGRESS ends before the heading).
+5. **Signal.** The next action is the one solid slab in its region: black on paper and on
+   blue, cyan on the dark desk. Secondary actions are outlines or text links. Never two
+   solid slabs side by side.
+6. **Print.** A paper sheet sits on a solid offset "print" (blue behind a question, black
+   behind the result poster). After a check the print turns to the state's colour.
+7. **Instrument layer.** Charts keep hairline rings, plain labels, a legend, and a written
+   rule ("angle = course, distance = days until review").
 
-## Color
+## Surfaces and tokens
 
 Tokens live at the top of `css/styles.css`.
 
 | Token | Hex | Use |
 |---|---|---|
-| `--black` | `#02050B` | Rail, slabs, text on blue |
-| `--ink` | `#050A14` | Page background, inputs |
-| `--navy` | `#071426` | Sunken areas inside a sheet, readouts |
-| `--panel` | `#0C1E38` | Sheets and cards |
-| `--raise` | `#122A4C` | Selected rows, key badges at rest |
-| `--line` | `#2B4D78` | Empty bar tracks, rules, decorative edges (1.94:1 on panels) |
-| `--control-edge` | `#527AAD` | Edges that identify a control: inputs, answer options, formula buttons (3.77:1 on panels, 4.48:1 on ink) |
-| `--royal` | `#0B36B2` | Subject tags, page wipe |
-| `--field` | `#0C97E6` | Poster blue: band, command center, selected mistake, results |
-| `--cyan` | `#00D9FF` | Signal on ink, links, selection, chart data |
-| `--white` | `#F5F8FF` | Main text; signal on the field |
-| `--mute` | `#A9BAD2` | Secondary text |
-| `--good` / `--warn` / `--bad` | `#3CF2C0` / `#E6F24A` / `#FF5C7A` | Status only |
+| `--black` | `#02050B` | Top bar, slabs, set bar, text on blue and paper |
+| `--ink` | `#050A14` | The dark desk (page background) |
+| `--navy` / `--panel` / `--raise` | `#071426` / `#0C1E38` / `#122A4C` | Dark sheets and sunken areas |
+| `--line` | `#2B4D78` | Decorative rules and tracks (1.94:1 on panels) |
+| `--control-edge` | `#527AAD` | Edges that identify a control (3.77:1 on panels) |
+| `--royal` | `#0B36B2` | Off-register edge, subject tags; the accent on paper |
+| `--field` | `#0C97E6` | The blue plane (black text 6.4:1) |
+| `--cyan` | `#00D9FF` | Signal and links on the dark desk |
+| `--paper` / `--paper-sunk` | `#F2F0EA` / `#E6E2D8` | The reading and answering sheet (black text 17.9:1) |
+| `--white` / `--mute` | `#F5F8FF` / `#A9BAD2` | Text on dark (flipped on paper) |
+| `--on-dark` | `#F5F8FF` | Text on a dark fill inside paper; never flipped |
+| `--good` / `--warn` / `--bad` | `#3CF2C0` / `#E6F24A` / `#FF5C7A` | Status fills (black text on them) |
+| `--good-ink` / `--warn-ink` / `--bad-ink` | bright on dark; `#0B6B4F` / `#6B5E00` / `#B0163A` on paper | Status written as text or drawn as a thin line |
+
+**Paper is a scope, not a set of copies.** `.paper`, the practice question sheet, the
+mistake's original question, the similar-question card, the Notes output, and dialogs
+redefine the text, line, surface, control-edge, and status-ink tokens, so every component
+inside them (feedback, answers, tags, inputs, focus outlines, buttons) adapts without a
+paper-only rule. Every text colour on paper is at least 4.5:1; control edges are 4.9:1.
 
 Rules:
 
-- Text on `--field` is **always black** (6.4:1). White on it is only 3:1.
-- Status colors mean state, never decoration, and always sit beside a word or number.
-  `--warn` is "due now" everywhere (nav badge, orbit core, Due tags, Coming up "now").
-- The orbit lives on black, not blue: yellow and mint dots fail 3:1 on `--field`.
+- Text on `--field` is always black. White on blue is only 3:1, so it is not used.
+- Status colours mean state, never decoration, and always sit beside a word or number.
+  Right and wrong also differ in shape: solid versus dashed lines, mint versus paper dots.
+- Plane elements are sized to their own region (the polygon is in the box's coordinates),
+  so text beside a plane is never on it and contrast checks see the real background.
 
 ## Type
 
 | Face | Role |
 |---|---|
-| Big Shoulders Bold | Display only: page names, headings, big numbers, key-point numbers |
-| Instrument Sans | Everything you read: questions, answers, forms, buttons, kickers |
+| Big Shoulders Bold | Display only: page names, headlines, big real numbers, navigation |
+| Instrument Sans | Everything read: questions, answers, forms, buttons, kickers, labels |
 
-Both are SIL OFL, subset to Latin, and self-hosted in `assets/fonts/` with their licenses.
-`font-display: optional` plus preloads for the three faces used above the fold: the fonts
-are normally ready for the first paint, and a slow first visit keeps the fallback rather
-than re-flowing the page (a late swap shifted the whole Home view, CLS 0.25). That fallback
-is width-matched to Big Shoulders (`Big Shoulders Fallback*` faces: `size-adjust` 70% over
-Arial/Liberation/Helvetica, 73% over Roboto, 63% over DejaVu), so headlines wrap where
-they would in Big Shoulders. The first-visit headline is sized by its own column (container
-units) and by the window height, and phones get a shorter line, so the button below it
-stays in the first screen at 320-1440 px with either font.
-
-## Space and shape
-
-- Spacing scale `--s1`..`--s8` (4, 8, 12, 16, 24, 32, 48, 64 px).
-- Sheets have one chamfered corner (`clip-path`). Rows and buttons lean by `--slant`.
-- Buttons draw their slanted shape on `::before` and `::after`. The button element stays
-  a plain rectangle, so its focus outline is never clipped, and `app.js` can keep reading
-  `ev.target`. **Do not add child elements to buttons rendered by `app.js`.**
-- Option key badges (A–D): the radio input sits invisibly over the badge, so clicks,
-  keyboard focus, and tests still use the real input.
-
-## Components
-
-| Component | Where | Notes |
-|---|---|---|
-| Command center (`.command`, `#nextStep`) | Home | Field + black orbit slab; headline carries the real count; one white signal; a quiet second move |
-| Review Orbit (`orbitSvg` in `app.js`, rules in `js/review-orbit.js`) | Home (passive), Review (interactive) | Sectors, rings, core, state-coloured dots, labels, legend; nodes focusable (arrows, Enter) |
-| Selected-mistake card (`.od-card`) | Review | Field blue; "Review it now" (signal) + "Practice similar" |
-| Set bar (`.score-banner`) | Practice | Set meta (course, topic, level, source; also on phones), numbered cells that navigate, score, Change set; a link to due reviews a strict set left out |
-| Today card (`.review-today`) | Review | How many reviews are due now and Start review, or when the next comes back; first on the page |
-| Queue bar (`.queue-bar`) | Mistake page | During the review queue: "1 of 3 due", then after a rating when it comes back, Next, and a similar question first after Forgot or Hard; outside the queue a quieter way on |
-| Question card (`.qa-card`) | Practice, mistake page | One at a time; key badges; feedback, answer, explanation; Previous / Next |
-| Result sequence (`.completion-card`) | Practice | Score, per-skill evidence, one next step, missed items, every question in order (Right / Not yet), XP (after the list on phones) |
-| Readouts (`.readout`) | Review | Number + label + status-coloured top rule |
-| Chips (`button.chip`) | Review | `aria-pressed`; counts in the label |
-| Ledger (`.mission`) | Home | Label, count, thin slanted meter |
-| Coming up (`.week-bars`) | Home | Reviews per day for the next 7 days (SM-2 days from now) |
-| Key points (`.key-points`) | Notes | Numbered 01, 02… in display numerals |
-| Top line (`.top-line`) | Progress | One plain sentence about the last 7 days, from graded answers only |
-| Folded panel (`.dev-panel`) | Setup | Developer configuration, closed by default |
+Both SIL OFL, subset to Latin, self-hosted. `font-display: optional` with preloads; the
+display fallback is width-matched (`Big Shoulders Fallback*` faces with `size-adjust` over
+Arial/Liberation/Helvetica, Roboto, and DejaVu), so a slow first visit keeps the same line
+breaks and the Home button stays in the first screen (checked at 320×568, 390×844,
+1100×768, and 1440×900 with the font files blocked).
 
 ## Layout
 
 ```
-desktop  >= 1100px    rail | rotated band | content
-tablet   720-1099px   icon rail | horizontal band on top (command stacks below 960px)
-phone    < 720px      horizontal band on top, tab bar at the bottom
+desktop  >= 1100px   top bar (brand, nav, level) | masthead: blue plane + giant page name, heading on the dark side
+tablet   720-1099px  top bar (no level) | masthead plane above the heading
+phone    < 720px     slim masthead strip on top, tab bar at the bottom
 ```
 
-The giant band word repeats the page name and is `aria-hidden`; every view also has a
-real heading, now compact (the band already shows the name). The step number is said once,
-in the kicker (and the rail's numbers on wider screens), not again in the band. During a
-set on a phone, the page heading (kept for screen readers) and the date step aside so the
-question comes first. During a practice set the
-band shows the real question number ("02 / 07"), then the score (`Shell.setBand`).
-Checked sizes: 1920x1080, 1440x900, 1366x768, 1024x768, 768x1024, 390x844, 320x640.
+- **Masthead** (`.band`): a blue plane cut on the diagonal, the page's name set huge and
+  cropped by it (`aria-hidden`). On desktop the page's real heading sits on the dark side
+  of the cut; on smaller screens below it. During a set the plane carries the real
+  question number ("02 / 07") and then the score (`Shell.setBand`). Home has no masthead:
+  it is its own poster.
+- **Home poster**: blue plane with the headline (first visit: the giant word PRACTICE and
+  a black slab "that brings back what you miss."; returning: the real count or figure,
+  the words, and what is due), the orbit on the dark desk, and a paper plane that holds
+  the one action. Under 960px the planes become the blocks' own backgrounds, so the paper
+  always starts under the headline.
+- **Practice**: the setup is a paper form (course and topic first, the start button under
+  them, the set's options beside them; on a phone the start button stays above the tab
+  bar). During a set the page tightens: the set bar under the top bar, the question on a
+  paper sheet, the page heading and date hidden on a phone (the heading stays for screen
+  readers).
+- **Results**: a paper poster; the score is the centre of gravity on a blue cell with the
+  set's questions as numbered dots on a ring; then each skill's evidence and the next step;
+  then missed questions, the full list, XP, and sharing.
+- **Review**: the Today card (giant due count, Start review) first, then filters, the
+  orbit (or list), the selected mistake, and the library. The review queue and the mistake
+  page put the question on paper and the queue bar above it.
+
+Checked sizes: 1920×1080, 1440×900, 1366×768, 1100×768, 1024×768, 768×1024, 390×844,
+320×640, 320×568. No horizontal scroll at any of them.
 
 ## Motion
 
-CSS plus the Web Animations API. No animation library (no build step).
+CSS plus the Web Animations API; no library.
 
 | Moment | Where |
 |---|---|
-| First load: band and command cut in from the left, rings turn in | `.boot` in CSS |
-| Page change: three slanted panels, under 0.6s | `transitionTo` in `js/shell.js` |
-| Nav marker: white slip with a slower cyan slip behind it | `.nav-ind` in CSS |
-| Orbit dots scale in; bars fill; result rows slide in one after another | keyframes in CSS |
-| Busy: slanted stripes in the button, placeholder bars for the set | `[aria-busy]` in CSS |
+| First load: the masthead plane and Home's planes cut in; the copy rises a few pixels | `.boot` in CSS |
+| Page change: blue, paper, and black planes slash across on the cut, under 0.6s | `transitionTo` in `js/shell.js` |
+| Nav marker: a white slip with a blue slip trailing, off-register | `.nav-ind` |
+| Wrong answer: the sheet takes one short knock sideways and its print turns red | `jolt` |
+| Result: the score lands like a stamp; the ring's dots pop in order | `stamp`, `dotIn` |
+| Orbit dots, bars, result rows | keyframes in CSS |
 
-Entrance motion uses transforms, so content is never invisible while it plays. Only the
-ambient rings and busy states run without a person acting. `prefers-reduced-motion`, or
-the student's own **Setup → Motion → Reduce motion** (stored in `studyBoostUIPrefsV1`,
-applied by a one-line script in `<head>` before the first paint), turns off the wipe and
-all movement; state changes stay.
+Entrance motion uses transforms, so content is never invisible while it plays; only
+decoration (the aria-hidden masthead, Home's empty planes) is ever clipped, and Home's button
+is on screen and takes a tap from the first frame (end-to-end test). Frequent
+actions (choosing an option, checking, moving between questions) respond at once. The
+transition layer never takes clicks and never holds focus. `prefers-reduced-motion` or the
+student's **Setup → Motion → Reduce motion** turns all movement off; the static
+compositions keep their tension (planes, crops, scale) without it.
 
 ## Accessibility states
 
-- Focus: 2px outline, white on ink, black on the field; never clipped (buttons are plain
-  rectangles under their slanted pseudo-elements).
-- Selected: `aria-pressed` on chips, orbit nodes, and list items; `aria-current="step"` on
-  the current question cell; `aria-current="page"` on the nav link.
-- Live regions: every status line (`.status`), the selected-mistake card, the library
+- Focus: 2px outline; white on dark, black on blue and paper (paper flips the token).
+- Selected: `aria-pressed` on chips and orbit nodes; `aria-current="step"` on the current
+  question cell; `aria-current="page"` on the nav link. A chosen option gets a black 2px
+  frame and a black key.
+- Live regions: every status line, the selected-mistake card, the queue bar, the library
   count.
-- Keyboard: Practice A–D / 1–4 choose, Enter checks or moves on, N next (never while
-  typing in a field); Review Orbit arrows/Home/End move, Enter/Space select.
-- Touch targets: 44px tall on phones (set cells 40x44, formula buttons 44x44). Orbit dots
-  get an invisible target of up to 28 chart units (about 44 px on a phone), never past
-  halfway to the nearest dot, and at least 24 px; the visible selection ring stays small.
+- Keyboard: Practice A–D / 1–4, Enter, N (never while typing); orbit arrows/Home/End,
+  Enter/Space.
+- Touch targets: 44px on phones (tab bar 60px, set cells 40×44, formula buttons 44×44);
+  orbit dots get up to 44px of invisible target without overlapping neighbours.
 
 ## Data honesty
 
-Every number on screen comes from the student's own activity. Empty states say what to
-do, and no accuracy shows until something has been graded (`–`, not `0%`). Mission
-targets are fixed goals in `js/home-summary.js`. They award no XP and no achievements.
-
-- Where questions came from is always said: the set bar names the source (AI-generated,
-  built-in question bank, or due reviews), and built-in questions never claim to come
-  from the student's notes.
-- Offline, Notes makes an **excerpt** ("your own lines, not a summary"): the first lines,
-  one per point, never rewritten and never called a summary.
-- Skill levels come only from questions tagged with that skill, with their evidence
-  ("a of b right in this set · N graded so far"). A general set changes no skill level, and
-  the course's general bucket shows accuracy but no level.
-- Offline, Progress shows the last synced numbers and says when they were synced and how
-  many answers are waiting to upload; it never drops to 0 because the connection did.
-- Recall ratings (Forgot / Hard / Got it) unlock only after the answer is shown.
-- A strict "only this topic" set holds only that topic, due reviews included; the set bar
-  links to the due reviews it left out. The setup's count and the set's size agree.
-- The radar on Progress only appears with 5+ topics; fewer would draw a shape that says
-  less than the bars.
-- On the mistake page, an **Answer checked** tag appears only when a program recomputed
-  the answer key; a quantitative question without that check says **Not machine-checked**;
-  a likely error shows its confidence and basis, or says "Not enough information to say".
+Unchanged from earlier rounds: every number on screen is the student's own (`–`, not
+`0%`, before data), the source of questions is always named, skill levels come only from
+tagged questions with their evidence, and the offline Notes output is called an excerpt.
+The result ring and the Home figures draw only real results and counts.
