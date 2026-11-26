@@ -1541,8 +1541,10 @@ function snapshotSetMastery() {
 // The completion screen's learning line. It never turns a set into a verdict about a
 // whole course: per skill it says what happened in this set, how much evidence there is
 // in total, and the current estimate (moved up only by questions tagged with that skill).
-function masteryGrowthHtml() {
-    if (!window.MasteryModel) return "";
+// Each skill practised in this set, with its evidence (most questions first). One source
+// for the result screen's lead line and its full list, so the two never disagree.
+function growthRows() {
+    if (!window.MasteryModel) return [];
     const levels = (preSetMastery && preSetMastery.levels) || {};
     const here = {};
     generatedQuestions.forEach(function (q) {
@@ -1554,24 +1556,44 @@ function masteryGrowthHtml() {
         here[key].n += 1;
         if (r.correct) here[key].right += 1;
     });
-    const rows = Object.keys(here).map(function (k) { return here[k]; })
-        .sort(function (a, b) { return b.n - a.n || a.topic.localeCompare(b.topic); });
-    if (!rows.length) {
-        const subject = (currentSetMeta && currentSetMeta.subject) || "this course";
-        return '<p class="cc-growth">This was general ' + escapeHtml(subject) +
-            " practice, so no skill estimate changed. Pick a topic to track a skill.</p>";
-    }
+    return Object.keys(here).map(function (k) { return here[k]; })
+        .sort(function (a, b) { return b.n - a.n || a.topic.localeCompare(b.topic); })
+        .map(function (row) {
+            const cur = currentMastery(row.subject, row.topic);
+            const stat = cur && cur.stat;
+            const before = levels[(row.subject || "") + "::" + row.topic.toLowerCase()] || "new";
+            const after = cur ? cur.level : "new";
+            const rose = (MASTERY_RANK[after] || 0) > (MASTERY_RANK[before] || 0);
+            return {
+                rose: rose,
+                html: "<strong>" + escapeHtml(row.topic) + "</strong>: " +
+                    row.right + " of " + row.n + " right in this set" +
+                    (stat && stat.attempts ? " · " + stat.attempts + " graded so far, " + stat.correct + " right" : "") +
+                    " · estimate: " + (rose ? MASTERY_LABEL[before] + " &rarr; " : "") + MASTERY_LABEL[after]
+            };
+        });
+}
+
+function generalPracticeNote() {
+    const subject = (currentSetMeta && currentSetMeta.subject) || "this course";
+    return "This was general " + escapeHtml(subject) + " practice, so no skill estimate changed. Pick a topic to track a skill.";
+}
+
+// The result's one learning line: the skill with the most questions in this set.
+function growthLeadHtml() {
+    const rows = growthRows();
+    if (!rows.length) return '<p class="cc-lead">' + generalPracticeNote() + "</p>";
+    return '<p class="cc-lead' + (rows[0].rose ? " is-up" : "") + '">' + rows[0].html +
+        (rows.length > 1 ? ' <span class="cc-lead-more">' + (rows.length - 1) + (rows.length === 2 ? " more skill" : " more skills") + " below.</span>" : "") +
+        "</p>";
+}
+
+function masteryGrowthHtml() {
+    const rows = growthRows();
+    if (!rows.length) return '<p class="cc-growth">' + generalPracticeNote() + "</p>";
     let html = '<ul class="cc-skills">';
     rows.slice(0, 4).forEach(function (row) {
-        const cur = currentMastery(row.subject, row.topic);
-        const stat = cur && cur.stat;
-        const before = levels[(row.subject || "") + "::" + row.topic.toLowerCase()] || "new";
-        const after = cur ? cur.level : "new";
-        const rose = (MASTERY_RANK[after] || 0) > (MASTERY_RANK[before] || 0);
-        html += "<li" + (rose ? ' class="is-up"' : "") + "><strong>" + escapeHtml(row.topic) + "</strong>: " +
-            row.right + " of " + row.n + " right in this set" +
-            (stat && stat.attempts ? " · " + stat.attempts + " graded so far, " + stat.correct + " right" : "") +
-            " · estimate: " + (rose ? MASTERY_LABEL[before] + " &rarr; " : "") + MASTERY_LABEL[after] + "</li>";
+        html += "<li" + (row.rose ? ' class="is-up"' : "") + ">" + row.html + "</li>";
     });
     html += "</ul>";
     if (rows.length > 4) html += '<p class="hint">' + (rows.length - 4) + " more skills are on the Progress page.</p>";
@@ -1675,24 +1697,31 @@ function maybeShowCompletion() {
     enterCompletionMode();
 }
 
-// The result poster's ring: one numbered dot per question of the set, in order from the
-// top, filled by its real result (right / not yet). Decorative: the list below says the same.
-function resultRingSvg() {
+// The result's horizon: one segment per question of the set, in order from the left,
+// each drawn by its real result: solid for right, a dashed outline for not yet. The score
+// sits under the arc. Decorative: the score's text and the list below say the same.
+function resultArcSvg() {
     const n = generatedQuestions.length;
     if (!n) return "";
-    const c = 100, r = 82;
-    const dot = n > 10 ? 8 : n > 7 ? 10 : 12;
-    let h = '<svg class="cc-ring" viewBox="0 0 200 200" aria-hidden="true" focusable="false">';
-    h += '<circle class="cc-ring-line" cx="100" cy="100" r="' + r + '"/>';
-    h += '<circle class="cc-ring-core" cx="100" cy="100" r="38"/>';
+    const R = 96, r = 62;                       // outer and inner edge of the segments
+    const gap = Math.min(2.4, 60 / n) * Math.PI / 180;
+    const pt = function (rad, a) { return (rad * Math.cos(a)).toFixed(2) + " " + (rad * Math.sin(a)).toFixed(2); };
+    let h = '<svg class="cc-arc" viewBox="-104 -104 208 108" aria-hidden="true" focusable="false">';
+    h += '<path class="cc-arc-line" d="M -102 0 A 102 102 0 0 1 102 0"/>';
+    h += '<path class="cc-arc-line is-inner" d="M -56 0 A 56 56 0 0 1 56 0"/>';
     generatedQuestions.forEach(function (q, i) {
-        const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
-        const x = (c + r * Math.cos(a)).toFixed(1);
-        const y = (c + r * Math.sin(a)).toFixed(1);
         const ok = !!(quizResults[q.id] && quizResults[q.id].correct);
-        h += '<g class="cc-ring-dot ' + (ok ? "is-ok" : "is-miss") + '" style="--i:' + i + '">' +
-            '<circle cx="' + x + '" cy="' + y + '" r="' + dot + '"/>' +
-            '<text x="' + x + '" y="' + y + '" dy=".36em" text-anchor="middle">' + (i + 1) + "</text></g>";
+        const a0 = Math.PI + (i / n) * Math.PI + gap / 2;
+        const a1 = Math.PI + ((i + 1) / n) * Math.PI - gap / 2;
+        const d = "M " + pt(R, a0) + " A " + R + " " + R + " 0 0 1 " + pt(R, a1) +
+            " L " + pt(r, a1) + " A " + r + " " + r + " 0 0 0 " + pt(r, a0) + " Z";
+        const mid = (a0 + a1) / 2;
+        h += '<g class="cc-seg ' + (ok ? "is-ok" : "is-miss") + '" style="--i:' + i + '">';
+        h += '<path d="' + d + '"/>';
+        if (n <= 14) {
+            h += '<text x="' + (79 * Math.cos(mid)).toFixed(2) + '" y="' + (79 * Math.sin(mid)).toFixed(2) + '" dy=".36em">' + (i + 1) + "</text>";
+        }
+        h += "</g>";
     });
     return h + "</svg>";
 }
@@ -1742,22 +1771,12 @@ function enterCompletionMode(savedStats) {
     html += '<div class="cc-result">';
     html += '<p class="kicker">' + escapeHtml(resultKicker()) + "</p>";
     html += '<h3 class="cc-title" id="ccTitle" tabindex="-1">' + (wrong === 0 ? "Perfect set." : "Set complete.") + "</h3>";
-    html += '<p class="cc-score">' + resultRingSvg() + '<span class="cc-num" aria-hidden="true">' + s.correct + '<span class="cc-of"> / ' + total + "</span></span>" +
+    html += '<p class="cc-score">' + resultArcSvg() + '<span class="cc-num" aria-hidden="true">' + s.correct + '<span class="cc-of">/' + total + "</span></span>" +
         '<span class="sr-only">' + s.correct + " of " + total + " right</span></p>";
     html += "</div>";
-    html += '<div class="cc-reward">';
-    html += '<p class="cc-xp">+<span id="ccXp">' + setXp + "</span> XP</p>";
-    html += '<p class="cc-level">Level ' + lvl.level + " · " + lvl.toNext + " XP to Level " + (lvl.level + 1) + "</p>";
-    html += '<span class="bar-track"><span class="bar-fill" style="width:' + progress.pct + '%"></span></span>';
-    html += "</div>";
-
-    // Learning first: what changed for each skill, and what was saved for review.
-    html += '<div class="cc-detail">';
-    html += masteryGrowthHtml(); // per-skill evidence, never a course-level claim
-    html += "<p>" + (wrong === 0
-        ? "Perfect set — nothing to review."
-        : added + (added === 1 ? " question" : " questions") + " added to your review queue.") + "</p>";
-    html += "</div>";
+    // One learning line up front (the skill with the most questions here); the full
+    // evidence follows below the next step.
+    html += growthLeadHtml();
 
     // What to do about the ones that did not land.
     const missed = [];
@@ -1784,6 +1803,15 @@ function enterCompletionMode(savedStats) {
     } else {
         html += '<button type="button" data-action="new-set">Start a new set</button>';
     }
+    html += "</div>";
+
+    // Learning detail: what changed for each skill, and what was saved for review.
+    html += '<div class="cc-detail">';
+    html += '<h4>What this set showed</h4>';
+    html += masteryGrowthHtml(); // per-skill evidence, never a course-level claim
+    html += "<p>" + (wrong === 0
+        ? "Perfect set — nothing to review."
+        : added + (added === 1 ? " question" : " questions") + " added to your review queue.") + "</p>";
     html += "</div>";
 
     if (missed.length) {
@@ -1813,6 +1841,12 @@ function enterCompletionMode(savedStats) {
             "</li>";
     });
     html += "</ol>";
+
+    html += '<div class="cc-reward">';
+    html += '<p class="cc-xp">+<span id="ccXp">' + setXp + "</span> XP</p>";
+    html += '<p class="cc-level">Level ' + lvl.level + " · " + lvl.toNext + " XP to Level " + (lvl.level + 1) + "</p>";
+    html += '<span class="bar-track"><span class="bar-fill" style="width:' + progress.pct + '%"></span></span>';
+    html += "</div>";
 
     html += '<div class="actions cc-actions">';
     if (similarTo && dueNow) html += '<button type="button" class="secondary" data-action="queue-start">Review due mistakes (' + dueNow + ")</button>";
@@ -3147,10 +3181,21 @@ function sectorPath(c, r0, r1, a0, a1) {
 
 // The orbit as SVG. Home draws it small and passive; Review draws it with course labels
 // and focusable, selectable nodes (keyboard: arrows move, Enter selects).
+// The calendar day a ring stands for ("Nov 27"), from the student's own clock: the rings
+// are SM-2 intervals, so their dates say when a mistake on that ring comes back.
+function ringDate(days) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+// opts: size, labels (course names), interactive, filter, selected,
+//   disc (fill the 15-day ring: Home's blue disc), core (core radius in chart units),
+//   dueRim (due cards round the core's edge), ticks: "days" (1d) | "dates" (1d · Nov 27) | "words" (1 day)
 function orbitSvg(items, opts) {
     const RO = window.ReviewOrbit;
     const size = opts.size || 420;
-    const L = RO.layout(items, { size: size });
+    const L = RO.layout(items, { size: size, core: opts.core, dueRim: !!opts.dueRim });
     const c = L.center;
     const f = opts.filter || null;
     const sel = opts.selected || "";
@@ -3161,12 +3206,20 @@ function orbitSvg(items, opts) {
         h += '<path class="ob-sector' + (i % 2 ? " is-alt" : "") + (on ? "" : " is-dim") + '" fill-rule="evenodd" d="' +
             sectorPath(c, L.core + 3, L.edge + 12, s.a0, s.a1) + '"/>';
     });
+    if (opts.disc) {
+        const r15 = L.rings.filter(function (g) { return g.days === 15; })[0];
+        if (r15) h += '<circle class="ob-disc" cx="' + c + '" cy="' + c + '" r="' + r15.r.toFixed(1) + '"/>';
+    }
     L.rings.forEach(function (g) {
-        h += '<circle class="ob-ring" cx="' + c + '" cy="' + c + '" r="' + g.r.toFixed(1) + '"/>';
+        h += '<circle class="ob-ring" data-days="' + g.days + '" cx="' + c + '" cy="' + c + '" r="' + g.r.toFixed(1) + '"/>';
     });
     // Ring labels sit in the gap at the top of the chart, where no course sector starts.
+    const tick = opts.ticks || "days";
     L.rings.forEach(function (g) {
-        h += '<text class="ob-tick" x="' + (c + 5) + '" y="' + (c - g.r - 4).toFixed(1) + '">' + g.days + "d</text>";
+        const text = tick === "words" ? g.days + (g.days === 1 ? " day" : " days")
+            : tick === "dates" ? g.days + "d · " + ringDate(g.days)
+            : g.days + "d";
+        h += '<text class="ob-tick" data-days="' + g.days + '" x="' + (c + 5) + '" y="' + (c - g.r - 4).toFixed(1) + '">' + text + "</text>";
     });
     h += '<circle class="ob-core" cx="' + c + '" cy="' + c + '" r="' + L.core.toFixed(1) + '"/>';
     if (opts.labels) {
@@ -3283,7 +3336,7 @@ function renderReviewOrbit(items) {
         // On a narrow screen the course labels would be too small to read: the chart drops
         // them (and their margin) and the legend under it names the courses instead.
         const narrow = chartEl.clientWidth > 0 && chartEl.clientWidth < 520;
-        chartEl.innerHTML = orbitSvg(items, { size: 440, labels: !narrow, interactive: true, filter: reviewFilter, selected: orbitSelectedId });
+        chartEl.innerHTML = orbitSvg(items, { size: 440, labels: !narrow, interactive: true, filter: reviewFilter, selected: orbitSelectedId, ticks: narrow ? "days" : "dates" });
     } else {
         listEl.innerHTML = orbitListHtml(items);
     }
@@ -4845,17 +4898,20 @@ function renderOrbit(counts) {
     const caption = document.getElementById("orbitCaption");
     if (!chart || !window.ReviewOrbit) return;
     const items = reviewItems();
-    chart.innerHTML = orbitSvg(items, { size: 420, labels: false, interactive: false });
+    // Home's poster is built on the orbit: the 15-day ring is the blue disc, the core holds
+    // the next action, and the due cards sit round the core's edge.
+    chart.innerHTML = orbitSvg(items, { size: 420, labels: false, interactive: false, disc: true, core: 420 * 0.16, dueRim: true, ticks: "words" });
+    if (window.Shell && window.Shell.fitInverts) window.Shell.fitInverts();
     const summary = counts.total
         ? counts.total + (counts.total === 1 ? " saved mistake, " : " saved mistakes, ") + counts.due + " due now"
         : "no saved mistakes yet";
     chart.setAttribute("aria-label", "Open the review orbit: " + summary + ".");
     if (!caption) return;
     if (!counts.total) {
-        caption.textContent = "Your review orbit. Questions you miss land in the core, then move outward as you remember them.";
+        caption.textContent = "Your review orbit. Questions you miss land on the core, then move out a ring each time you remember them.";
         return;
     }
-    const lead = counts.due ? counts.due + " due now in the core. " : "Nothing due now. ";
+    const lead = counts.due ? counts.due + " due now, round the core. " : "Nothing due now. ";
     caption.textContent = lead + "Each dot is a saved mistake: the farther out, the more days until it comes back.";
 }
 

@@ -68,7 +68,7 @@ node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tes
 node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js   # needs: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
 ```
 
-Current counts: pytest 241, JS unit 121, end-to-end 38 (5 similar-question + 33 redesign, walkthrough, learning-feedback, and phone-path tests). The JS file list is explicit on
+Current counts: pytest 241, JS unit 122, end-to-end 38 (5 similar-question + 33 redesign, walkthrough, learning-feedback, and phone-path tests). The JS file list is explicit on
 purpose: never run bare `node --test tests/` (newer Node mis-handles the directory).
 
 ## 3. Repository map
@@ -88,7 +88,7 @@ requirements-dev.txt      runtime + pytest + Pillow
 index.html                The whole app: one document, 6 views + 1 sub-page, icon sprite, script tags
 css/styles.css            Design system implementation (tokens at the top)
 js/app.js                 UI glue: rendering, generation, grading, mistake log, stats, backup, mistake page (~3.3k lines)
-js/shell.js               Views, hash routing (incl. #mistake/<id>), page transition (plane slash), nav marker, tooltips, confirm dialog
+js/shell.js               Views, hash routing (incl. #mistake/<id>), page transition (disc), inverted type (fitInverts), nav marker, tooltips, confirm dialog
 js/question-bank.js       window.OFFLINE_BANK: 14 subjects x {basic, medium, challenge} x {mcq, sa}
 js/spaced-repetition.js   SM-2 scheduler (pure, pluggable)
 js/mastery-model.js       Topic mastery: EMA + volume-gated levels + per-source counts (pure)
@@ -103,9 +103,10 @@ robots.txt, sitemap.xml   SEO files, served by exact routes
 tests/                    pytest suites (test_*.py), node:test suites (*.test.js), tests/e2e/ Playwright suite
 tests/visual/             Review tool (not CI): capture.js (screenshots of 16 states, seeded so runs match, fonts-blocked state, overflow, axe, lab timings) + labelled fixtures.js
 docs/ARCHITECTURE.md      Module overview
-docs/DESIGN-SYSTEM.md     Visual rules (V4 "Cut Poster": planes and the cut, paper scope, tokens, layout, motion, a11y, data honesty)
-docs/REDESIGN-V4.md       The V4 visual redo record: baseline, two Home prototypes, decision, changes per scene, verification
-docs/redesign-v4/         Before/after pairs (same state, same viewport) and the two prototypes
+docs/DESIGN-SYSTEM.md     Visual rules (V5 "Orbit Field": the disc, rings, inverted type, paper scope, shapes, tokens, layout, motion, a11y, data honesty)
+docs/REDESIGN-V5.md       The V5 visual redo record: baseline, two directions, decision, changes per scene, verification, image index
+docs/redesign-v5/         V5 before/after pairs (V4 left), the two direction mock-ups, flow and state sheets
+docs/REDESIGN-V4.md       The V4 "Cut Poster" record; docs/redesign-v4/ its images
 docs/REDESIGN-PROGRESS.md The earlier "Signal Blue" redesign record (V3)
 docs/redesign/            Before/after screenshots from the V3 redesign
 docs/UX-FLOW.md           The guided "spine" and screen-by-screen flow
@@ -149,21 +150,27 @@ One inline script in `<head>` applies the student's "Reduce motion" setting
   auto-render; degrades to raw text if the CDN is unreachable).
 - **Views**: one document. `home`, `notes`, `practice`, `review`, `progress`, `setup`,
   plus the sub-page `mistake` (`#mistake/<id>`). `js/shell.js` shows one view at a time
-  (all stay in the DOM), runs the page transition (blue, paper, and black planes slash
-  across), keeps the nav marker (the mistake page keeps **Review** marked; it follows size
+  (all stay in the DOM), runs the page transition (a blue disc grows out of the page you
+  leave and closes into the one you open), keeps the nav marker (the mistake page keeps **Review** marked; it follows size
   changes of the nav row), and fires `document` event `studyboost:view` with
   `detail { view, param }`. `Shell.go("mistake/err-123")`, `Shell.current()`,
   `Shell.param()`, `Shell.confirm({...})`, `Shell.countUp(el, n)`, `Shell.reducedMotion()`
   (device setting or the student's choice), `Shell.setBand({num, of, label} | null)` (a real
-  number in the band instead of the page name; Practice uses it for "02 / 07").
-- **Layout (V4 "Cut Poster", `docs/DESIGN-SYSTEM.md`)**: `.rail` is a fixed top bar
-  (bottom tab bar under 720px); `.band` is each page's masthead (a blue plane cut on the
-  diagonal with the page name cropped in it; its box ends at the cut); Home has no
-  masthead (`.command` is a full-width poster with `.command-planes`). Reading and
-  answering surfaces are **paper**: `.paper` and a few components flip the text, line,
-  surface, and status-ink tokens, so nested components adapt (see the "Paper" section at
-  the top of `css/styles.css`). Status colours as fills: `--good/--warn/--bad`; as text or
-  thin lines: `--good-ink/--warn-ink/--bad-ink`.
+  number in the band instead of the page name; Practice sets it, though V5 hides the band
+  during a set), `Shell.fitInverts()` (re-align inverted type after a re-render).
+- **Layout (V5 "Orbit Field", `docs/DESIGN-SYSTEM.md`)**: `.rail` is a fixed top bar
+  (bottom tab bar under 720px); `.band` is each page's masthead (a blue disc in the corner,
+  hairline rings, the page name solid inside the disc and outlined outside, computed in CSS).
+  Home has no masthead: `.command` is the review orbit at poster scale (`orbitSvg` with
+  `disc`, `core`, `dueRim`, `ticks`), geometry from `--R`, `--W`, `--core`, `--cx`, `--cy`; the
+  action sits in the core. Elements with `data-invert="<disc selector>"` turn black inside
+  that disc (`Shell.fitInverts`). During a set and on the result the masthead, date, and
+  display heading step aside. Reading and answering surfaces are **paper** (`.paper` and a
+  few components flip the text, line, surface, and status-ink tokens; see "Paper" at the
+  top of `css/styles.css`) with a 7px top rule (blue, then the result's colour). Shapes:
+  capsules (`--r-cap`), circles, soft corners (`--r-card`, `--r-row`); nothing slants.
+  Status colours as fills: `--good/--warn/--bad`; as text or thin lines:
+  `--good-ink/--warn-ink/--bad-ink`.
 - **Practice focus mode**: all cards of a set are rendered; only `.qa-card.is-current`
   shows. State in `app.js`: `practiceIndex`, `practiceSetupOpen`, `resultsShown`,
   `currentSetMeta` (`origin`: `ai` | `bank` | `review`). `#view-practice[data-mode]` is
@@ -482,9 +489,22 @@ is per user). New similar-question code needs no new packages or settings.
 
 ## 13. Current state and recent changes
 
-- Default branch: `main`. Similar-question practice and the flagship redesign were
-  developed on branch `claude/zen-ramanujan-t57aza`. Merge it into `main`, or point your
-  tools at that branch, to work on the newest code.
+- Default branch: `main`. Similar-question practice and the redesigns were developed on
+  branch `claude/zen-ramanujan-t57aza`. Merge it into `main`, or point your tools at that
+  branch, to work on the newest code.
+- November 2026, V5 visual redo "Orbit Field" (record in `docs/REDESIGN-V5.md`):
+  - Home is the review orbit at poster scale: the 15-day ring is the blue disc, the core
+    holds the next action, due cards sit round the core's edge, PRACTICE turns black inside
+    the disc. Results is a horizon arc (one segment per answer) over the score, with one
+    learning line and one next step first. Review's due count sits in a yellow disc; the
+    orbit's rings carry real dates. Mastheads are a corner disc with the page name inverted.
+    Answering hides the masthead, date, and display heading. Capsules and circles replace
+    the slants; the page change is a disc.
+  - New: `ReviewOrbit.layout` option `dueRim` (+ test), `orbitSvg` options, `resultArcSvg`,
+    `growthRows`/`growthLeadHtml`, `Shell.fitInverts` and `[data-invert]`, font preloads on
+    the trust pages.
+  - No change to grading, generation rules, skill counting, review scheduling, variant
+    generation, data sent or stored, persistence, or the API.
 - November 2026, V4 visual redo "Cut Poster" (record in `docs/REDESIGN-V4.md`):
   - Shell: a top bar instead of the left rail; a masthead plane per page instead of the
     vertical band; a new page transition. Home is a cut poster (giant word or real count

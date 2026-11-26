@@ -19,6 +19,8 @@
  *   whenText(item)                          -> "Due now" | "Back in 1 day" | "Back in 12 days"
  *   sortItems(items, sort)                  -> new array  sort "due" | "newest" | "oldest" | "course"
  *   layout(items, opts)                     -> { sectors, nodes, rings, core, edge, dot }
+ *                                              opts.dueRim: due cards on the core's rim (the core
+ *                                              holds an action on Home) instead of inside it
  *   snippet(text, max)                      -> shortened text that never cuts a $...$ formula
  *   upcoming(items, span)                   -> { days: [{ offset, count }], later }
  *   shortCourse(label)                      -> "Calc AB" for "AP Calculus AB"
@@ -134,7 +136,7 @@
         return core + (edge - core) * (Math.log(1 + d) / Math.log(1 + max));
     }
 
-    // opts: { size (default 420), core, edge, gapDeg (4), startDeg (-90), minShare (.05) }
+    // opts: { size (default 420), core, edge, gapDeg (4), startDeg (-90), minShare (.05), dueRim }
     function layout(items, opts) {
         var o = opts || {};
         var size = o.size || 420;
@@ -195,8 +197,16 @@
         });
         var inner = Math.max(0, core - dot - 3);
         dueList.forEach(function (it, i) {
-            var r = dueList.length === 1 ? 0 : inner * Math.sqrt((i + 0.5) / dueList.length);
-            var ang = i * GOLDEN_ANGLE;
+            var r, ang;
+            if (o.dueRim) {
+                // Evenly round the core's edge, the first one at the top: the middle stays
+                // free for the action that starts these reviews.
+                r = core;
+                ang = -Math.PI / 2 + i * (Math.PI * 2 / dueList.length);
+            } else {
+                r = dueList.length === 1 ? 0 : inner * Math.sqrt((i + 0.5) / dueList.length);
+                ang = i * GOLDEN_ANGLE;
+            }
             nodes.push({ item: it, x: c + r * Math.cos(ang), y: c + r * Math.sin(ang), r: r, angle: ang, sector: -1, due: true });
         });
 

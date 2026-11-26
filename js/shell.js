@@ -174,9 +174,43 @@
         settle();
     }
 
-    // Three planes (blue, paper, black) slash across on the page's cut, the view changes
-    // while they cover it, and they clear the other way. The whole gesture stays under
-    // 0.6s so it never slows studying down; the layer never takes clicks.
+    // Display type that crosses a disc turns black inside it: one real copy of the text,
+    // painted through a radial gradient centred on the disc (see "Inverted type" in
+    // styles.css). An element opts in with data-invert="<selector of its disc>". Without
+    // this script, or before it runs, the text keeps its plain colour.
+    var invertFrame = 0;
+    function fitInverts() {
+        invertFrame = 0;
+        var els = document.querySelectorAll("[data-invert]");
+        for (var i = 0; i < els.length; i++) {
+            var el = els[i];
+            var disc = document.querySelector(el.getAttribute("data-invert"));
+            var d = disc && disc.getBoundingClientRect();
+            var b = el.getBoundingClientRect();
+            if (!d || !d.width || !b.width) { el.classList.remove("is-inverted"); continue; }
+            el.style.setProperty("--ix", (d.left + d.width / 2 - b.left).toFixed(1) + "px");
+            el.style.setProperty("--iy", (d.top + d.height / 2 - b.top).toFixed(1) + "px");
+            el.style.setProperty("--ir", (d.width / 2).toFixed(1) + "px");
+            el.classList.add("is-inverted");
+        }
+    }
+    function queueInverts() {
+        if (!invertFrame) invertFrame = window.requestAnimationFrame(fitInverts);
+    }
+
+    // Where a page lives in the navigation: the centre of its link (a sub-page uses its
+    // parent's), or the middle of the screen.
+    function linkCenter(view) {
+        var target = NAV_PARENT[view] || view;
+        var link = links.filter(function (a) { return a.getAttribute("data-link") === target && a.offsetParent !== null; })[0];
+        if (!link) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        var r = link.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+
+    // The page change: a blue disc grows out of the page you leave (its nav link), the view
+    // changes while it covers the screen, and the disc closes into the page you open. Under
+    // 0.5s so it never slows studying down; the layer never takes clicks or focus.
     function transitionTo(name, moveFocus, param) {
         param = param || "";
         if (name === current) {
@@ -206,20 +240,29 @@
 
         busy = true;
         wipe.classList.add("is-active");
-        var covers = bands.map(function (band, i) {
+        var from = current ? linkCenter(current) : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        var to = linkCenter(name);
+        var reach = function (p) {
+            return Math.ceil(Math.max(Math.hypot(p.x, p.y), Math.hypot(window.innerWidth - p.x, p.y),
+                Math.hypot(p.x, window.innerHeight - p.y), Math.hypot(window.innerWidth - p.x, window.innerHeight - p.y)));
+        };
+        var circle = function (r, p) { return "circle(" + r + "px at " + Math.round(p.x) + "px " + Math.round(p.y) + "px)"; };
+        // The disc (blue) and a thin ring of its edge (black) that trails it.
+        var covers = bands.slice(0, 2).map(function (band, i) {
             return band.animate(
-                [{ transform: "translateX(-140%) skewX(-24deg)" }, { transform: "translateX(0) skewX(-24deg)" }],
-                { duration: 220, delay: i * 50, easing: EASE_IN, fill: "both" }
+                [{ clipPath: circle(0, from) }, { clipPath: circle(reach(from), from) }],
+                { duration: 210, delay: i * 40, easing: EASE_IN, fill: "both" }
             );
         });
 
         Promise.all(covers.map(function (a) { return a.finished; })).then(function () {
             showView(name, param);
             if (moveFocus) focusHeading(name);
-            var reveals = bands.map(function (band, i) {
+            queueInverts();
+            var reveals = bands.slice(0, 2).map(function (band, i) {
                 return band.animate(
-                    [{ transform: "translateX(0) skewX(-24deg)" }, { transform: "translateX(140%) skewX(-24deg)" }],
-                    { duration: 260, delay: (bands.length - 1 - i) * 40, easing: EASE_OUT, fill: "both" }
+                    [{ clipPath: circle(reach(to), to) }, { clipPath: circle(0, to) }],
+                    { duration: 240, delay: (1 - i) * 40, easing: EASE_OUT, fill: "both" }
                 );
             });
             return Promise.all(reveals.map(function (a) { return a.finished; }));
@@ -256,6 +299,15 @@
 
     window.addEventListener("resize", placeIndicator);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeIndicator);
+    window.addEventListener("resize", queueInverts);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(queueInverts);
+    // Entrance motion moves text and discs for a moment; realign once it has played.
+    document.addEventListener("animationend", queueInverts);
+    document.addEventListener("studyboost:view", queueInverts);
+    if (typeof window.ResizeObserver === "function") {
+        var invertObserver = new window.ResizeObserver(queueInverts);
+        Array.prototype.forEach.call(document.querySelectorAll("[data-invert]"), function (el) { invertObserver.observe(el); });
+    }
     // In the horizontal bar a link's width moves the ones after it (the Review badge
     // appears after the first paint), so the marker follows any change in the row's size.
     var navList = navIndicator && navIndicator.parentElement && navIndicator.parentElement.querySelector(".nav-list");
@@ -374,6 +426,7 @@
         confirm: confirmDialog,
         countUp: countUp,
         reducedMotion: reducedMotion,
-        setBand: setBand
+        setBand: setBand,
+        fitInverts: queueInverts
     };
 })();

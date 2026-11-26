@@ -107,6 +107,25 @@ test("layout: distance from the center is the time until review; due cards sit i
     }
 });
 
+test("layout: dueRim puts due cards evenly on the core's edge and leaves the rest alone", () => {
+    const items = [rec("n6", "A", 6), rec("d1", "A", 0), rec("d2", "B", 0), rec("d3", "B", 0), rec("d4", "A", 0)]
+        .map((r) => Orbit.toItem(r, RS));
+    const plain = Orbit.layout(items, { size: 420 });
+    const rim = Orbit.layout(items, { size: 420, dueRim: true });
+    const due = rim.nodes.filter((n) => n.due);
+    assert.equal(due.length, 4);
+    for (const n of due) {
+        assert.ok(Math.abs(Math.hypot(n.x - rim.center, n.y - rim.center) - rim.core) < 1e-9, "on the rim");
+    }
+    // evenly spaced, the first at the top
+    const angles = due.map((n) => n.angle).sort((a, b) => a - b);
+    assert.ok(Math.abs(angles[0] + Math.PI / 2) < 1e-9);
+    for (let i = 1; i < angles.length; i++) assert.ok(Math.abs(angles[i] - angles[i - 1] - Math.PI / 2) < 1e-9);
+    // cards that are not due keep their place
+    const key = (L) => L.nodes.filter((n) => !n.due).map((n) => [n.item.id, n.x, n.y]);
+    assert.deepEqual(key(rim), key(plain));
+});
+
 test("layout: dense data shrinks the dots but keeps every mistake", () => {
     const many = [];
     for (let i = 0; i < 160; i++) many.push(rec("m" + i, "Course " + (i % 8), i % 45));
