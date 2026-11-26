@@ -243,3 +243,14 @@ test("mergeStats adds unsynced answers to the last synced stats and keeps the 14
     assert.equal(Home.mergeStats(null, queued, "2026-11-25").overall.answered, 3);
     assert.equal(Home.mergeStats(null, null, "2026-11-25").overall.accuracy, 0);
 });
+
+test("nextStep: a set in progress comes before due reviews, with its real position", () => {
+    const step = Home.nextStep({ due: 3, hasActivity: true, openSet: { next: 2, total: 5, answered: 2, subject: "AP Calculus AB" } });
+    assert.equal(step.kind, "continue");
+    assert.equal(step.cta, "Continue at question 3");
+    assert.match(step.body, /^AP Calculus AB: 2 of 5 answered\./);
+    // no open set, or a finished one: the usual order
+    assert.equal(Home.nextStep({ due: 3, hasActivity: true }).kind, "review");
+    assert.equal(Home.nextStep({ due: 3, hasActivity: true, openSet: { next: -1, total: 5, answered: 5 } }).kind, "review");
+    assert.equal(Home.nextStep({ due: 0, hasActivity: true, openSet: { next: 0, total: 0 } }).kind, "start");
+});

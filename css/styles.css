@@ -11,6 +11,30 @@
     font-weight: 700;
     font-display: optional;
 }
+/* Until Big Shoulders is ready (font-display: optional keeps the fallback for a slow first
+   visit), the fallback is scaled to the same width, so a headline wraps where it would in
+   Big Shoulders and the buttons below it stay where they were designed to be. Measured on
+   uppercase display text: Big Shoulders Bold is 0.66-0.73 of Arial/Liberation Sans Bold
+   wide, 0.62-0.65 of DejaVu Sans Bold, and Roboto Bold is about 0.96 of Arial. */
+@font-face {
+    font-family: "Big Shoulders Fallback";
+    src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"), local("LiberationSans-Bold"),
+         local("Helvetica Bold"), local("Helvetica-Bold");
+    font-weight: 700;
+    size-adjust: 70%;
+}
+@font-face {
+    font-family: "Big Shoulders Fallback Roboto";
+    src: local("Roboto Bold"), local("Roboto-Bold");
+    font-weight: 700;
+    size-adjust: 73%;
+}
+@font-face {
+    font-family: "Big Shoulders Fallback DejaVu";
+    src: local("DejaVu Sans Bold"), local("DejaVuSans-Bold");
+    font-weight: 700;
+    size-adjust: 63%;
+}
 @font-face {
     font-family: "Instrument Sans";
     src: url("../assets/fonts/InstrumentSans-Regular.woff") format("woff");
@@ -49,6 +73,7 @@
     --panel: #0C1E38;
     --raise: #122A4C;
     --line: #2B4D78;
+    --control-edge: #527AAD;   /* edges that identify a control: 3.77:1 on panels, 4.48:1 on ink (WCAG 1.4.11) */
 
     /* Blues. --field is the flat poster colour: black text only (6.4:1). */
     --royal: #0B36B2;
@@ -66,7 +91,7 @@
     --warn: #E6F24A;
     --bad: #FF5C7A;
 
-    --display: "Big Shoulders", "Arial Narrow", Impact, sans-serif;
+    --display: "Big Shoulders", "Big Shoulders Fallback", "Big Shoulders Fallback Roboto", "Big Shoulders Fallback DejaVu", "Arial Narrow", Impact, sans-serif;
     --text: "Instrument Sans", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
 
     --rail: 216px;
@@ -293,7 +318,8 @@ code {
     color: var(--black);
 }
 .band-stripes i { flex: 1; height: 16px; background: linear-gradient(var(--field-deep) 0 5px, transparent 5px 11px, var(--field-deep) 11px); }
-.band-stripes b { font: 700 58px/1 var(--display); }
+/* The step number is said once, in the kicker (and the rail's numbers on wider screens). */
+.band-stripes b { display: none; font: 700 58px/1 var(--display); }
 .band-count {
     position: absolute;
     top: 20px;
@@ -466,7 +492,7 @@ select,
 input:not([type="checkbox"]):not([type="radio"]) {
     width: 100%;
     padding: 11px 12px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--control-edge);
     border-radius: 0;
     background: var(--ink);
     color: var(--white);
@@ -530,7 +556,7 @@ input[type="checkbox"]:disabled { opacity: .4; cursor: not-allowed; }
 .formula-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 button.formula-btn {
     --btn-fill: transparent;
-    --btn-edge: var(--line);
+    --btn-edge: var(--control-edge);
     min-height: 34px;
     padding: 3px 14px;
     color: var(--white);
@@ -700,6 +726,8 @@ button[aria-busy="true"]::after {
 .set-meta:empty { display: none; }
 .set-meta { grid-area: meta; margin: 0; color: var(--mute); font-size: 13px; font-weight: 700; letter-spacing: .03em; }
 .set-cells { grid-area: cells; display: flex; flex-wrap: wrap; gap: 6px; }
+/* Due reviews a strict topic set left out: a way to them, not part of the set. */
+.set-heldback { display: block; margin-top: 4px; color: var(--cyan); font-weight: 600; letter-spacing: 0; }
 .score-text { grid-area: score; color: var(--mute); font-size: 13px; text-align: right; }
 .set-tools { grid-area: tools; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 button.set-cell {
@@ -748,7 +776,7 @@ button.set-cell.is-current::before { box-shadow: inset 0 0 0 2px var(--btn-edge)
     gap: 12px;
     margin-bottom: 7px;
     padding: 10px 12px 10px 14px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--control-edge);
     background: var(--navy);
     font-size: 16px;
     font-weight: 400;
@@ -929,6 +957,42 @@ button.rate:not(:disabled):hover::after { transform: none; }
     border-top: 1px solid var(--line);
 }
 .q-nav { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; }
+
+/* --- Review: today's reviews and the review queue -------------------------------------
+   Review opens with what is due and one button; the chart and library follow. During the
+   queue, the bar on the mistake page says where you are and what comes after a rating. */
+.review-today {
+    max-width: var(--measure);
+    margin: 0 0 22px;
+    padding: 16px 20px 18px;
+    border-left: 4px solid var(--line);
+    background: var(--panel);
+}
+.review-today:has([data-action="queue-start"]) { border-left-color: var(--warn); }
+.review-today .kicker { margin-bottom: 4px; }
+.rt-title { margin: 0 0 6px; font-size: clamp(28px, 3vw, 38px); line-height: 1; }
+.rt-title b { color: var(--warn); }
+.review-today p:not(.kicker) { margin: 0 0 12px; color: var(--mute); }
+.review-today .rt-done { color: var(--white); }
+.review-today .actions { margin: 0; }
+.queue-bar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px 18px;
+    margin: 0 0 18px;
+    padding: 12px 18px;
+    background: var(--black);
+}
+.qb-count { margin: 0; font: 700 22px/1 var(--display); color: var(--mute); white-space: nowrap; }
+.qb-count b { font-size: 44px; color: var(--white); }
+.qb-note { margin: 0; }
+.queue-bar .actions { grid-column: 1 / -1; margin: 0; }
+/* In the queue the page is a review, not a similar-question page: its intro steps aside. */
+#view-mistake[data-queue] .view-head p:not(.kicker) { display: none; }
+/* Outside the queue the bar is only a way on, so it is quieter. */
+.queue-bar[data-mode="suggest"] { grid-template-columns: minmax(0, 1fr); background: var(--navy); }
+.queue-bar[data-mode="suggest"] .qb-note { color: var(--mute); }
 
 /* --- Review: the orbit stage ------------------------------------------------------------ */
 .orbit-stage { position: relative; margin-bottom: 30px; }
@@ -1162,6 +1226,10 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
 .cc-skills { margin: 0 0 8px; padding: 0; list-style: none; display: grid; gap: 4px; }
 .cc-skills li { line-height: 1.45; }
 .cc-actions { grid-column: 1 / -1; margin-top: 14px; }
+/* The one next step, right after what was learned. */
+.cc-next { grid-column: 1 / -1; align-items: center; margin-top: 12px; }
+.cc-next-why { flex: 1 1 220px; margin: 0; font-size: 15px; }
+.cc-today { grid-column: 1 / -1; margin: 10px 0 0; font-size: 14px; }
 .share-line, .feedback-line { grid-column: 1 / -1; margin: 8px 0 0; }
 .completion-card .kicker { color: var(--black); }
 .completion-card :focus-visible { outline-color: var(--black); }
@@ -1360,7 +1428,7 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
     color: var(--black);
     clip-path: polygon(0 0, 100% 0, 100% calc(100% - 76px), 0 100%);
 }
-.command-copy { position: relative; z-index: 1; min-width: 0; padding-right: 12px; }
+.command-copy { position: relative; z-index: 1; min-width: 0; padding-right: 12px; container-type: inline-size; }
 .command .kicker { margin-bottom: 18px; color: var(--black); }
 .command :focus-visible { outline-color: var(--black); }
 
@@ -1385,6 +1453,12 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
 .h1-words { display: block; max-width: 6.2em; padding-bottom: .06em; text-wrap: balance; }
 /* First visit: the product promise is the headline, poster size. */
 .command[data-state="first"] h1 { max-width: none; font-size: clamp(58px, 7.4vw, 124px); line-height: .9; }
+/* Where container units work: sized by the headline's own column (rail, band, padding, and
+   the orbit already taken off) and by the window height, so the button under it stays in
+   the first screen. */
+.command[data-state="first"] h1 { font-size: clamp(40px, min(17cqi, 12.5vh), 124px); }
+/* Phone headline is shorter; the wide one is the brand line. */
+.h1-narrow { display: none; }
 .command-dek { max-width: 46ch; margin: 16px 0 20px; font-size: 18px; line-height: 1.45; }
 
 .command-list { display: grid; gap: 5px; max-width: 660px; margin: 0 0 22px; padding: 0; list-style: none; }
@@ -1468,10 +1542,12 @@ button.command-alt:not(:disabled):hover { color: var(--black); text-decoration-t
 .ob-dot.is-dim, .is-dim > .ob-dot { opacity: .2; }
 .ob-node { cursor: pointer; outline: none; }
 .ob-hit { fill: transparent; }
+/* The visible selection and focus ring; the (larger) tap target stays invisible. */
+.ob-halo { fill: transparent; pointer-events: none; }
 .ob-node:hover > .ob-dot { stroke: var(--cyan); stroke-width: 2.5; }
 .ob-node.is-selected > .ob-dot { stroke: var(--cyan); stroke-width: 3; }
-.ob-node.is-selected > .ob-hit { fill: rgba(0, 217, 255, .12); stroke: var(--cyan); stroke-width: 1.5; }
-.ob-node:focus-visible > .ob-hit { fill: rgba(245, 248, 255, .14); stroke: var(--white); stroke-width: 2; }
+.ob-node.is-selected > .ob-halo { fill: rgba(0, 217, 255, .12); stroke: var(--cyan); stroke-width: 1.5; }
+.ob-node:focus-visible > .ob-halo { fill: rgba(245, 248, 255, .14); stroke: var(--white); stroke-width: 2; }
 
 /* --- Home, below the command -------------------------------------------------------- */
 .welcome-card { position: relative; margin-bottom: 30px; }
@@ -1977,24 +2053,31 @@ dialog.confirm p { color: var(--mute); }
     .nav-ind::before, .nav-ind::after { clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); margin: 0; }
     .nav-ind::before { display: none; }
 
-    .band { left: 0; height: 86px; }
-    .band-word, body[data-view="home"] .band-word { top: 11px; left: 16px; font-size: 58px; }
+    .band { left: 0; height: 70px; }
+    .band-word, body[data-view="home"] .band-word { top: 10px; left: 16px; font-size: 46px; }
     .band-stripes { width: 96px; right: 16px; top: 6px; }
     .band-stripes b { font-size: 32px; }
     .wipe { inset: 0; }
 
-    .scene { padding: 94px 16px calc(90px + env(safe-area-inset-bottom)); }
+    .scene { padding: 80px 16px calc(90px + env(safe-area-inset-bottom)); }
     .scene-top { font-size: 13px; }
     .today strong { font-size: 22px; }
 
     .panel { padding: 18px 16px; }
+    button.formula-btn { min-height: 44px; min-width: 44px; }
     .command {
         grid-template-columns: minmax(0, 1fr);
-        margin: -94px -16px 22px;
-        padding: 132px 16px 0;
+        margin: -80px -16px 22px;
+        padding: 112px 16px 0;
         clip-path: polygon(0 0, 100% 0, 100% calc(100% - 40px), 0 100%);
     }
-    .command[data-state="first"] h1 { font-size: clamp(50px, 15vw, 76px); }
+    .command[data-state="first"] h1 { font-size: clamp(40px, 13vw, 64px); }
+    .h1-wide { display: none; }
+    .h1-narrow { display: inline; }
+    .command[data-state="first"] .command-dek { margin: 12px 0 18px; font-size: 16px; }
+    .command[data-state="first"] .kicker { margin-bottom: 12px; }
+    /* A first visit has no study days yet, so the date waits until there is activity. */
+    body[data-view="home"] .scene:has(#nextStep[data-state="first"]) .today { display: none; }
     .command h1 { font-size: clamp(34px, 10vw, 52px); }
     .cf-num { font-size: clamp(120px, 40vw, 180px); }
     .command .hero-cta { width: 100%; }
@@ -2008,8 +2091,8 @@ dialog.confirm p { color: var(--mute); }
     body[data-view="home"] .ai-chip { color: var(--black); }
     body[data-view="home"] .ai-chip::before { background: var(--black); }
     .band-count { right: 16px; top: 8px; }
-    .band-count b { font-size: 58px; }
-    .band-count span { font-size: 26px; }
+    .band-count b { font-size: 44px; }
+    .band-count span { font-size: 22px; }
 
     .home-grid { grid-template-columns: minmax(0, 1fr); }
     .setup-grid { grid-template-columns: minmax(0, 1fr); }
@@ -2018,10 +2101,25 @@ dialog.confirm p { color: var(--mute); }
     .score-banner {
         position: static;
         grid-template-columns: minmax(0, 1fr) auto;
-        grid-template-areas: "cells cells" "score tools";
+        grid-template-areas: "meta meta" "cells cells" "score tools";
         padding: 10px 12px;
     }
-    .set-meta { display: none; }
+    /* Where the questions came from (new, due review, built-in or AI) still matters here. */
+    .set-meta { display: block; font-size: 12px; letter-spacing: 0; }
+    /* During a set the band already names the page and counts the questions, so the page
+       heading and the date step aside (the heading stays for screen readers). */
+    #view-practice[data-mode="focus"] .view-head {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+    body[data-view="practice"] .scene:has(#view-practice[data-mode="focus"]) .today { display: none; }
+    /* The band shows "01 / 05" in display type; the card's own title can be quiet. */
+    .output-quiz .qa-title { font-size: 22px; }
     .score-text { align-self: center; text-align: left; }
     .set-cells { gap: 4px; }
     button.set-cell { min-width: 40px; min-height: 44px; padding: 2px 6px; }
@@ -2053,6 +2151,10 @@ dialog.confirm p { color: var(--mute); }
         clip-path: polygon(0 0, calc(100% - 30px) 0, 100% 30px, 100% 100%, 30px 100%, 0 calc(100% - 30px));
     }
     .completion-card .actions button { width: 100%; }
+    /* Phone: the score, then what was learned and the next step; XP after the list. */
+    .completion-card > .cc-reward { order: 2; }
+    .completion-card > .cc-actions, .completion-card > .cc-today,
+    .completion-card > .share-line, .completion-card > .feedback-line { order: 3; }
     .status-strip { grid-template-columns: minmax(0, 1fr); }
     .subject-row { grid-template-columns: minmax(0, 1fr) auto; }
     .subject-row .bar-track { grid-column: 1 / -1; grid-row: 2; }

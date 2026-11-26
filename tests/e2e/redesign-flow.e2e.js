@@ -142,11 +142,10 @@ test("Home: a returning student sees the due count and the due list first", asyn
     assert.equal(await page.locator("#commandList li").count(), 2);
     assert.match(await page.textContent("#commandList"), /Chain rule/);
     assert.equal((await page.textContent("#nextStepBtn")).trim(), "Start review");
-    // The command's button lands on Review, filtered to what is due.
+    // The command's button starts the review queue on the first due mistake.
     await page.click("#nextStepBtn");
-    await page.waitForFunction(() => window.Shell.current() === "review");
-    assert.equal(await page.getAttribute("#showUnknownBtn", "aria-pressed"), "true");
-    assert.equal(await page.locator("#errorOutput .error-card").count(), 2);
+    await page.waitForFunction(() => window.Shell.current() === "mistake");
+    assert.match(await page.textContent("#queueBar .qb-count"), /1\s*of 2 due/);
     assert.deepEqual(page.errors, []);
     await page.close();
 });
@@ -673,6 +672,404 @@ test("a picked but unchecked option survives a refresh", async () => {
     await page.waitForSelector(".qa-card.is-current");
     assert.equal(await page.locator(".qa-card.is-current input[type=radio]:checked").getAttribute("value"), picked);
     assert.equal(await page.evaluate((id) => !!(quizResults[id] && quizResults[id].done), qid), false, "still not graded");
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("'only this topic' keeps due reviews of other skills out of the set and points to them", async () => {
+    const page = await newPage(browser);
+    // A due definite-integral mistake, from an earlier set.
+    const integral = mistake("err-due-integral", "AP Calculus AB", "Evaluating definite integrals", 0,
+        { question: "$\\int_0^2 3x^2\\,dx$ equals:", skills: ["definite-integral"] });
+    const chainMiss = mistake("err-due-chainmiss", "AP Calculus AB", "Chain rule", 0, { skills: ["chain-rule"] });
+    await seed(page, server.base, [integral]);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#difficultyInput", "medium");
+    await page.selectOption("#questionFormatInput", "5:0");
+    await page.fill("#topicInput", "Chain rule");
+    await page.waitForSelector("#topicFill:not([hidden])");
+    await page.selectOption("#topicFillInput", "only");
+    await page.waitForFunction(() => /2 are about .Chain rule./.test(document.getElementById("bankHint").textContent));
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current");
+    const set = await page.evaluate(() => generatedQuestions.map((q) => ({ source: q.source, topic: q.topic })));
+    assert.equal(set.length, 2, "the hint said 2, the set has 2");
+    assert.ok(set.every((q) => q.topic === "Chain rule" && q.source !== "review"));
+    assert.match(await page.textContent("#quizStatus"), /1 due review on another topic is waiting in Review/);
+    assert.equal(await page.getAttribute(".set-heldback", "href"), "#review");
+
+    // A due chain-rule mistake does belong in the strict set.
+    await seed(page, server.base, [integral, chainMiss]);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#difficultyInput", "medium");
+    await page.selectOption("#questionFormatInput", "5:0");
+    await page.fill("#topicInput", "Chain rule");
+    await page.waitForSelector("#topicFill:not([hidden])");
+    await page.selectOption("#topicFillInput", "only");
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current");
+    const ids = await page.evaluate(() => generatedQuestions.map((q) => q.errId || q.topic));
+    assert.deepEqual(ids, ["err-due-chainmiss", "Chain rule", "Chain rule"]);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("a new set asks before replacing an unfinished one, and a failed request keeps it", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#questionFormatInput", "5:0");
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current .check-mcq");
+    const firstId = await page.locator(".qa-card.is-current").getAttribute("data-qid");
+    await page.locator(".qa-card.is-current input[type=radio]").first().check();
+    await page.click(".qa-card.is-current .check-mcq");
+    const before = await page.evaluate(() => generatedQuestions.map((q) => q.id));
+
+    // Cancel: nothing changes.
+    await page.click('[data-action="change-set"]');
+    await page.click("#quizBtn");
+    await page.waitForSelector("#confirmDialog[open]");
+    assert.match(await page.textContent("#confirmBody"), /1 of 5 answered/);
+    await page.click('#confirmDialog button[value="cancel"]');
+    await page.waitForFunction(() => /Kept your current set/.test(document.getElementById("quizStatus").textContent));
+    assert.deepEqual(await page.evaluate(() => generatedQuestions.map((q) => q.id)), before);
+    assert.equal(await page.evaluate((id) => quizResults[id] && quizResults[id].done, firstId), true);
+
+    // Confirm, but nothing matches: the current set and its results stay.
+    await page.selectOption("#difficultyInput", "basic");
+    await page.fill("#topicInput", "Chain rule");
+    await page.waitForSelector("#topicFill:not([hidden])");
+    await page.selectOption("#topicFillInput", "only");
+    await page.click("#quizBtn");
+    await page.waitForSelector("#confirmDialog[open]");
+    await page.click("#confirmOk");
+    await page.waitForFunction(() => /Your current set is unchanged/.test(document.getElementById("quizStatus").textContent));
+    assert.deepEqual(await page.evaluate(() => generatedQuestions.map((q) => q.id)), before);
+    assert.equal(await page.evaluate((id) => quizResults[id] && quizResults[id].done, firstId), true);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("first visit: the Home button is fully on screen with the real fonts and with the fallback", async () => {
+    // Fallback = the font files never arrive (a slow first visit keeps the fallback,
+    // font-display: optional). The button must not sink below the fold or the tab bar.
+    const sizes = [[320, 568], [390, 844], [1100, 768], [1440, 900]];
+    for (const fonts of ["real", "fallback"]) {
+        for (const [w, h] of sizes) {
+            const page = await newPage(browser, { width: w, height: h });
+            if (fonts === "fallback") await page.route("**/assets/fonts/**", (route) => route.abort());
+            await page.goto(server.base + "robots.txt");
+            await page.evaluate(() => localStorage.clear());
+            await open(page, server.base, "home");
+            await page.waitForSelector('#nextStep[data-state="first"]');
+            const m = await page.evaluate(() => {
+                const btn = document.getElementById("nextStepBtn").getBoundingClientRect();
+                const title = document.getElementById("home-title").getBoundingClientRect();
+                const tabs = document.querySelector(".rail").getBoundingClientRect();
+                // On a phone the rail is the bottom tab bar; elsewhere it's a side column.
+                const usable = tabs.top > innerHeight / 2 ? tabs.top : innerHeight;
+                const orbit = document.getElementById("orbit").getBoundingClientRect();
+                return { top: btn.top, bottom: btn.bottom, usable, titleRight: title.right, orbitLeft: orbit.left, orbitTop: orbit.top, titleBottom: title.bottom };
+            });
+            const where = fonts + " " + w + "x" + h;
+            assert.ok(m.top >= 0 && m.bottom <= m.usable, where + ": button " + Math.round(m.top) + "-" + Math.round(m.bottom) + " vs usable " + Math.round(m.usable));
+            if (w >= 960) assert.ok(m.titleRight <= m.orbitLeft + 1, where + ": the headline stays out of the orbit column");
+            assert.deepEqual(page.errors, []);
+            await page.close();
+        }
+    }
+});
+
+test("phone band: the page name never runs into the band's decoration or counter", async () => {
+    const page = await newPage(browser, { width: 390, height: 844 });
+    await page.route("**/assets/fonts/**", (route) => route.abort());
+    await seed(page, server.base, []);
+    for (const view of ["progress", "practice", "review"]) {
+        await open(page, server.base, view);
+        await page.waitForTimeout(150);
+        const m = await page.evaluate(() => {
+            const word = document.getElementById("bandWord").getBoundingClientRect();
+            const stripes = document.getElementById("bandStripes").getBoundingClientRect();
+            return { wordRight: word.right, stripesLeft: stripes.left, stepShown: getComputedStyle(document.getElementById("bandStep")).display !== "none" };
+        });
+        assert.ok(m.wordRight < m.stripesLeft, view + ": " + Math.round(m.wordRight) + " < " + Math.round(m.stripesLeft));
+        assert.equal(m.stepShown, false, "the step number is said once, in the kicker");
+    }
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("review queue on a phone: start from Review, rate after showing the answer, see when it comes back, move on", async () => {
+    const page = await newPage(browser, { width: 390, height: 844 });
+    await seed(page, server.base, LOG);
+    await open(page, server.base, "review");
+    await page.waitForSelector("#reviewToday:not([hidden])");
+    assert.match(await page.textContent("#reviewToday .rt-title"), /2\s*reviews are due now/);
+    const start = await page.locator('#reviewToday [data-action="queue-start"]').boundingBox();
+    assert.ok(start.y + start.height < 844 - 60, "Start review is in the first screen, above the tab bar: " + start.y);
+    await page.click('#reviewToday [data-action="queue-start"]');
+    await page.waitForFunction(() => window.Shell.current() === "mistake");
+    const first = await page.evaluate(() => window.Shell.param());
+    assert.match(await page.textContent("#queueBar .qb-count"), /1\s*of 2 due/);
+    assert.equal(await page.isDisabled('#mistakeOriginal [data-action="review"][data-q="2"]'), true);
+    await page.click("#mistakeOriginal details.reveal summary");
+    await page.click('#mistakeOriginal [data-action="review"][data-q="2"]');
+    await page.waitForSelector('#queueBar [data-action="queue-next"]');
+    assert.match(await page.textContent("#queueBar .qb-note"), /Forgot: back tomorrow/);
+    assert.match(await page.textContent('#queueBar [data-action="queue-next"]'), /1 left/);
+    // A missed calculus card offers a similar question before moving on.
+    if (first === "err-due-chain") assert.equal(await page.locator('#queueBar [data-action="queue-similar"]').count(), 1);
+    await page.click('#queueBar [data-action="queue-next"]');
+    await page.waitForFunction((id) => window.Shell.current() === "mistake" && window.Shell.param() !== id, first);
+    assert.match(await page.textContent("#queueBar .qb-count"), /2\s*of 2 due/);
+    await page.click("#mistakeOriginal details.reveal summary");
+    await page.click('#mistakeOriginal [data-action="review"][data-q="5"]');
+    await page.waitForSelector('#queueBar [data-action="queue-finish"]');
+    assert.equal(await page.locator('#queueBar [data-action="queue-similar"]').count(), 0, "nothing to fix after Got it");
+    await page.click('#queueBar [data-action="queue-finish"]');
+    await page.waitForFunction(() => window.Shell.current() === "review");
+    assert.match(await page.textContent("#reviewToday"), /Reviewed 2: 1 Got it, 1 Forgot/);
+    assert.match(await page.textContent("#reviewToday .rt-title"), /Nothing is due now/);
+    // SM-2 did the scheduling: both mistakes are out of the core.
+    const due = await page.evaluate(() => errorRecords.filter((r) => window.ReviewSystem.isDue(r.sr)).length);
+    assert.equal(due, 0);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("phone path: a miss, its explanation, a similar question, then the due review", async () => {
+    const page = await newPage(browser, { width: 390, height: 844 });
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#difficultyInput", "medium");
+    await page.selectOption("#questionFormatInput", "5:0");
+    await page.fill("#topicInput", "Chain rule");
+    await page.waitForSelector("#topicFill:not([hidden])");
+    await page.selectOption("#topicFillInput", "only");
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current .check-mcq");
+    // On a phone the question comes first: the page heading steps aside, the source stays.
+    const head = await page.locator("#view-practice > .view-head").boundingBox();
+    assert.ok(head.height <= 1, "the page heading is visually hidden (still read by screen readers)");
+    assert.match(await page.textContent(".set-meta"), /Built-in question bank/);
+    // Miss the first, get the second right.
+    for (let i = 0; i < 2; i++) {
+        await page.waitForFunction((k) => practiceIndex === k, i);
+        const wrong = i === 0;
+        const pick = await page.evaluate((w) => {
+            const id = document.querySelector(".qa-card.is-current").dataset.qid;
+            const q = generatedQuestions.find((x) => x.id === id);
+            const radios = [...document.querySelectorAll(".qa-card.is-current input[type=radio]")];
+            return radios.findIndex((r) => (r.value === q.answer) !== w);
+        }, wrong);
+        await page.locator(".qa-card.is-current input[type=radio]").nth(pick).check();
+        await page.click(".qa-card.is-current .check-mcq");
+        if (wrong) {
+            const fb = await page.textContent(".qa-card.is-current .feedback");
+            assert.match(fb, /^Not quite\. You chose [A-D]; the answer is [A-D]\./);
+            assert.match(fb, /Saved to your review queue/);
+            assert.equal(await page.isVisible(".qa-card.is-current .answer-box"), true);
+        }
+        await page.click(".qa-card.is-current .q-next");
+    }
+    await page.waitForSelector("#completionCard:not([hidden])");
+    // One next step, before the list: a similar question on the miss.
+    const next = page.locator('#completionCard .cc-next [data-action="open-mistake"]');
+    assert.equal((await next.textContent()).trim(), "Practice a similar question");
+    const nextBox = await next.boundingBox();
+    const listBox = await page.locator("#completionCard .cc-sequence").boundingBox();
+    assert.ok(nextBox.y < listBox.y, "the next step comes before the question list");
+    await next.click();
+    await page.waitForFunction(() => window.Shell.current() === "mistake");
+    assert.match(await page.textContent("#queueBar"), /1 review is due now/);
+    // The built-in generator makes a checked chain-rule question.
+    await page.click('#variantDrill [data-action="variant-start"]');
+    await page.waitForFunction(() => variantSession.item && document.querySelector(".variant-card"));
+    const answer = await page.evaluate(() => variantSession.item.answer);
+    for (const radio of await page.locator(".variant-card input[type=radio]").all()) {
+        if ((await radio.getAttribute("value")) === answer) { await radio.check(); break; }
+    }
+    await page.click('[data-action="variant-check"]');
+    await page.waitForSelector(".drill-result .result-strip");
+    // Then the due review, one tap away.
+    await page.click('#queueBar [data-action="queue-start"]');
+    await page.waitForFunction(() => /1\s*of 1 due/.test(document.getElementById("queueBar").textContent));
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("uploads: a retried answer is counted once, and answers queued during an upload are kept", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    const uid = await page.evaluate(() => getOrCreateUserId());
+    const answered = async () => (await (await fetch(server.base + "api/stats?userId=" + uid)).json()).overall.answered;
+
+    // 1. The server stores the answer but the reply is lost: the answer is queued, then
+    //    sent again with the same event id, and the server keeps one row.
+    let lost = false;
+    await page.route("**/api/attempt", async (route) => {
+        if (!lost) { lost = true; await route.fetch(); return route.abort(); }
+        return route.continue();
+    });
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#questionFormatInput", "5:0");
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current .check-mcq");
+    await page.locator(".qa-card.is-current input[type=radio]").first().check();
+    await page.click(".qa-card.is-current .check-mcq");
+    await page.waitForFunction(() => readAttemptQueue().length === 1);
+    assert.equal(await answered(), 1, "stored once on the server already");
+    await page.evaluate(() => flushAttemptQueue());
+    assert.equal(await page.evaluate(() => readAttemptQueue().length), 0);
+    assert.equal(await answered(), 1, "the retry was not counted again");
+    await page.unroute("**/api/attempt");
+
+    // 2. Two answers wait offline; while the upload is under way a third one is queued.
+    await page.evaluate((u) => {
+        const a = (n) => ({ subject: "AP Biology", type: "Multiple Choice", correct: true, ts: new Date().toISOString(), userId: u, source: "generated", eventId: "ev-queued-" + n });
+        localStorage.setItem("studyBoostAttemptQueueV1", JSON.stringify([a(1), a(2)]));
+    }, uid);
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    let held = false;
+    await page.route("**/api/attempt", async (route) => {
+        if (!held) { held = true; await gate; }
+        return route.continue();
+    });
+    const flushing = page.evaluate(() => flushAttemptQueue());
+    await page.waitForFunction(() => attemptFlush !== null);
+    assert.equal(await page.evaluate(() => flushAttemptQueue() === attemptFlush), true, "a second call joins the upload in flight");
+    await page.evaluate((u) => queueAttempt({ subject: "AP Biology", type: "Multiple Choice", correct: false, ts: new Date().toISOString(), userId: u, source: "generated", eventId: "ev-during-upload" }), uid);
+    release();
+    await flushing;
+    assert.deepEqual(await page.evaluate(() => readAttemptQueue().map((a) => a.eventId)), ["ev-during-upload"]);
+    assert.equal(await answered(), 3);
+    await page.evaluate(() => flushAttemptQueue());
+    assert.equal(await answered(), 4);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("a finished set and its result survive a refresh, before and after See results, counted once", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#questionFormatInput", "5:0");
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current .check-mcq");
+    const n = await page.evaluate(() => generatedQuestions.length);
+    for (let i = 0; i < n; i++) {
+        await page.waitForFunction((k) => practiceIndex === k, i);
+        await page.locator(".qa-card.is-current input[type=radio]").first().check();
+        await page.click(".qa-card.is-current .check-mcq");
+        if (i < n - 1) await page.click(".qa-card.is-current .q-next");
+    }
+    const totals = () => page.evaluate(() => ({ xp: localStorage.getItem("studyBoostXpV1"), daily: localStorage.getItem("studyBoostDailyV1"), streak: localStorage.getItem("studyBoostStreakV1") }));
+    const before = await totals();
+    const score = await page.evaluate(() => scoreSummary().correct);
+
+    // 1. Refresh after the last answer, before "See results".
+    await page.waitForTimeout(400);
+    await page.reload();
+    await page.waitForFunction(() => document.getElementById("aiChip").dataset.state !== "checking");
+    await page.waitForSelector(".qa-card.is-current");
+    assert.match(await page.textContent("#quizStatus"), /Restored your finished set/);
+    assert.deepEqual(await totals(), before, "nothing counted again");
+    await page.click('[data-action="show-results"]');
+    await page.waitForSelector("#completionCard:not([hidden])");
+    assert.match(await page.textContent(".cc-score"), new RegExp(score + "\\s*/\\s*" + n));
+
+    // 2. Refresh with the result on screen: the result comes back, still counted once.
+    await page.waitForTimeout(400);
+    await page.reload();
+    await page.waitForFunction(() => document.getElementById("aiChip").dataset.state !== "checking");
+    await page.waitForSelector("#completionCard:not([hidden])");
+    assert.match(await page.textContent(".cc-score"), new RegExp(score + "\\s*/\\s*" + n));
+    assert.deepEqual(await totals(), before, "nothing counted again");
+    // Starting a new set clears it.
+    await page.click('#completionCard [data-action="new-set"]');
+    await page.waitForTimeout(400);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("studyBoostSessionV1") || "{}").set || null), null);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("the Notes excerpt survives a refresh and says when the notes changed since", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "notes");
+    await page.fill("#noteInput", "Glycolysis\n- Splits glucose into two pyruvate\nHappens in the cytoplasm");
+    await page.click("#summaryBtn");
+    await page.waitForSelector("#summaryOutput .key-points li");
+    await page.waitForTimeout(400);
+    await page.reload();
+    await page.waitForSelector("#summaryOutput .key-points li");
+    assert.deepEqual((await page.locator("#summaryOutput .key-points li").allTextContents()).map((t) => t.trim()),
+        ["Glycolysis", "Splits glucose into two pyruvate", "Happens in the cytoplasm"]);
+    assert.match(await page.textContent("#summaryOutput .kicker"), /Offline excerpt/);
+    assert.match(await page.textContent("#summaryStatus"), /Restored from before the refresh/);
+    await page.fill("#noteInput", "Glycolysis\nNet 2 ATP");
+    await page.waitForTimeout(400);
+    await page.reload();
+    await page.waitForSelector("#summaryOutput .key-points li");
+    assert.match(await page.textContent("#summaryStatus"), /Your notes changed since this was made/);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("phone touch targets: formula buttons and orbit dots", async () => {
+    const page = await newPage(browser, { width: 390, height: 844 });
+    await seed(page, server.base, LOG);
+    await open(page, server.base, "notes");
+    const heights = await page.$$eval("button.formula-btn", (bs) => bs.map((b) => b.getBoundingClientRect().height));
+    assert.ok(heights.length && heights.every((h) => h >= 44), "formula buttons: " + heights.join(", "));
+    await open(page, server.base, "review");
+    await page.waitForSelector("#reviewOrbitChart [data-node]");
+    const hits = await page.$$eval("#reviewOrbitChart .ob-hit", (cs) => cs.map((c) => {
+        const r = c.getBoundingClientRect();
+        return { w: r.width, x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }));
+    // Every target is at least 24 px (WCAG 2.2 target size, AA); a dot with room around it
+    // gets about 44 px; neighbouring targets never overlap.
+    assert.ok(hits.every((h) => h.w >= 24), "orbit targets: " + hits.map((h) => Math.round(h.w)).join(", "));
+    assert.ok(hits.some((h) => h.w >= 40), "a dot with room gets a full-size target");
+    for (const a of hits) for (const b of hits) {
+        if (a !== b) assert.ok(Math.hypot(a.x - b.x, a.y - b.y) + 1 >= (a.w + b.w) / 2, "targets do not overlap");
+    }
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("Home: a set in progress comes first, and continues where it stopped", async () => {
+    const page = await newPage(browser);
+    await seed(page, server.base, []);
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.selectOption("#questionFormatInput", "5:0");
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current .check-mcq");
+    for (let i = 0; i < 3; i++) {
+        await page.waitForFunction((k) => practiceIndex === k, i);
+        await page.locator(".qa-card.is-current input[type=radio]").first().check();
+        await page.click(".qa-card.is-current .check-mcq");
+        await page.click(".qa-card.is-current .q-next");
+    }
+    await page.waitForTimeout(400);
+    await page.reload();
+    await page.waitForFunction(() => document.getElementById("aiChip").dataset.state !== "checking");
+    await open(page, server.base, "home");
+    await page.waitForSelector('#nextStep[data-kind="continue"]');
+    assert.equal((await page.textContent("#nextStepBtn")).trim(), "Continue at question 4");
+    assert.match(await page.textContent("#commandFigure"), /3\s*of 5 answered/);
+    await page.click("#nextStepBtn");
+    await page.waitForFunction(() => window.Shell.current() === "practice" && practiceIndex === 3);
     assert.deepEqual(page.errors, []);
     await page.close();
 });

@@ -54,6 +54,11 @@ let resultsShown = false;
 let currentSetMeta = null; // { subject, topic, difficulty, origin: "ai" | "bank" | "review" }
 // Review: one filter for the orbit and the library, the selected mistake, chart or list.
 let reviewFilter = { when: "all", course: "", query: "", sort: "due" };
+// The review queue: due mistakes one at a time on their own page. { ids, rated: { id: {
+// quality, days } } } while it runs; lastQueueSummary is what Review says once it ends.
+let reviewQueue = null;
+let lastQueueSummary = null;
+const RATING_NAME = { 2: "Forgot", 3: "Hard", 5: "Got it" };
 let orbitSelectedId = "";
 let orbitView = "chart";
 // Home: what the main button and the quieter second button do right now.
@@ -64,6 +69,11 @@ const SESSION_KEY = "studyBoostSessionV1";
 const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 let sessionTimer = 0;
 let restoringSession = false;
+// What a finished set earned ({ streak, setXp, daily }), kept with the session so a refresh
+// can show the same result without counting anything again.
+let completedStats = null;
+// The last Notes summary or excerpt ({ source, text, points, notes }), kept with the session.
+let lastSummary = null;
 let lastNotesContext = "";
 let serverHealthy = false;
 let healthReady = false;
@@ -625,6 +635,7 @@ async function fetchHealth() {
     }
     loadStats();
     renderFirstVisitCopy(); // the connection decides what the first-visit Home can promise
+    if (lastSummary && summaryOutput.querySelector(".key-points")) drawSummary(lastSummary);
     updateNotesContextUI();
     updateBankHint();
     if (window.Shell && window.Shell.current() === "mistake") renderMistakeDetail(window.Shell.param());
@@ -800,7 +811,7 @@ function summarizeNotesDemo(raw) {
     const listHtml = keyPoints.map(function (p) {
         return "<li>" + escapeHtml(p) + "</li>";
     }).join("");
-    return { simplifiedSummary: summaryText || normalized, keyPointsHtml: listHtml };
+    return { simplifiedSummary: summaryText || normalized, keyPointsHtml: listHtml, keyPoints: keyPoints };
 }
 
 // Offline regeneration variety (P1): remembers recently-served bank indices per
@@ -937,9 +948,20 @@ function createMockQuestions(topic, apSubjectId, difficulty, expected, onlyMatch
 // Before generating offline: what the built-in bank actually has for this course and
 // level, and how much of it is about the typed topic, so the format and topic choices
 // don't promise more than the set will hold.
+// "only" is honoured only while the choice is on screen (offline, with a topic typed).
 function topicFillValue() {
     const el = document.getElementById("topicFillInput");
-    return el ? el.value : "fill";
+    const wrap = document.getElementById("topicFill");
+    return el && !(wrap && wrap.hidden) ? el.value : "fill";
+}
+
+// The one place a new set replaces the current one. Callers only get here once the new
+// questions exist, so a failed or empty request leaves the student's set as it was.
+function installSet(questions, meta) {
+    generatedQuestions = questions;
+    quizResults = {};
+    currentSetMeta = meta;
+    renderQuestions();
 }
 
 // Skill suggestions for courses whose questions are tagged (AP Calculus AB): picking one
@@ -1131,7 +1153,10 @@ function scoreBannerInner() {
             ' aria-label="' + label + '"' + (current ? ' aria-current="step"' : "") + ">" + (i + 1) + "</button>";
     }).join("");
     const complete = isSetComplete();
-    return '<p class="set-meta">' + escapeHtml(setMetaText()) + "</p>" +
+    const held = currentSetMeta && currentSetMeta.heldBack;
+    return '<p class="set-meta">' + escapeHtml(setMetaText()) +
+        (held ? '<a class="set-heldback" href="#review">' + held + (held === 1 ? " due review on another topic" : " due reviews on other topics") +
+            " · open Review</a>" : "") + "</p>" +
         '<div class="set-cells" role="group" aria-label="Questions in this set">' + cells + "</div>" +
         '<span class="score-text">' + s.correct + " correct of " + s.answered + " graded · " + total + " in this set.</span>" +
         '<span class="set-tools">' +
@@ -1151,6 +1176,7 @@ function updateScoreBanner() {
 }
 
 function renderQuestions() {
+    if (!restoringSession) completedStats = null;
     resultsShown = false;
     practiceSetupOpen = false;
     practiceIndex = 0;
@@ -1649,7 +1675,7 @@ function maybeShowCompletion() {
     enterCompletionMode();
 }
 
-function enterCompletionMode() {
+function enterCompletionMode(savedStats) {
     if (document.getElementById("completionCard")) return;  // already built for this set
     const total = generatedQuestions.length;
     const s = scoreSummary();
@@ -1659,16 +1685,27 @@ function enterCompletionMode() {
         const r = quizResults[q.id];
         return q.source !== "review" && r && r.done && !r.correct;
     }).length;
-    const streak = bumpStreak();
-
-    // P1: set-completion XP bonus (+20), then read totals for display
-    let setXp = 20;
-    generatedQuestions.forEach(function (q) {
-        const r = quizResults[q.id];
-        if (r && r.done) setXp += (r.correct ? 10 : 4) + (q.source === "review" ? 5 : 0);
-    });
-    addXp(20);
-    const daily = bumpDaily({ xp: 20 });
+    // The bookkeeping runs once, when the last answer is graded. A set restored after a
+    // refresh brings the numbers it earned then (savedStats) and counts nothing again.
+    let streak, setXp, daily;
+    if (savedStats) {
+        streak = savedStats.streak;
+        setXp = savedStats.setXp;
+        daily = savedStats.daily;
+    } else {
+        streak = bumpStreak();
+        // P1: set-completion XP bonus (+20), then read totals for display
+        setXp = 20;
+        generatedQuestions.forEach(function (q) {
+            const r = quizResults[q.id];
+            if (r && r.done) setXp += (r.correct ? 10 : 4) + (q.source === "review" ? 5 : 0);
+        });
+        addXp(20);
+        const d = bumpDaily({ xp: 20 });
+        daily = { questions: d.questions, reviews: d.reviews, xp: d.xp };
+        completedStats = { streak: streak, setXp: setXp, daily: daily };
+        saveSession();
+    }
     const lvl = levelInfo(getXp());
 
     const card = document.createElement("section");
@@ -1692,6 +1729,57 @@ function enterCompletionMode() {
     html += '<span class="bar-track"><span class="bar-fill" style="width:' + progress.pct + '%"></span></span>';
     html += "</div>";
 
+    // Learning first: what changed for each skill, and what was saved for review.
+    html += '<div class="cc-detail">';
+    html += masteryGrowthHtml(); // per-skill evidence, never a course-level claim
+    html += "<p>" + (wrong === 0
+        ? "Perfect set — nothing to review."
+        : added + (added === 1 ? " question" : " questions") + " added to your review queue.") + "</p>";
+    html += "</div>";
+
+    // What to do about the ones that did not land.
+    const missed = [];
+    generatedQuestions.forEach(function (q, i) {
+        const r = quizResults[q.id];
+        if (r && r.done && !r.correct) missed.push({ q: q, i: i });
+    });
+    const missedRecord = function (m) {
+        return m.q.errId ? findErrorRecord(m.q.errId)
+            : errorRecords.find(function (r) { return r.sourceId === m.q.id; });
+    };
+
+    // One next step, chosen from the student's own data: a similar question on something
+    // just missed (when one can be made), else the reviews due now, else another set.
+    const similarTo = missed.map(missedRecord).find(function (rec) { return rec && canPracticeSimilar(rec); });
+    const dueNow = window.ReviewOrbit ? window.ReviewOrbit.queueOrder(reviewItems()).length : 0;
+    html += '<div class="actions cc-next">';
+    if (similarTo) {
+        html += '<button type="button" data-action="open-mistake" data-id="' + escapeHtml(similarTo.id) + '">Practice a similar question</button>';
+        html += '<p class="cc-next-why">On ' + escapeHtml(similarTo.topic || "a question you just missed") + ", a new question on the same idea.</p>";
+    } else if (dueNow) {
+        html += '<button type="button" data-action="queue-start">Review due mistakes (' + dueNow + ")</button>";
+        html += '<p class="cc-next-why">' + (wrong ? "Including the ones you just missed. " : "") + "One at a time: recall, show the answer, rate.</p>";
+    } else {
+        html += '<button type="button" data-action="new-set">Start a new set</button>';
+    }
+    html += "</div>";
+
+    if (missed.length) {
+        html += '<div class="cc-missed"><h4>Worth another look</h4><ul class="cc-missed-list">';
+        missed.forEach(function (m) {
+            const rec = missedRecord(m);
+            html += "<li>";
+            html += '<span class="cc-missed-q"><b>' + (m.i + 1) + ".</b> " + escapeHtml(snippetOf(m.q.question, 110)) + "</span>";
+            html += '<span class="cc-missed-actions">';
+            html += '<button type="button" class="outline small" data-goto="' + m.i + '">See the answer</button>';
+            if (rec && canPracticeSimilar(rec) && rec !== similarTo) {
+                html += '<button type="button" class="small" data-action="open-mistake" data-id="' + escapeHtml(rec.id) + '">Practice similar</button>';
+            }
+            html += "</span></li>";
+        });
+        html += "</ul></div>";
+    }
+
     // The sequence: every question in order with its result. Plain words, never a red X.
     html += '<ol class="cc-sequence" aria-label="Your answers, in order">';
     generatedQuestions.forEach(function (q, i) {
@@ -1704,49 +1792,13 @@ function enterCompletionMode() {
     });
     html += "</ol>";
 
-    html += '<div class="cc-detail">';
-    html += masteryGrowthHtml(); // v2 #2: the growth signal, at the motivation peak
-    html += "<p>" + (wrong === 0
-        ? "Perfect set — nothing to review."
-        : added + (added === 1 ? " question" : " questions") + " added to your review queue.") + "</p>";
-    html += "<p>Today: " + daily.questions + " questions · " + daily.reviews + " reviews · +" + daily.xp + " XP</p>";
-    html += "<p>Streak: Day " + streak + "</p>";
-    html += "</div>";
-
-    // What to do about the ones that did not land: see the answer again, or practise
-    // new questions built from that exact mistake.
-    const missed = [];
-    generatedQuestions.forEach(function (q, i) {
-        const r = quizResults[q.id];
-        if (r && r.done && !r.correct) missed.push({ q: q, i: i });
-    });
-    if (missed.length) {
-        html += '<div class="cc-missed"><h4>Worth another look</h4><ul class="cc-missed-list">';
-        missed.forEach(function (m) {
-            const rec = m.q.errId ? findErrorRecord(m.q.errId)
-                : errorRecords.find(function (r) { return r.sourceId === m.q.id; });
-            html += "<li>";
-            html += '<span class="cc-missed-q"><b>' + (m.i + 1) + ".</b> " + escapeHtml(snippetOf(m.q.question, 110)) + "</span>";
-            html += '<span class="cc-missed-actions">';
-            html += '<button type="button" class="outline small" data-goto="' + m.i + '">See the answer</button>';
-            if (rec && canPracticeSimilar(rec)) {
-                html += '<button type="button" class="small" data-action="open-mistake" data-id="' + escapeHtml(rec.id) + '">Practice similar</button>';
-            }
-            html += "</span></li>";
-        });
-        html += "</ul></div>";
-    }
-
     html += '<div class="actions cc-actions">';
-    if (wrong > 0) {
-        html += '<button type="button" data-action="start-review">Review My Mistakes</button>';
-    }
-    // Close the loop: an obvious "do it again" next step. Primary when the set was
-    // perfect (no Review CTA to compete with), secondary otherwise.
-    html += '<button type="button" data-action="new-set"' + (wrong > 0 ? ' class="secondary"' : "") + ">Start a new set</button>";
+    if (similarTo && dueNow) html += '<button type="button" class="secondary" data-action="queue-start">Review due mistakes (' + dueNow + ")</button>";
+    if (similarTo || dueNow) html += '<button type="button" class="secondary" data-action="new-set">Start a new set</button>';
     html += '<button type="button" class="secondary" data-action="view-progress">View Progress</button>';
     html += '<button type="button" class="outline" data-action="show-questions">Show the questions</button>';
     html += "</div>";
+    html += '<p class="cc-today">Today: ' + daily.questions + " questions · " + daily.reviews + " reviews · +" + daily.xp + " XP · Streak: Day " + streak + "</p>";
     // Growth loop: sharing sits on its own line so it never competes with the
     // learning actions above it, but is still offered at the motivation peak.
     lastShareText = buildShareText({
@@ -1834,6 +1886,21 @@ function gradeToQuality(correct) {
     return correct ? Q.got : Q.forgot;
 }
 
+// Feedback after a check, in layers: the result, what was picked against the answer, where
+// the reasoning is, and what happens to the question next. Only facts the app has.
+function mcqFeedbackText(item, ok) {
+    if (ok) return "Correct.";
+    const picked = optionLetter(item.userAnswer);
+    const answer = optionLetter(item.answer);
+    const which = picked && answer ? "You chose " + picked + "; the answer is " + answer + "."
+        : "The correct answer is marked.";
+    const why = item.explanation ? " The explanation below shows the step that matters." : "";
+    const next = item.source === "review"
+        ? " It comes back sooner on your review schedule."
+        : " Saved to your review queue.";
+    return "Not quite. " + which + why + next;
+}
+
 // R1: close the adaptive loop after a grade.
 //  - a resurfaced REVIEW item feeds its result back into SM-2 (reschedule);
 //  - an incorrect GENERATED item is auto-captured into the review pipeline.
@@ -1882,6 +1949,10 @@ function handleQuizClick(ev) {
     }
     if (saveAction === "open-mistake" && saveId) {
         goToView("mistake/" + saveId);
+        return;
+    }
+    if (saveAction === "queue-start") {
+        startReviewQueue();
         return;
     }
 
@@ -1958,8 +2029,7 @@ function handleQuizClick(ev) {
         quizResults[qid] = { done: true, correct: ok };
         fb.hidden = false;
         fb.className = ok ? "feedback ok" : "feedback bad";
-        fb.textContent = ok ? "Correct." : "Not quite. The correct answer is marked" +
-            (item.explanation ? ", and the explanation is below." : ".");
+        fb.textContent = mcqFeedbackText(item, ok);
         markMcqOptions(card, item);
         revealAnswer(card, qid);
         recordAttempt(item, ok);
@@ -2060,8 +2130,18 @@ function writeAttemptQueue(list) {
 
 function queueAttempt(payload) {
     const list = readAttemptQueue();
+    if (payload.eventId && list.some(function (a) { return a.eventId === payload.eventId; })) return;
     list.push(payload);
     writeAttemptQueue(list);
+}
+
+// A random id per graded answer. The server stores one row per id, so an upload that is
+// retried because its reply was lost is not counted twice. No personal data.
+function newEventId() {
+    try {
+        if (window.crypto && typeof window.crypto.randomUUID === "function") return "ev-" + window.crypto.randomUUID();
+    } catch (e) { /* fall through */ }
+    return "ev-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
 }
 
 // Beta instrumentation: an opaque, anonymous per-browser id (no PII). Generated
@@ -2149,9 +2229,20 @@ function importUserData(file) {
         // Replace (not merge) — clear, predictable; the main use is restoring lost data.
         const hasProgress = Object.prototype.hasOwnProperty.call(parsed.data, XP_KEY) ||
             Object.prototype.hasOwnProperty.call(parsed.data, STREAK_KEY);
-        const restoreMessage = "It replaces the mistake log" +
+        // Say what is in the file and what it replaces, before anything changes.
+        let inBackup = null;
+        try {
+            const list = JSON.parse(parsed.data.studyBoostMistakesV2 || "null");
+            if (Array.isArray(list)) inBackup = list.length;
+        } catch (e) { /* unreadable list: counted as unknown */ }
+        const made = parsed.exportedAt && !isNaN(new Date(parsed.exportedAt).getTime())
+            ? new Date(parsed.exportedAt).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "";
+        const plural = function (n) { return n + (n === 1 ? " saved mistake" : " saved mistakes"); };
+        const restoreMessage = "Backup" + (made ? " from " + made : "") +
+            (inBackup === null ? "." : ": " + plural(inBackup) + ".") +
+            " It replaces the mistake log (" + plural(errorRecords.length) + " here now)" +
             (hasProgress ? ", topic mastery, XP, and streak" : " and topic mastery") +
-            " currently stored in this browser.";
+            " in this browser. Your Notes box, the practice set in progress, and answers waiting to upload stay as they are.";
         const confirmed = window.Shell
             ? await window.Shell.confirm({ title: "Restore this backup?", body: restoreMessage, confirmLabel: "Restore backup" })
             : window.confirm("Restore this backup? " + restoreMessage);
@@ -2201,6 +2292,7 @@ function recordAttempt(item, correct) {
         // Beta: anonymous user + R1 provenance (review vs newly generated). The
         // server whitelists source and ignores unknown values.
         userId: getOrCreateUserId(),
+        eventId: newEventId(),
         // new question, scheduled review of a saved mistake, or a similar question built from one
         source: item.source === "review" ? "review" : (item.source === "variant" ? "variant" : "generated")
     };
@@ -2247,22 +2339,35 @@ async function sendAttempt(payload) {
     }
 }
 
-async function flushAttemptQueue() {
-    if (window.location.protocol === "file:" || !serverHealthy) return;
-    let list = readAttemptQueue();
-    if (!list.length) return;
+// Uploads answers saved while offline. One upload runs at a time (a second call joins it),
+// and each answer leaves the queue only once the server has it, read fresh from storage, so
+// an answer queued during the upload is never overwritten by an older copy of the queue.
+let attemptFlush = null;
+function flushAttemptQueue() {
+    if (attemptFlush) return attemptFlush;
+    attemptFlush = flushAttemptQueueOnce().finally(function () { attemptFlush = null; });
+    return attemptFlush;
+}
 
-    const remaining = [];
+async function flushAttemptQueueOnce() {
+    if (window.location.protocol === "file:" || !serverHealthy) return;
+    const list = readAttemptQueue();
+    if (!list.length) return;
+    // Answers queued by older versions have no id yet: give them one before the first try.
+    let named = false;
+    list.forEach(function (a) {
+        if (a && !a.eventId) { a.eventId = newEventId(); named = true; }
+    });
+    if (named) writeAttemptQueue(list);
     for (let i = 0; i < list.length; i++) {
         try {
             await postAttempt(list[i]);
         } catch (e) {
-            // stop on first failure; keep this item and the rest for next time
-            remaining.push.apply(remaining, list.slice(i));
-            break;
+            return; // stop at the first failure; this answer and the rest stay queued
         }
+        const sent = list[i].eventId;
+        writeAttemptQueue(readAttemptQueue().filter(function (a) { return a.eventId !== sent; }));
     }
-    writeAttemptQueue(remaining);
 }
 
 function computeLocalStats(queue) {
@@ -2637,10 +2742,21 @@ async function generateQuiz() {
     const notesCtx = ctx.text;
 
     // R1: lead the set with due review items (additive, cap 3), then fill with new.
-    const reviewPlan = window.PracticeSelection
-        ? window.PracticeSelection.planPracticeSelection({ reviews: errorRecords, subject: subjectLabel })
-        : { selected: [] };
+    // A strict "only this topic" set takes only the due reviews on that topic; the others
+    // stay in Review and the set bar points to them.
+    const PS = window.PracticeSelection;
+    const strictTopic = !!topic && topicFillValue() === "only";
+    const reviewPlan = PS
+        ? PS.planPracticeSelection({
+            reviews: errorRecords, subject: subjectLabel,
+            keep: strictTopic ? function (r) { return PS.recordMatchesRequest(r, topic, apId); } : null
+        })
+        : { selected: [], metadata: {} };
     const reviewItems = reviewPlan.selected;
+    const heldBack = (reviewPlan.metadata && reviewPlan.metadata.heldBack) || 0;
+    const heldBackText = heldBack
+        ? " " + heldBack + (heldBack === 1 ? " due review on another topic is" : " due reviews on other topics are") + " waiting in Review."
+        : "";
     const finalizeSet = function (newItems) {
         // R2: stamp topic identity so graded outcomes can feed topic-level mastery.
         const topicKey = window.MasteryModel ? window.MasteryModel.normalizeTopicKey(topic) : "";
@@ -2671,14 +2787,29 @@ async function generateQuiz() {
         return;
     }
 
+    // A new set replaces the one in progress, so say so first.
+    if (generatedQuestions.length && !isSetComplete()) {
+        const done = scoreSummary().answered;
+        const message = "Your current set has " + done + " of " + generatedQuestions.length +
+            " answered. Answers you already checked stay saved; the rest of that set will be replaced.";
+        const ok = window.Shell
+            ? await window.Shell.confirm({ title: "Start a new set?", body: message, confirmLabel: "Start new set" })
+            : window.confirm("Start a new set? " + message);
+        if (!ok) {
+            quizStatus.textContent = "Kept your current set.";
+            return;
+        }
+    }
+
     const ctxLabel =
         ctx.source === "textarea" ? "your notes" :
         ctx.source === "summary" ? "your last summary" :
         "the course and topic";
     // Only the AI reads notes; offline the set comes from the built-in bank.
     quizStatus.textContent = canUseLiveAI() ? "Generating questions from " + ctxLabel + "..." : "Picking questions from the built-in bank...";
-    quizResults = {};
+    // Nothing is reset here: installSet swaps sets only once the new questions exist.
     // Skill levels before grading are snapshotted in renderQuestions (snapshotSetMastery).
+    const keptNote = generatedQuestions.length ? " Your current set is unchanged." : "";
 
 
     const tryDemo = async function (reason) {
@@ -2689,51 +2820,51 @@ async function generateQuiz() {
             try { loaded = await ensureQuestionBank(); } finally { quizBtn.removeAttribute("aria-busy"); }
         }
         if (!loaded) {
-            quizStatus.textContent = reason + " The built-in question bank didn't load. Check your connection, then try again.";
+            quizStatus.textContent = reason + " The built-in question bank didn't load. Check your connection, then try again." + keptNote;
             return;
         }
-        const onlyMatching = !!topic && topicFillValue() === "only";
+        const onlyMatching = strictTopic;
         const demo = createMockQuestions(topic, apId, difficulty, expected, onlyMatching);
         if (demo && !demo.length && onlyMatching) {
-            generatedQuestions = [];
-            currentSetMeta = null;
-            renderQuestions();
+            if (reviewItems.length) {
+                installSet(reviewItems.slice(), { subject: subjectLabel, topic: topic, difficulty: "", origin: "review", heldBack: heldBack });
+                quizStatus.textContent = "No new built-in " + subjectLabel + " questions at this level are about “" + topic +
+                    "”, so this set is your " + reviewItems.length + " due " + (reviewItems.length === 1 ? "review" : "reviews") + " on it." + heldBackText;
+                return;
+            }
             quizStatus.textContent = "No built-in " + subjectLabel + " questions at this level are about “" + topic +
-                "”. Choose “Fill with other course questions”, another level, or another topic.";
+                "”. Choose “Fill the set with other questions from the course”, another level, or another topic." + keptNote;
             return;
         }
         if (!demo || !demo.length) {
             if (reviewItems.length) {
-                generatedQuestions = reviewItems.slice();
-                currentSetMeta = { subject: subjectLabel, topic: topic, difficulty: "", origin: "review" };
-                renderQuestions();
+                installSet(reviewItems.slice(), { subject: subjectLabel, topic: topic, difficulty: "", origin: "review", heldBack: heldBack });
                 quizStatus.textContent = reason + " There's no built-in bank for " + subjectLabel +
-                    " — showing " + reviewItems.length + " review(s) due instead.";
+                    " — showing " + reviewItems.length + " review(s) due instead." + heldBackText;
             } else {
-                generatedQuestions = [];
-                renderQuestions();
                 quizStatus.textContent = reason + " There's no built-in bank for " + subjectLabel +
                     " yet — add an API key for AI questions, or try a course like " +
-                    "AP Calculus AB or AP Biology.";
+                    "AP Calculus AB or AP Biology." + keptNote;
             }
             return;
         }
         const onTopic = demo.filter(function (q) { return q.onTopic; }).length;
         const skillName = demo.requestedSkill ? demo.requestedSkill.name : topic;
-        generatedQuestions = finalizeSet(demo);
-        const fresh = generatedQuestions.filter(function (q) { return q.source !== "review"; });
+        const set = finalizeSet(demo);
+        const fresh = set.filter(function (q) { return q.source !== "review"; });
         const otherSkills = fresh.filter(function (q) { return !q.onTopic && q.topic; }).length;
-        currentSetMeta = {
+        installSet(set, {
             subject: subjectLabel, topic: onTopic ? skillName : "", difficulty: difficulty, origin: "bank",
-            requestedTopic: topic, onTopic: onTopic, otherSkills: otherSkills, general: demo.length - onTopic - otherSkills
-        };
-        renderQuestions();
+            requestedTopic: topic, onTopic: onTopic, otherSkills: otherSkills, general: demo.length - onTopic - otherSkills,
+            heldBack: heldBack
+        });
         const demoNew = demo.length;
         const asked = expected.mcq + expected.sa;
         quizStatus.textContent = reason + " Showing " + demoNew + " new from the built-in bank" +
             (reviewItems.length ? " + " + reviewItems.length + " due review." : ".") +
             (demoNew < asked ? " The bank has " + demoNew + " at this level for this format, not " + asked + "." : "") +
             (topic ? " " + topicCoverageText(skillName, subjectLabel, onTopic, otherSkills, demoNew - onTopic - otherSkills) : "") +
+            heldBackText +
             (notesCtx ? " Built-in questions don't use your notes." : "");
     };
 
@@ -2758,31 +2889,30 @@ async function generateQuiz() {
         quizStatus.textContent = "The AI is taking longer than usual — hang tight; it'll fall back to the built-in question bank if it can't finish.";
     }, 8000);
     try {
+        // A local copy: the student's current set stays in place until this one passes.
         let aiQuestions = await generateQuizWithAI(topic, difficulty, expected, apId, notesCtx);
-        generatedQuestions = normalizeAIQuestions(aiQuestions);
+        let aiSet = normalizeAIQuestions(aiQuestions);
 
-        if (!generatedQuestions.length) {
+        if (!aiSet.length) {
             throw new Error("Empty AI result.");
         }
 
-        if (isQuizQualityAcceptable(generatedQuestions, topic || subjectLabel, expected)) {
+        if (isQuizQualityAcceptable(aiSet, topic || subjectLabel, expected)) {
             recordAiResult("quiz", "ok");
         } else {
             quizStatus.textContent = "Questions were too generic — trying again...";
             aiQuestions = await generateQuizWithAI(topic, difficulty, expected, apId, notesCtx);
-            generatedQuestions = normalizeAIQuestions(aiQuestions);
-            if (!generatedQuestions.length || !isQuizQualityAcceptable(generatedQuestions, topic || subjectLabel, expected)) {
+            aiSet = normalizeAIQuestions(aiQuestions);
+            if (!aiSet.length || !isQuizQualityAcceptable(aiSet, topic || subjectLabel, expected)) {
                 throw new Error("Quality check failed.");
             }
             recordAiResult("quiz", "repaired");
         }
 
-        generatedQuestions = finalizeSet(generatedQuestions);
-        currentSetMeta = { subject: subjectLabel, topic: topic, difficulty: difficulty, origin: "ai" };
-        renderQuestions();
+        installSet(finalizeSet(aiSet), { subject: subjectLabel, topic: topic, difficulty: difficulty, origin: "ai", heldBack: heldBack });
         const aiNew = generatedQuestions.filter(function (q) { return q.source !== "review"; }).length;
         quizStatus.textContent = "Questions ready — " + aiNew + " new from " + ctxLabel +
-            (reviewItems.length ? " + " + reviewItems.length + " due review." : ".");
+            (reviewItems.length ? " + " + reviewItems.length + " due review." : ".") + heldBackText;
     } catch (err) {
         console.error("AI quiz generation failed:", err); // debug detail stays out of the UI
         recordAiResult("quiz", "failed");
@@ -3035,6 +3165,17 @@ function orbitSvg(items, opts) {
     const order = {};
     RO.sortItems(items, "due").forEach(function (it, i) { order[it.id] = i; });
     const nodes = L.nodes.slice().sort(function (a, b) { return order[a.item.id] - order[b.item.id]; });
+    // Tap targets: up to 28 chart units (about 44 px at phone size) around each dot, but
+    // never past halfway to the nearest other dot, so neighbouring targets don't overlap.
+    // In a dense chart the List view is the easier way in.
+    const hitR = {};
+    nodes.forEach(function (n) {
+        let nearest = Infinity;
+        nodes.forEach(function (m) {
+            if (m !== n) nearest = Math.min(nearest, Math.hypot(m.x - n.x, m.y - n.y));
+        });
+        hitR[n.item.id] = Math.max(L.dot + 3, Math.min(28, nearest / 2));
+    });
     nodes.forEach(function (n) {
         const it = n.item;
         const state = it.due ? "due" : it.status;
@@ -3045,7 +3186,8 @@ function orbitSvg(items, opts) {
         if (opts.interactive) {
             h += '<g class="' + cls + '" data-node="' + escapeHtml(it.id) + '" role="button" tabindex="' + (it.id === sel ? 0 : -1) +
                 '" aria-pressed="' + (it.id === sel) + '" aria-label="' + escapeHtml(nodeLabel(it)) + '">' +
-                '<circle class="ob-hit" cx="' + x + '" cy="' + y + '" r="' + Math.max(L.dot + 7, 12).toFixed(1) + '"/>' +
+                '<circle class="ob-hit" cx="' + x + '" cy="' + y + '" r="' + hitR[it.id].toFixed(1) + '"/>' +
+                '<circle class="ob-halo" cx="' + x + '" cy="' + y + '" r="' + Math.max(L.dot + 7, 12).toFixed(1) + '"/>' +
                 '<circle class="ob-dot" cx="' + x + '" cy="' + y + '" r="' + L.dot.toFixed(1) + '"/></g>';
         } else {
             h += '<circle class="ob-dot ' + cls + '" cx="' + x + '" cy="' + y + '" r="' + L.dot.toFixed(1) + '"/>';
@@ -3106,6 +3248,7 @@ function renderReviewOrbit(items) {
     const listEl = document.getElementById("reviewOrbitList");
     const legend = document.getElementById("orbitLegend");
     if (!RO || !chartEl || !listEl) return;
+    renderReviewToday(items);
     // Keep a selection: the soonest-due match, unless the student picked one that still exists.
     if (!items.some(function (it) { return it.id === orbitSelectedId; })) {
         const visible = RO.sortItems(items.filter(function (it) { return RO.matches(it, reviewFilter); }), "due");
@@ -3295,6 +3438,34 @@ function renderSummary(summaryText, listHtml, source) {
     typesetMath(summaryOutput);
 }
 
+// The summary or excerpt is kept with the session (text only, from the student's own notes
+// or the AI's reply), so a refresh shows it again with the notes it was made from.
+function rememberSummary(source, text, points) {
+    lastSummary = {
+        source: source === "ai" ? "ai" : "offline",
+        text: String(text || ""),
+        points: (points || []).map(function (p) { return String(p); }),
+        notes: noteInput.value || ""
+    };
+    saveSession();
+}
+
+function drawSummary(sm) {
+    const listHtml = sm.points.map(function (pt) { return "<li>" + escapeHtml(pt) + "</li>"; }).join("");
+    renderSummary(sm.text, listHtml, sm.source);
+}
+
+function restoreSummary(sm) {
+    if (!sm || !Array.isArray(sm.points) || typeof sm.text !== "string") return;
+    lastSummary = sm;
+    drawSummary(sm);
+    lastNotesContext = sm.source === "ai" ? sm.text + "\n" + sm.points.join("\n") : sanitizeText(sm.notes || "");
+    updateNotesContextUI();
+    summaryStatus.textContent = (noteInput.value || "") === (sm.notes || "")
+        ? "Restored from before the refresh."
+        : "Your notes changed since this was made. Press the button again to update it.";
+}
+
 summaryOutput.addEventListener("click", function (ev) {
     const btn = ev.target instanceof Element ? ev.target.closest('[data-action="practice-notes"]') : null;
     if (btn) goToPracticeSetup();
@@ -3319,6 +3490,7 @@ summaryBtn.addEventListener("click", async function () {
         const demo = summarizeNotesDemo(noteInput.value);
         renderSummary(demo ? demo.simplifiedSummary : raw, demo ? demo.keyPointsHtml : "", "offline");
         lastNotesContext = raw;
+        rememberSummary("offline", demo ? demo.simplifiedSummary : raw, demo ? demo.keyPoints : []);
         summaryStatus.textContent = serverHealthy
             ? "Offline excerpt: AI summaries need the AI connection (Setup → AI connection)."
             : "Offline excerpt: start the local server to enable AI.";
@@ -3335,6 +3507,7 @@ summaryBtn.addEventListener("click", async function () {
         }).join("");
         renderSummary(json.simplifiedSummary, listHtml, "ai");
         lastNotesContext = json.simplifiedSummary + "\n" + (json.keyPoints || []).join("\n");
+        rememberSummary("ai", json.simplifiedSummary, json.keyPoints || []);
         summaryStatus.textContent = "Summary ready — your practice questions can now use these notes.";
         updateNotesContextUI();
     } catch (err) {
@@ -3343,6 +3516,7 @@ summaryBtn.addEventListener("click", async function () {
         const demo = summarizeNotesDemo(noteInput.value);
         renderSummary(demo ? demo.simplifiedSummary : raw, demo ? demo.keyPointsHtml : "", "offline");
         lastNotesContext = raw;
+        rememberSummary("offline", demo ? demo.simplifiedSummary : raw, demo ? demo.keyPoints : []);
         updateNotesContextUI();
     } finally {
         setAIControlsBusy(false);
@@ -4153,6 +4327,7 @@ function renderVariantResult(record, r) {
 
 function renderMistakeDetail(errId) {
     if (!mistakeOriginalEl || !window.VariantPractice) return;
+    renderQueueBar(errId);
     if (variantSession.errId !== errId) {
         variantSession = { errId: errId, item: null, answered: false, busy: false, retryAt: 0, unavailable: "" };
     }
@@ -4201,11 +4376,182 @@ function handleMistakePageClick(ev) {
         goToView("mistake/" + t.getAttribute("data-id"));
     } else if (action === "review") {
         const id = t.getAttribute("data-id");
-        rateMistake(id, parseInt(t.getAttribute("data-q"), 10));
+        const quality = parseInt(t.getAttribute("data-q"), 10);
+        rateMistake(id, quality);
         const record = findErrorRecord(id);
         if (record) renderMistakeOriginal(record);
         variantStatusEl.textContent = errorStatus.textContent;
+        if (reviewQueue && reviewQueue.ids.indexOf(id) !== -1 && record && window.ReviewSystem) {
+            reviewQueue.rated[id] = { quality: quality, days: Math.max(0, window.ReviewSystem.daysUntilDue(record.sr)) };
+            renderQueueBar(id);
+            const next = document.querySelector('#queueBar [data-action="queue-next"], #queueBar [data-action="queue-finish"]');
+            if (next) next.focus({ preventScroll: false });
+        }
+    } else if (action === "queue-next") {
+        const pos = reviewQueue ? reviewQueue.ids.indexOf(variantSession.errId) : -1;
+        if (pos !== -1 && pos + 1 < reviewQueue.ids.length) openQueueItem(reviewQueue.ids[pos + 1]);
+    } else if (action === "queue-finish" || action === "queue-end") {
+        finishReviewQueue();
+    } else if (action === "queue-start") {
+        startReviewQueue();
+    } else if (action === "back-to-set") {
+        const open = firstOpenIndex();
+        goToView("practice");
+        if (open >= 0) showQuestion(open, true);
+    } else if (action === "queue-similar") {
+        const drill = document.getElementById("variantDrill");
+        if (drill) drill.scrollIntoView({ behavior: motionBehavior(), block: "start" });
+        startVariant();
     }
+}
+
+(function wireReviewToday() {
+    const el = document.getElementById("reviewToday");
+    if (!el) return;
+    el.addEventListener("click", function (ev) {
+        const t = ev.target instanceof Element ? ev.target.closest('[data-action="queue-start"]') : null;
+        if (t) startReviewQueue();
+    });
+}());
+
+// --- The review queue -------------------------------------------------------------------
+// Due mistakes, one at a time, most overdue first: recall, show the answer, rate, and the
+// bar says when it comes back and offers the next one (or a similar question first, after
+// Forgot or Hard). SM-2 still does all the scheduling; the queue only sets the order.
+function startReviewQueue() {
+    const RO = window.ReviewOrbit;
+    const ids = RO ? RO.queueOrder(reviewItems()).map(function (it) { return it.id; })
+        .filter(function (id) { return !sessionReviewedErrIds.has(id); }) : [];
+    if (!ids.length) {
+        errorStatus.textContent = "Nothing is due for review right now.";
+        goToView("review");
+        return;
+    }
+    reviewQueue = { ids: ids, rated: {} };
+    lastQueueSummary = null;
+    openQueueItem(ids[0]);
+}
+
+// Go to a mistake in the queue. Already on its page (the address would not change), so
+// redraw it in place instead.
+function openQueueItem(id) {
+    if (window.Shell && window.Shell.current() === "mistake" && window.Shell.param() === id) {
+        renderMistakeDetail(id);
+        const bar = document.getElementById("queueBar");
+        if (bar) bar.scrollIntoView({ behavior: motionBehavior(), block: "start" });
+        return;
+    }
+    goToView("mistake/" + id);
+}
+
+function finishReviewQueue() {
+    if (reviewQueue) {
+        const rated = Object.keys(reviewQueue.rated).map(function (id) { return reviewQueue.rated[id]; });
+        lastQueueSummary = rated.length ? {
+            count: rated.length,
+            forgot: rated.filter(function (r) { return r.quality < 3; }).length,
+            hard: rated.filter(function (r) { return r.quality === 3; }).length,
+            gotIt: rated.filter(function (r) { return r.quality >= 5; }).length,
+            skipped: reviewQueue.ids.length - rated.length
+        } : null;
+    }
+    reviewQueue = null;
+    goToView("review");
+}
+
+function backInText(days) {
+    return days <= 0 ? "later today" : days === 1 ? "tomorrow" : "in " + days + " days";
+}
+
+function renderQueueBar(errId) {
+    const bar = document.getElementById("queueBar");
+    if (!bar) return;
+    const pos = reviewQueue ? reviewQueue.ids.indexOf(errId) : -1;
+    // The page says what it is for: a review queue, or one mistake and its similar questions.
+    const view = document.getElementById("view-mistake");
+    const title = document.getElementById("mistake-title");
+    if (view) view.toggleAttribute("data-queue", pos !== -1);
+    if (title) title.textContent = pos !== -1 ? "Review Due Mistakes" : "Practice Similar Questions";
+    if (pos === -1) {
+        // Outside a queue: the way on from here (reviews due now, or the set in progress).
+        const due = window.ReviewOrbit ? window.ReviewOrbit.queueOrder(reviewItems())
+            .filter(function (it) { return !sessionReviewedErrIds.has(it.id); }).length : 0;
+        const setOpen = generatedQuestions.length > 0 && !isSetComplete();
+        if (!due && !setOpen) {
+            bar.hidden = true;
+            bar.innerHTML = "";
+            return;
+        }
+        let html = '<p class="qb-note">' + (due ? due + (due === 1 ? " review is" : " reviews are") + " due now." : "Your practice set is still open.") + "</p>";
+        html += '<div class="actions">';
+        if (setOpen) {
+            const open = firstOpenIndex();
+            html += '<button type="button" class="secondary small" data-action="back-to-set">Back to your set (question ' +
+                (open + 1) + " of " + generatedQuestions.length + ")</button>";
+        }
+        if (due) html += '<button type="button" class="small" data-action="queue-start">Start review (' + due + ")</button>";
+        html += "</div>";
+        bar.innerHTML = html;
+        bar.hidden = false;
+        bar.setAttribute("data-mode", "suggest");
+        return;
+    }
+    bar.removeAttribute("data-mode");
+    const total = reviewQueue.ids.length;
+    const left = total - pos - 1;
+    const rated = reviewQueue.rated[errId];
+    const record = findErrorRecord(errId);
+    let html = '<p class="qb-count"><b>' + (pos + 1) + "</b> of " + total + " due</p>";
+    if (!rated) {
+        html += '<p class="qb-note">Recall the answer first, then show it and rate yourself. ' +
+            (left ? left + (left === 1 ? " more after this one." : " more after this one.") : "This is the last one.") + "</p>";
+        html += '<div class="actions"><button type="button" class="outline small" data-action="queue-end">End review</button></div>';
+    } else {
+        html += '<p class="qb-note"><strong>' + RATING_NAME[rated.quality] + "</strong>: back " + backInText(rated.days) + ".</p>";
+        html += '<div class="actions">';
+        html += left
+            ? '<button type="button" data-action="queue-next">Next due question (' + left + " left)</button>"
+            : '<button type="button" data-action="queue-finish">Finish review</button>';
+        if (rated.quality < 5 && record && canPracticeSimilar(record)) {
+            html += '<button type="button" class="secondary" data-action="queue-similar">Try a similar question first</button>';
+        }
+        html += "</div>";
+    }
+    bar.innerHTML = html;
+    bar.hidden = false;
+}
+
+// Review's first block: what is due today and one button to start, or what comes next.
+function renderReviewToday(items) {
+    const el = document.getElementById("reviewToday");
+    if (!el || !window.ReviewOrbit) return;
+    if (!items.length) {
+        el.hidden = true;
+        el.innerHTML = "";
+        return;
+    }
+    const due = window.ReviewOrbit.queueOrder(items).filter(function (it) { return !sessionReviewedErrIds.has(it.id); }).length;
+    let html = "";
+    const s = lastQueueSummary;
+    if (s) {
+        const parts = [];
+        if (s.gotIt) parts.push(s.gotIt + " Got it");
+        if (s.hard) parts.push(s.hard + " Hard");
+        if (s.forgot) parts.push(s.forgot + " Forgot");
+        html += '<p class="rt-done">Reviewed ' + s.count + ": " + escapeHtml(parts.join(", ")) + "." +
+            (s.skipped ? " " + s.skipped + " left for later." : "") + "</p>";
+    }
+    if (due) {
+        html += '<p class="kicker">Today</p><h3 class="rt-title"><b>' + due + "</b> " + (due === 1 ? "review is" : "reviews are") + " due now</h3>" +
+            "<p>One at a time: recall the answer, show it, rate yourself. Each rating sets when it comes back.</p>" +
+            '<div class="actions"><button type="button" data-action="queue-start">Start review</button></div>';
+    } else {
+        const next = window.ReviewOrbit.nextDue(items);
+        html += '<p class="kicker">Today</p><h3 class="rt-title">Nothing is due now</h3>' +
+            (next ? "<p>Next: " + next.count + (next.count === 1 ? " review " : " reviews ") + backInText(next.days) + ".</p>" : "");
+    }
+    el.innerHTML = html;
+    el.hidden = false;
 }
 
 if (variantDrillEl) {
@@ -4279,6 +4625,7 @@ function weakInputs() {
 // The giant numeral beside the headline. Always a real number from this student's data.
 function commandFigure(step, counts, items) {
     if (step.kind === "review") return { value: String(counts.due), unit: "due now" };
+    if (step.kind === "continue") return { value: String(step.answered), unit: "of " + step.total + " answered" };
     if ((step.kind === "variant" || step.kind === "focus") && typeof step.pct === "number") {
         return { value: step.pct + "%", unit: "recent accuracy" };
     }
@@ -4321,12 +4668,18 @@ function renderNextStep(counts) {
     const HS = window.HomeSummary;
     const w = weakInputs();
     const returning = isReturningUser();
-    const input = { due: counts.due, weakest: w.weakest, weakMistake: w.weakMistake, hasActivity: returning };
+    const openSet = generatedQuestions.length && !isSetComplete() ? {
+        next: firstOpenIndex(), total: generatedQuestions.length, answered: scoreSummary().answered,
+        subject: (currentSetMeta && currentSetMeta.subject) || ""
+    } : null;
+    const input = { due: counts.due, weakest: w.weakest, weakMistake: w.weakMistake, hasActivity: returning, openSet: openSet };
     const step = HS.nextStep(input);
     currentStep = step;
-    // A quieter second move: the weak topic, after the reviews are done.
-    const alt = step.kind === "review" ? HS.nextStep(Object.assign({}, input, { due: 0 })) : null;
-    currentAlt = alt && (alt.kind === "variant" || alt.kind === "focus") ? alt : null;
+    // A quieter second move: after the set in progress, what would come next (often the due
+    // reviews); after the reviews, the weak topic.
+    const alt = step.kind === "continue" ? HS.nextStep(Object.assign({}, input, { openSet: null }))
+        : step.kind === "review" ? HS.nextStep(Object.assign({}, input, { due: 0 })) : null;
+    currentAlt = alt && (alt.kind === "variant" || alt.kind === "focus" || (step.kind === "continue" && alt.kind === "review")) ? alt : null;
 
     el.setAttribute("data-kind", step.kind);
     el.setAttribute("data-state", returning ? "returning" : "first");
@@ -4341,7 +4694,9 @@ function renderNextStep(counts) {
     if (!returning) {
         kicker.textContent = "Adaptive AP practice";
         figure.hidden = true;
-        title.textContent = "Practice that brings back what you miss.";
+        // Static markup: the wide brand line, and a shorter one for phones (CSS picks one).
+        title.innerHTML = '<span class="h1-wide">Practice that brings back what you miss.</span>' +
+            '<span class="h1-narrow">Practice AP. Review what you miss.</span>';
         renderFirstVisitCopy();
         list.hidden = true;
         list.innerHTML = "";
@@ -4377,8 +4732,9 @@ function renderNextStep(counts) {
     altBtn.hidden = !currentAlt;
     if (currentAlt) {
         const where = currentAlt.topic || currentAlt.subject || "your weakest topic";
-        altBtn.textContent = (currentAlt.kind === "variant" ? "Then: similar questions on " : "Then: practice ") + where +
-            (typeof currentAlt.pct === "number" ? " (" + currentAlt.pct + "%)" : "");
+        altBtn.textContent = currentAlt.kind === "review" ? "Or: review " + counts.due + " due now"
+            : (currentAlt.kind === "variant" ? "Then: similar questions on " : "Then: practice ") + where +
+                (typeof currentAlt.pct === "number" ? " (" + currentAlt.pct + "%)" : "");
     }
 }
 
@@ -4428,10 +4784,14 @@ function runStep(step) {
         goToView("mistake/" + step.errId);
         return;
     }
+    if (step.kind === "continue") {
+        const open = firstOpenIndex();
+        goToView("practice");
+        if (open >= 0) showQuestion(open, true);
+        return;
+    }
     if (step.kind === "review") {
-        setReviewFilter({ when: "due" });
-        errorStatus.textContent = "Showing items due for review.";
-        goToView("review");
+        startReviewQueue();
         return;
     }
     if (step.kind === "focus") {
@@ -4711,7 +5071,9 @@ function readSession() {
 function saveSessionNow() {
     clearTimeout(sessionTimer);
     if (restoringSession) return;
-    const open = generatedQuestions.length > 0 && !isSetComplete();
+    const hasSet = generatedQuestions.length > 0;
+    const complete = hasSet && isSetComplete();
+    const open = hasSet && !complete;
     const drafts = {};
     if (open) {
         quizOutput.querySelectorAll("[data-sa-input]").forEach(function (ta) {
@@ -4727,17 +5089,21 @@ function saveSessionNow() {
     const data = {
         savedAt: Date.now(),
         notes: noteInput.value || "",
-        set: open ? {
+        summary: lastSummary,
+        set: hasSet ? {
             questions: generatedQuestions,
             results: quizResults,
             index: practiceIndex,
             meta: currentSetMeta,
             preSet: preSetMastery,
-            drafts: drafts
+            drafts: drafts,
+            complete: complete,
+            stats: complete ? completedStats : null,
+            shown: complete && resultsShown
         } : null
     };
     try {
-        if (!data.notes && !data.set) localStorage.removeItem(SESSION_KEY);
+        if (!data.notes && !data.set && !data.summary) localStorage.removeItem(SESSION_KEY);
         else localStorage.setItem(SESSION_KEY, JSON.stringify(data));
     } catch (e) { /* storage full or blocked: the work just won't survive a refresh */ }
 }
@@ -4771,8 +5137,7 @@ function restoreCardState(item, drafts) {
         if (fb) {
             fb.hidden = false;
             fb.className = r.correct ? "feedback ok" : "feedback bad";
-            fb.textContent = r.correct ? "Correct." : "Not quite. The correct answer is marked" +
-                (item.explanation ? ", and the explanation is below." : ".");
+            fb.textContent = mcqFeedbackText(item, r.correct);
         }
         radios.forEach(function (radio) { radio.disabled = true; });
         card.querySelector(".check-mcq").disabled = true;
@@ -4813,6 +5178,7 @@ function restoreSession() {
         noteInput.value = saved.notes;
         updateNotesContextUI();
     }
+    restoreSummary(saved.summary);
     const set = saved.set;
     if (!set || !Array.isArray(set.questions) || !set.questions.length) return;
     restoringSession = true;
@@ -4823,8 +5189,22 @@ function restoreSession() {
         if (set.preSet) preSetMastery = set.preSet;
         renderQuestions();
         generatedQuestions.forEach(function (item) { restoreCardState(item, set.drafts || {}); });
-        showQuestion(Math.max(0, Math.min(set.index || 0, generatedQuestions.length - 1)), false);
-        quizStatus.textContent = "Restored your unfinished set. Answers you already checked are kept and were not counted again.";
+        if (set.complete && isSetComplete()) {
+            // A finished set: the same result, read-only (XP and streak were counted once).
+            completedStats = set.stats || { streak: readStreak().count || 1, setXp: 0, daily: getDaily() };
+            enterCompletionMode(completedStats);
+            if (set.shown) {
+                const card = document.getElementById("completionCard");
+                if (card) card.setAttribute("data-counted", "1"); // no count-up a second time
+                showResults();
+            } else {
+                showQuestion(Math.max(0, Math.min(set.index || 0, generatedQuestions.length - 1)), false);
+            }
+            quizStatus.textContent = "Restored your finished set and its result. Nothing was counted again.";
+        } else {
+            showQuestion(Math.max(0, Math.min(set.index || 0, generatedQuestions.length - 1)), false);
+            quizStatus.textContent = "Restored your unfinished set. Answers you already checked are kept and were not counted again.";
+        }
     } catch (e) {
         generatedQuestions = [];
         quizResults = {};
@@ -4847,3 +5227,5 @@ function restoreSession() {
     window.addEventListener("pagehide", saveSessionNow);
 }());
 restoreSession();
+// Home was drawn before the session came back; redraw it so a set in progress shows there.
+if (generatedQuestions.length && window.Shell && window.Shell.current() === "home") renderHome();

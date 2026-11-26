@@ -14,7 +14,7 @@
 <main class="container legal">
     <p class="legal-back"><a href="/">&larr; Back to StudyBoost</a></p>
     <h1>Privacy</h1>
-    <p class="legal-updated">Last updated: 2026-11-25</p>
+    <p class="legal-updated">Last updated: 2026-11-26</p>
 
     <p>StudyBoost has no accounts. You are never asked for a name, an email address,
     or a password, and there is nothing to sign up for.</p>
@@ -27,7 +27,7 @@
         <li>Your topic-mastery estimates</li>
         <li>Your XP, level, streak, and daily totals</li>
         <li>Interface preferences and whether you have seen the welcome card</li>
-        <li>Any notes you paste into the notes box, and an unfinished practice set (its questions, your answers so far, and short-answer drafts) so a refresh doesn't lose them. These are kept for one day and are not part of "Download my data".</li>
+        <li>Any notes you paste into the notes box, the key lines or summary made from them, and your current practice set (its questions, your answers so far, drafts, and its result once it is finished), so a refresh doesn't lose them. These are kept for one day and are not part of "Download my data".</li>
         <li>A copy of the Progress numbers the server last returned (counts only), so Progress can still show them when the connection drops. It is replaced on every sync and is not part of "Download my data".</li>
     </ul>
     <p>Because this lives in your browser, clearing your browser data erases it, and it
@@ -35,7 +35,7 @@
     <strong>Download my data</strong> under Setup.</p>
 
     <h2>What is sent to our server</h2>
-    <p>One row per graded question, containing exactly six fields:</p>
+    <p>One row per graded question, containing exactly seven fields:</p>
     <ul>
         <li>the AP subject</li>
         <li>the question type (multiple choice or short answer)</li>
@@ -44,6 +44,8 @@
         <li>a random anonymous ID generated in your browser (for example <code>u-3f9c…</code>)</li>
         <li>whether the question was newly generated, resurfaced for review, or a similar
         question built from one of your saved mistakes</li>
+        <li>a random ID for that one answer (for example <code>ev-7c1e…</code>), so an upload
+        that is retried after a dropped connection is counted once</li>
     </ul>
     <p>The anonymous ID is a random value with no connection to your identity. It exists
     so your own Progress panel can show your own results. This data is used only to

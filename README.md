@@ -92,9 +92,11 @@ Details: [docs/VARIANT-PRACTICE.md](docs/VARIANT-PRACTICE.md).
   questions came from: AI, the built-in bank, or due reviews). Keys: A–D or 1–4 choose,
   Enter checks, N moves on. The results list every question in order and link missed ones
   to their answer or to similar practice.
-- **Review** is the Review Orbit: each saved mistake placed by course and by days until
-  SM-2 brings it back, with filters, a list view, and keyboard selection, above a searchable
-  Mistake Library where you rate your recall.
+- **Review** opens with what is due today and a Start review button: due mistakes come one
+  at a time (recall, show the answer, rate), each rating says when the card comes back, and
+  a missed one can be followed by a similar question first. Below it, the Review Orbit shows
+  each saved mistake by course and by days until SM-2 brings it back, with filters, a list
+  view, and keyboard selection, above a searchable Mistake Library.
 - **Setup** has a Reduce-motion setting. Design rules: `docs/DESIGN-SYSTEM.md`; the redesign
   record (audit, research, prototypes, iterations, results): `docs/REDESIGN-PROGRESS.md`.
 
@@ -138,7 +140,9 @@ Details: [docs/VARIANT-PRACTICE.md](docs/VARIANT-PRACTICE.md).
 - **End to end (browser):** `node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js`
   — starts `server.py` (no key, and a scripted mock AI provider) and drives Chromium through
   the similar-question loop and the redesigned flows (Home, Practice focus mode and keys,
-  results, Review Orbit and library, Notes, Reduce motion, 320px width). Needs the
+  results, Review Orbit and library, the review queue, the phone path from a miss to a
+  similar question and the due review, Notes, Reduce motion, the Home button with real and
+  fallback fonts, upload retries, 320px width). Needs the
   `playwright` package with Chromium.
 - All three run in CI on every push (see the badge above).
 

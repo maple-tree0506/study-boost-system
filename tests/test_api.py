@@ -281,3 +281,28 @@ def test_stats_ignores_a_bad_tz(client):
         data = client.get("/api/stats?userId=" + _USER + "&tz=" + bad).get_json()
         assert data["overall"]["answered"] == 1
         assert len(data["daily"]) == 14
+
+
+def test_attempt_with_the_same_event_id_is_stored_once(client):
+    # A retry after a lost reply carries the same eventId: one row, and the retry gets ok.
+    body = {"subject": "AP Biology", "type": "Multiple Choice", "correct": True, "userId": _USER, "eventId": "ev-1234abcd"}
+    first = client.post("/api/attempt", json=body)
+    again = client.post("/api/attempt", json=body)
+    assert first.status_code == again.status_code == 200
+    assert first.get_json()["duplicate"] is False
+    assert again.get_json()["duplicate"] is True
+    assert _stats(client)["overall"]["answered"] == 1
+    # a different answer is a different event
+    client.post("/api/attempt", json=dict(body, eventId="ev-5678efgh", correct=False))
+    data = _stats(client)
+    assert data["overall"]["answered"] == 2 and data["overall"]["correct"] == 1
+
+
+def test_attempts_without_a_valid_event_id_are_each_stored(client):
+    # Old browsers send no eventId; a malformed one is ignored rather than trusted.
+    for bad in (None, "", "short", "has spaces in it", "x" * 65, "<script>"):
+        body = {"subject": "AP Biology", "type": "MC", "correct": True, "userId": _USER}
+        if bad is not None:
+            body["eventId"] = bad
+        assert client.post("/api/attempt", json=body).status_code == 200
+    assert _stats(client)["overall"]["answered"] == 6
