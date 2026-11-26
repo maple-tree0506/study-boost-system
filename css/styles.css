@@ -104,17 +104,11 @@
     --display: "Big Shoulders", "Big Shoulders Fallback", "Big Shoulders Fallback Roboto", "Big Shoulders Fallback DejaVu", "Arial Narrow", Impact, sans-serif;
     --text: "Instrument Sans", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
 
-    /* Layout. The top bar, the masthead plane and its cut, and the content gutter. */
+    /* Layout. The top bar, the masthead (its height and page-name size), and the gutter. */
     --top: 64px;
     --mast: 236px;
     /* Sized so the longest page name (PROGRESS, 3.76em) ends before the heading beside it. */
     --mast-word: clamp(120px, 13vw, 210px);
-    /* The plane's top and bottom edges, as fractions of the page width, and the bottom
-       edge as a fraction of the plane's own width (cut-b / cut-a). The plane's box ends at
-       cut-a, so nothing beside it ever sits on (or is measured against) the blue. */
-    --mast-cut-a: 58%;
-    --mast-cut-b: 46%;
-    --mast-cut-ratio: 79.3%;
     --head-x: 61%;
     --head-y: 28px;
     --gutter: clamp(24px, 4.4vw, 72px);
@@ -131,8 +125,11 @@
     --s7: 48px;
     --s8: 64px;
 
-    /* One slant for every slab: buttons, rows, chips, meters. Study content never slants. */
-    --slant: 10px;
+    /* Shapes. V5 "Orbit Field": controls are capsules, keys and dots are circles, sheets
+       have soft corners. Nothing slants; study content is never rotated or curved. */
+    --r-cap: 999px;
+    --r-card: 20px;
+    --r-row: 16px;
 
     /* The signal: the next action is the one bright filled slab in its region. */
     --signal-on-field: var(--white);
@@ -273,10 +270,11 @@ dialog.confirm {
     animation: turn 280s linear infinite;
 }
 .stage-rings .dash { stroke-dasharray: 3 15; stroke-width: 1.5; }
+body[data-view="home"] .stage-rings { display: none; }
 
 /* --- Top bar ------------------------------------------------------------------
-   V4 "Cut Poster": navigation is one black bar across the top (the bottom tab bar on a
-   phone), so every page gets the full width for its own composition. */
+   Navigation is one black bar across the top (the bottom tab bar on a phone), so every
+   page gets the full width for its own composition. */
 .rail {
     position: fixed;
     inset: 0 0 auto 0;
@@ -325,8 +323,8 @@ dialog.confirm {
 .nav-link[aria-current] { color: var(--black); transform: none; }
 .nav-link:focus-visible { outline-offset: -5px; }
 
-/* The marker: a white slip with a blue slip printed a little off-register behind it. They
-   move on different timings, so the blue one trails when the page changes. */
+/* The marker: a white capsule behind the current page, and a blue dot (an orbit's
+   body) that follows it a little later, so the move between pages reads as travel. */
 .nav-ind { position: absolute; inset: 0; pointer-events: none; }
 .nav-ind::before,
 .nav-ind::after {
@@ -334,19 +332,24 @@ dialog.confirm {
     position: absolute;
     top: 0;
     left: 0;
-    width: var(--ind-w, 0);
-    height: calc(var(--ind-h, 0) - 20px);
-    transform: translate(var(--ind-x, 0), calc(var(--ind-y, 0) + 10px));
-    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
-}
-.nav-ind::before {
-    background: var(--field);
-    margin: 6px 0 0 7px;
-    transition: transform .52s var(--ease-out), width .52s var(--ease-out);
 }
 .nav-ind::after {
+    width: var(--ind-w, 0);
+    height: calc(var(--ind-h, 0) - 22px);
+    border-radius: var(--r-cap);
     background: var(--on-dark);
+    transform: translate(var(--ind-x, 0), calc(var(--ind-y, 0) + 11px));
     transition: transform .3s var(--ease-out), width .3s var(--ease-out);
+}
+.nav-ind::before {
+    z-index: 1;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--black);
+    border-radius: 50%;
+    background: var(--field);
+    transform: translate(calc(var(--ind-x, 0) + var(--ind-w, 0) - 10px), calc(var(--ind-y, 0) + 5px));
+    transition: transform .56s var(--ease-out);
 }
 
 .nav-badge {
@@ -357,7 +360,7 @@ dialog.confirm {
     color: var(--black);
     font: 700 15px/1.1 var(--display);
     text-align: center;
-    transform: skewX(-12deg);
+    border-radius: var(--r-cap);
 }
 
 .hud {
@@ -374,61 +377,90 @@ dialog.confirm {
 .hud-meta { margin: 3px 0 0; font-size: 11px; line-height: 1.2; white-space: nowrap; }
 
 /* --- Masthead ------------------------------------------------------------------
-   Each page opens on a blue plane cut on the diagonal, its name set huge and cropped by
-   the plane. The real heading sits beside it on the dark side of the cut. Decorative
-   (aria-hidden); Home has its own poster instead. */
+   V5 "Orbit Field": each page opens on a blue disc in its top corner with two hairline
+   rings running out across the page (they pass behind the heading, tying the two
+   together). The page name is set huge: solid black inside the disc, a blue outline
+   outside it (inverted type, see below). Decorative (aria-hidden); Home has its poster. */
 .band {
+    --disc: clamp(300px, 29vw, 440px);
     position: absolute;
     top: var(--top);
     left: 0;
+    right: 0;
     z-index: 1;
-    width: var(--mast-cut-a);
     height: var(--mast);
     overflow: hidden;
     pointer-events: none;
-    background: var(--field);
     color: var(--black);
-    clip-path: polygon(0 0, 100% 0, var(--mast-cut-ratio) 100%, 0 100%);
 }
 body[data-view="home"] .band { display: none; }
-/* An off-register black shadow plane behind the blue, the cut printed twice. */
-.band::before {
-    content: "";
+.band-disc,
+.band-ring {
     position: absolute;
-    inset: 0;
-    background: var(--royal);
-    clip-path: polygon(calc(100% - 46px) 0, 100% 0, var(--mast-cut-ratio) 100%, calc(var(--mast-cut-ratio) - 46px) 100%);
+    left: calc(var(--gutter) + var(--disc) * .2);
+    top: calc(var(--mast) - var(--disc) * .38);
+    width: var(--disc);
+    height: var(--disc);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
 }
+.band-disc { background: var(--field); }
+.band-ring { width: calc(var(--disc) * 1.7); height: calc(var(--disc) * 1.7); border: 1px solid var(--line); }
+.band-ring.is-far { width: calc(var(--disc) * 2.9); height: calc(var(--disc) * 2.9); border-color: rgba(43, 77, 120, .6); }
 .band-word {
     position: absolute;
-    left: clamp(16px, 4vw, 56px);
-    bottom: calc(var(--mast-word) * -.17);
+    left: var(--gutter);
+    bottom: calc(var(--mast-word) * -.14);
     font: 700 var(--mast-word)/.8 var(--display);
     letter-spacing: -.01em;
     white-space: nowrap;
+    /* Solid black inside the disc, a blue outline outside it. The geometry is fixed, so
+       the disc's centre is worked out here (no script): x = .2 disc from the word's left
+       edge; y = disc centre (mast - .38 disc) minus the word box's top (mast - .66 word). */
+    --ix: calc(var(--disc) * .2);
+    --iy: calc(var(--mast-word) * .66 - var(--disc) * .38);
+    --ir: calc(var(--disc) / 2);
+    -webkit-text-stroke: 1.5px var(--field);
+    background-image: radial-gradient(circle at var(--ix) var(--iy), var(--black) var(--ir), transparent calc(var(--ir) + .5px));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+@media (forced-colors: active) {
+    .band-word { background-image: none; -webkit-text-fill-color: CanvasText; }
 }
 .band-word.is-entering { animation: wordIn .46s var(--ease-out) both; }
+/* A small legend glyph at the end of the band: the four SM-2 rings as dots, spaced the
+   way the orbit spaces them (log scale). */
 .band-stripes {
     position: absolute;
-    top: 18px;
-    left: calc(100% - 260px);
-    width: 150px;
+    top: 22px;
+    right: calc(var(--gutter) + 210px);
+    width: 96px;
+    height: 12px;
     display: flex;
     align-items: center;
-    gap: 6px;
-    color: var(--black);
+    gap: 0;
 }
-.band-stripes i { flex: 1; height: 10px; background: linear-gradient(var(--field-deep) 0 3px, transparent 3px 7px, var(--field-deep) 7px); }
+.band-stripes i {
+    flex: 1;
+    height: 100%;
+    background:
+        radial-gradient(circle at 6px 50%, var(--field) 0 5px, transparent 5.5px),
+        radial-gradient(circle at 30px 50%, var(--line) 0 3px, transparent 3.5px),
+        linear-gradient(var(--line), var(--line)) 0 50% / 100% 1px no-repeat;
+}
+.band-stripes i + i { display: none; }
 .band-stripes b { display: none; }
-/* During a set the plane carries the real question number instead of the page name. */
+/* During a set the band yields to the question; on the result the poster has the score. */
 .band-count {
     position: absolute;
-    left: clamp(16px, 4vw, 56px);
+    left: var(--gutter);
     bottom: 12px;
     display: flex;
     align-items: baseline;
     gap: 10px;
-    color: var(--black);
+    color: var(--on-dark);
 }
 .band-count b { font: 700 calc(var(--mast-word) * .92)/.78 var(--display); letter-spacing: -.03em; }
 .band-count span { font: 700 calc(var(--mast-word) * .32)/1 var(--display); }
@@ -442,8 +474,42 @@ body[data-view="home"] .band { display: none; }
 }
 body[data-band="count"] .band-word { visibility: hidden; }
 
+/* Answering and the result: the screen belongs to the question (or the score). The
+   masthead, the date and the display heading step aside; the heading stays for screen
+   readers, and the set bar keeps the source and the place in the set. */
+body[data-view="practice"]:has(#view-practice:is([data-mode="focus"], [data-mode="results"])) .band { display: none; }
+body[data-view="practice"] .scene:has(#view-practice:is([data-mode="focus"], [data-mode="results"])) .today { display: none; }
+#view-practice:is([data-mode="focus"], [data-mode="results"]) .view-head {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-height: 0;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* --- Inverted type -------------------------------------------------------------
+   Display type that crosses a disc changes colour inside it: one copy of the text,
+   painted through a radial gradient that shell.js centres on the disc (--ix, --iy,
+   --ir, set on .is-inverted). Before that runs, or without it, the text keeps its own
+   colour. Only display type does this; reading text never crosses a disc. */
+[data-invert] { --inv-in: var(--black); --inv-out: var(--on-dark); }
+[data-invert].is-inverted {
+    background-image: radial-gradient(circle at var(--ix) var(--iy), var(--inv-in) var(--ir), var(--inv-out) calc(var(--ir) + .5px));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+@media (forced-colors: active) {
+    [data-invert].is-inverted { background-image: none; -webkit-text-fill-color: CanvasText; }
+}
+
 /* --- Page transition ----------------------------------------------------------
-   Three planes (blue, paper, black) slash across on the page's cut, then clear. */
+   A blue disc grows out of the page you leave and closes into the page you open, with a
+   black ring at its edge (js/shell.js). Never takes clicks or focus. */
 .wipe {
     position: fixed;
     inset: 0;
@@ -455,15 +521,12 @@ body[data-band="count"] .band-word { visibility: hidden; }
 .wipe.is-active { visibility: visible; }
 .wipe i {
     position: absolute;
-    top: -20%;
-    bottom: -20%;
-    left: -30%;
-    width: 160%;
-    transform: translateX(-140%);
+    inset: 0;
+    clip-path: circle(0 at 50% 50%);
 }
-.wipe i:nth-child(1) { background: var(--field); }
-.wipe i:nth-child(2) { background: var(--paper); }
-.wipe i:nth-child(3) { background: var(--black); }
+.wipe i:nth-child(1) { background: var(--black); }
+.wipe i:nth-child(2) { background: var(--field); }
+.wipe i:nth-child(3) { display: none; }
 
 /* --- Scene -------------------------------------------------------------------- */
 .scene {
@@ -498,7 +561,7 @@ body[data-band="count"] .band-word { visibility: hidden; }
    nothing below it moves when the date appears (it was a layout shift on Home). */
 .today { margin: 0; display: flex; align-items: baseline; gap: 10px; }
 .today strong { white-space: nowrap; }
-.today strong { font: 700 22px/1 var(--display); color: var(--black); }
+.today strong { font: 700 22px/1 var(--display); color: var(--on-dark); }
 .ai-chip { position: relative; margin: 0; padding-left: 20px; }
 .ai-chip::before {
     content: "";
@@ -508,12 +571,12 @@ body[data-band="count"] .band-word { visibility: hidden; }
     width: 12px;
     height: 12px;
     background: var(--mute);
-    transform: skewX(-14deg);
+    border-radius: 50%;
 }
 .ai-chip[data-state="ai"]::before { background: var(--good); }
 .ai-chip[data-state="offline"]::before { background: var(--cyan); }
 .ai-chip[data-state="down"]::before { background: var(--bad); }
-#todayPart { color: var(--black); }
+#todayPart { color: var(--mute); }
 
 /* Pages with a masthead: the date rides on the blue plane, the chip on the dark side. */
 body:not([data-view="home"]) .scene-top { min-height: 24px; }
@@ -551,7 +614,7 @@ body:not([data-view="home"]) .view-head {
     border: 0;
 }
 
-/* Staggered entrance, played once when a view opens: from the cut, up and in. */
+/* Staggered entrance, played once when a view opens: up and in. */
 .view.is-entering > * { animation: rise .5s var(--ease-out) both; }
 .view.is-entering > :nth-child(2) { animation-delay: .05s; }
 .view.is-entering > :nth-child(3) { animation-delay: .1s; }
@@ -563,7 +626,7 @@ body:not([data-view="home"]) .view-head {
     margin-bottom: 18px;
     padding: 24px 26px;
     background: var(--panel);
-    clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+    border-radius: var(--r-card);
 }
 .panel > h3, .panel-head h3 { font-size: 32px; margin-bottom: 10px; scroll-margin-top: 24px; }
 .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -697,7 +760,7 @@ button::after, .hero-cta::after {
     content: "";
     position: absolute;
     inset: 0;
-    transform: skewX(-14deg);
+    border-radius: var(--r-cap);
 }
 button::before, .hero-cta::before {
     z-index: -2;
@@ -707,12 +770,11 @@ button::before, .hero-cta::before {
 button::after, .hero-cta::after {
     z-index: -1;
     background: var(--btn-wipe);
-    transform: skewX(-14deg) scaleX(0);
-    transform-origin: left;
-    transition: transform var(--med) var(--ease-out);
+    clip-path: inset(0 100% 0 0 round var(--r-cap));
+    transition: clip-path var(--med) var(--ease-out);
 }
 button:not(:disabled):hover, .hero-cta:hover { color: var(--btn-ink-hover); }
-button:not(:disabled):hover::after, .hero-cta:hover::after { transform: skewX(-14deg) scaleX(1); }
+button:not(:disabled):hover::after, .hero-cta:hover::after { clip-path: inset(0 0 0 0 round var(--r-cap)); }
 button:not(:disabled):active, .hero-cta:active { transform: translateY(1px) scale(.985); }
 
 button.secondary {
@@ -749,7 +811,7 @@ button.text-btn:not(:disabled):hover { color: var(--white); }
 
 /* Busy: slanted stripes run through the button for as long as the AI is working. */
 button[aria-busy="true"]::after {
-    transform: skewX(-14deg) scaleX(1);
+    clip-path: inset(0 0 0 0 round var(--r-cap));
     background: repeating-linear-gradient(-76deg, transparent 0 12px, rgba(2, 5, 11, .22) 12px 24px);
     background-size: 200% 100%;
     animation: stripes .9s linear infinite;
@@ -776,7 +838,7 @@ button[aria-busy="true"]::after {
     font-size: 12px;
     font-weight: 700;
     line-height: 1.25;
-    clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+    border-radius: var(--r-cap);
 }
 .tag.subject { background: var(--royal); }
 .tag.review, .tag.mastery-developing { background: var(--warn); color: var(--black); }
@@ -788,7 +850,7 @@ button[aria-busy="true"]::after {
 .tag.counts.general { background: var(--raise); color: var(--white); }
 
 .rank-pips { display: inline-flex; gap: 3px; }
-.rank-pips i { width: 12px; height: 7px; background: var(--line); transform: skewX(-20deg); }
+.rank-pips i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
 .rank-pips i.on { background: var(--cyan); }
 
 /* --- Output areas ------------------------------------------------------------- */
@@ -805,7 +867,7 @@ button[aria-busy="true"]::after {
     width: 8px;
     height: 8px;
     background: var(--cyan);
-    transform: skewX(-18deg);
+    border-radius: 50%;
 }
 
 .empty { margin: 0; padding: 18px 0; color: var(--mute); }
@@ -909,7 +971,7 @@ button.set-cell.is-current::before { box-shadow: inset 0 0 0 2px var(--btn-edge)
     background: var(--raise);
     color: var(--white);
     font: 700 15px/1 var(--text);
-    clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+    border-radius: var(--r-cap);
     transition: background-color var(--fast), color var(--fast);
 }
 .opt-text { flex: 1; min-width: 0; }
@@ -1027,16 +1089,17 @@ button.rate:not(:disabled):hover::after { transform: none; }
 
 /* --- Practice: the setup sheet and the workbench ---------------------------------------
    Setup is a paper form: course and topic first, the start button under them, the set's
-   options beside. With a set on screen the page tightens: the masthead carries the real
-   question number, the set bar sits under the top bar, and the question is a paper sheet
-   with an off-register blue print behind it. Study content never slants. */
+   options beside. With a set on screen the page tightens: the masthead, date and display
+   heading step aside, the set bar (a row of question dots) sits on top, and the question
+   is a paper sheet. Every paper sheet carries a rule along its top edge: blue while it
+   waits for you, the result's colour after a check. Study content never slants. */
 .setup-panel {
     display: grid;
     grid-template-columns: minmax(0, 1.35fr) minmax(260px, 1fr);
     gap: 4px 36px;
-    padding: 28px 32px 26px;
-    box-shadow: 12px 12px 0 var(--field);
-    clip-path: none;
+    padding: 30px 32px 26px;
+    border-radius: var(--r-card);
+    box-shadow: inset 0 7px 0 var(--field);
 }
 .setup-main .field-course select { min-height: 52px; font-size: 18px; font-weight: 700; }
 .setup-main .field-topic input { min-height: 48px; font-size: 17px; }
@@ -1068,19 +1131,21 @@ button.rate:not(:disabled):hover::after { transform: none; }
 #view-practice[data-mode="results"] .view-head h2 { font-size: clamp(30px, 3vw, 44px); }
 
 /* The question sheet. */
+/* The state rule along the sheet's top edge is blue while answering and turns to the
+   result's colour after a check (with the result's word and shapes beneath it). */
 .output-quiz .qa-card {
-    margin: 6px 12px 22px 0;
+    margin: 6px 0 22px;
     padding: 30px 36px 22px;
     border-left: 0;
-    box-shadow: 12px 12px 0 var(--field);
+    border-radius: var(--r-card);
+    box-shadow: inset 0 7px 0 var(--field);
 }
 .output-quiz .qa-card .card-head { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--black); }
 .output-quiz .qa-title { font-size: 34px; text-transform: uppercase; }
 .qa-of { color: var(--mute); font-size: .6em; }
 .output-quiz .qa-q { max-width: 64ch; margin-bottom: 20px; font-size: 21px; line-height: 1.55; }
-/* After a check, the print behind the sheet turns to the state's colour. */
-.output-quiz .qa-card.is-graded:has(.feedback.ok) { box-shadow: 12px 12px 0 var(--good); }
-.output-quiz .qa-card.is-graded:has(.feedback.bad) { box-shadow: 12px 12px 0 var(--bad); animation: jolt .34s var(--ease-out); }
+.output-quiz .qa-card.is-graded:has(.feedback.ok) { box-shadow: inset 0 7px 0 var(--good-ink); }
+.output-quiz .qa-card.is-graded:has(.feedback.bad) { box-shadow: inset 0 7px 0 var(--bad-ink); animation: jolt .34s var(--ease-out); }
 .qa-actions { align-items: center; }
 .key-hint { color: var(--mute); font-size: 13px; }
 @media (hover: none) { .key-hint { display: none; } }
@@ -1116,7 +1181,7 @@ button.rate:not(:disabled):hover::after { transform: none; }
     .setup-options legend, .setup-options .field:last-child { grid-column: 1 / -1; }
 }
 @media (max-width: 719px) {
-    .setup-panel { padding: 20px 16px 18px; box-shadow: 6px 6px 0 var(--field); margin-right: 6px; }
+    .setup-panel { padding: 22px 16px 18px; }
     .setup-options { grid-template-columns: minmax(0, 1fr); }
     /* The start button stays in reach above the tab bar while the form scrolls. */
     .setup-go {
@@ -1128,9 +1193,7 @@ button.rate:not(:disabled):hover::after { transform: none; }
         background: var(--paper);
     }
     .setup-go button { width: 100%; }
-    .output-quiz .qa-card { margin: 4px 6px 18px 0; padding: 18px 16px 16px; box-shadow: 6px 6px 0 var(--field); }
-    .output-quiz .qa-card.is-graded:has(.feedback.ok) { box-shadow: 6px 6px 0 var(--good); }
-    .output-quiz .qa-card.is-graded:has(.feedback.bad) { box-shadow: 6px 6px 0 var(--bad); }
+    .output-quiz .qa-card { margin: 4px 0 18px; padding: 20px 16px 16px; }
     .output-quiz .qa-title { font-size: 22px; }
     .output-quiz .qa-q { font-size: 18px; }
 }
@@ -1139,21 +1202,41 @@ button.rate:not(:disabled):hover::after { transform: none; }
    Review opens with what is due and one button; the chart and library follow. During the
    queue, the bar on the mistake page says where you are and what comes after a rating. */
 .review-today {
+    position: relative;
     max-width: var(--measure);
     margin: 0 0 26px;
-    padding: 20px 26px 22px;
-    border-left: 6px solid var(--line);
+    padding: 22px 26px 22px;
+    border-radius: var(--r-card);
     background: var(--black);
-    box-shadow: 10px 10px 0 var(--panel);
+    box-shadow: inset 0 0 0 1px var(--line);
+    overflow: hidden;
 }
-.review-today:has([data-action="queue-start"]) { border-left-color: var(--warn); }
 .review-today .kicker { margin-bottom: 4px; }
-/* The due count is the card's giant numeral, the way Home sets its count. */
-.rt-title { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 16px; margin: 0 0 10px; font-size: clamp(30px, 3.2vw, 44px); line-height: .95; text-transform: uppercase; }
-.rt-title b { font-size: clamp(96px, 9vw, 140px); line-height: .76; letter-spacing: -.03em; color: var(--warn); }
+/* The due count sits in a disc in the due colour, as the due cards sit on the orbit's core;
+   a hairline ring round it is the next interval. The words and the one button beside it. */
+.rt-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px; margin: 0 0 10px; font-size: clamp(30px, 3.2vw, 44px); line-height: .95; text-transform: uppercase; }
+.rt-title b {
+    display: grid;
+    place-items: center;
+    flex: none;
+    min-width: 1.5em;
+    height: 1.5em;
+    padding: 0 .12em;
+    border-radius: var(--r-cap);
+    background: var(--warn);
+    color: var(--black);
+    font-size: clamp(64px, 6.4vw, 96px);
+    line-height: 1;
+    letter-spacing: -.03em;
+    box-shadow: 0 0 0 10px var(--black), 0 0 0 11px var(--line);
+}
 .review-today p:not(.kicker) { margin: 0 0 12px; color: var(--mute); }
 .review-today .rt-done { color: var(--white); }
 .review-today .actions { margin: 0; }
+@media (max-width: 719px) {
+    .review-today { padding: 18px 16px; }
+    .rt-title b { font-size: 64px; }
+}
 .queue-bar {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -1235,7 +1318,7 @@ button.ol-item.is-selected { --btn-fill: var(--white); --btn-ink: var(--black); 
     padding: 22px 24px 24px;
     background: var(--field);
     color: var(--black);
-    clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
+    border-radius: var(--r-card);
 }
 .od-card .kicker { color: var(--black); }
 .od-title { margin: 0 0 6px; font-size: clamp(30px, 3vw, 40px); line-height: 1; overflow-wrap: anywhere; }
@@ -1366,20 +1449,23 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
 .dev-note { color: var(--mute); font-size: 14px; }
 .dev-panel[open] > summary { margin-bottom: 12px; }
 
-/* --- Results: the score poster ------------------------------------------------------
-   A paper poster, composed differently from Home: the real score is the centre of gravity,
-   on a blue cell cut on the diagonal, with the set's questions as numbered dots on a ring
-   behind it. To its right: what each skill showed, then the one next step. The full
-   question list, XP, and sharing come after. */
+/* --- Results: the horizon -------------------------------------------------------------
+   V5 "Orbit Field". A paper sheet, composed unlike Home: the set rises as one arc over the
+   real score, one segment per question in order from the left (solid blue = right, a
+   dashed red outline = not yet, each numbered). Beside it: the one learning line and the
+   one next step. Full skill evidence, the missed questions, every answer, XP, and sharing
+   follow. The score and the button are there from the first frame; only the segments
+   arrive in sequence, once. */
 .completion-card {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr);
     grid-template-areas:
         "score kick"
         "score title"
-        "score detail"
+        "score lead"
         "score next"
+        "detail detail"
         "missed missed"
         "seq seq"
         "reward reward"
@@ -1388,61 +1474,67 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
         "share share"
         "fb fb";
     grid-template-rows: auto auto auto 1fr;
-    gap: 0 40px;
-    margin: 6px 12px 22px 0;
-    padding: 0 36px 30px 0;
-    box-shadow: 12px 12px 0 var(--black);
-    animation: cardCut .5s var(--ease-out) both;
+    gap: 0 44px;
+    margin: 6px 0 22px;
+    padding: 30px 40px 34px;
+    border-radius: var(--r-card);
+    animation: cardCut .45s var(--ease-out) both;
     scroll-margin-top: calc(var(--top) + 16px);
 }
 .completion-card > * { position: relative; min-width: 0; }
 .cc-result { display: contents; }
-.completion-card > .cc-result > .kicker { grid-area: kick; margin: 34px 0 8px; color: var(--black); }
-.cc-title { grid-area: title; font-size: clamp(36px, 3.6vw, 52px); text-transform: uppercase; }
+.completion-card > .cc-result > .kicker { grid-area: kick; align-self: end; margin: 10px 0 8px; color: var(--black); }
+.cc-title { grid-area: title; font-size: clamp(36px, 3.6vw, 54px); text-transform: uppercase; }
 .cc-title:focus { outline: none; }
-
 .cc-score {
     grid-area: score;
     position: relative;
-    display: grid;
-    place-items: center;
-    min-height: 380px;
-    margin: 0 0 22px;
-    padding: 34px 40px 30px 30px;
-    background: var(--field);
+    container-type: inline-size;
+    margin: 0;
     color: var(--black);
-    clip-path: polygon(0 0, 100% 0, 92% 100%, 0 100%);
 }
-.cc-ring { position: absolute; inset: 34px 15% 34px 3%; width: auto; height: calc(100% - 68px); margin: auto; overflow: visible; }
-.cc-ring-line { fill: none; stroke: var(--black); stroke-width: 1.2; stroke-dasharray: 2 5; }
-.cc-ring-core { fill: none; stroke: var(--royal); stroke-width: 18; opacity: .5; }
-.cc-ring-dot circle { stroke: var(--black); stroke-width: 2; }
-.cc-ring-dot.is-ok circle { fill: var(--good); }
-.cc-ring-dot.is-miss circle { fill: var(--paper); stroke-dasharray: 3 2; }
-.cc-ring-dot text { fill: var(--black); font: 700 11px var(--text); }
-.cc-ring-dot { transform-box: fill-box; transform-origin: center; animation: dotIn .4s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 70ms + .25s); }
+.cc-arc { display: block; width: 100%; height: auto; overflow: visible; }
+.cc-arc-line { fill: none; stroke: var(--line); stroke-width: .6; stroke-dasharray: 1.5 2.5; }
+.cc-arc-line.is-inner { stroke-dasharray: none; }
+.cc-seg path { stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.cc-seg.is-ok path { fill: var(--field); stroke: var(--black); }
+.cc-seg.is-miss path { fill: var(--paper); stroke: var(--bad-ink); stroke-dasharray: 5 4; }
+.cc-seg text { font: 700 12px var(--display); text-anchor: middle; }
+.cc-seg.is-ok text { fill: var(--black); }
+.cc-seg.is-miss text { fill: var(--bad-ink); }
+.cc-seg { transform-box: fill-box; transform-origin: center; animation: segIn .5s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 70ms + .1s); }
+/* The score sits inside the arc, on its baseline. */
 .cc-num {
-    position: relative;
-    font: 700 clamp(150px, 15vw, 230px)/.8 var(--display);
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    text-align: center;
+    font: 700 35cqw/.8 var(--display);
     letter-spacing: -.03em;
     white-space: nowrap;
     animation: stamp .5s var(--ease-snap) both;
 }
 .cc-of { font-size: .42em; letter-spacing: 0; }
 
-.cc-detail { grid-area: detail; margin-top: 16px; }
-.cc-detail p { margin: 0 0 4px; }
-.cc-growth { font-weight: 700; }
-.cc-skills { margin: 0 0 10px; padding: 0; list-style: none; display: grid; gap: 6px; }
-.output ul.cc-skills > li { margin: 0; padding: 6px 0 6px 12px; border-left: 4px solid var(--black); line-height: 1.45; }
-.output ul.cc-skills > li::before, .output ul.cc-missed-list > li::before { display: none; }
-/* The one next step, right after what was learned. */
-.cc-next { grid-area: next; align-self: start; align-items: center; margin-top: 16px; }
+/* The one learning line, then the one next step. */
+.cc-lead { grid-area: lead; margin: 16px 0 0; padding-left: 16px; border-left: 4px solid var(--field); font-size: 17px; line-height: 1.5; }
+.cc-lead.is-up { border-left-color: var(--good-ink); }
+.cc-lead-more { color: var(--mute); }
+.cc-next { grid-area: next; align-self: start; align-items: center; margin-top: 18px; }
 .cc-next button { min-height: 56px; padding: 12px 34px; font-size: 18px; }
 .cc-next-why { flex: 1 1 220px; margin: 0; font-size: 15px; }
 
-.cc-missed { grid-area: missed; margin: 6px 0 0 36px; }
-.cc-missed h4 { margin-bottom: 8px; font-size: 28px; text-transform: uppercase; }
+/* Below: the evidence and the record of the set. */
+.cc-detail { grid-area: detail; margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line); }
+.cc-detail h4, .cc-missed h4 { margin-bottom: 10px; font-size: 28px; text-transform: uppercase; }
+.cc-detail p { margin: 0 0 4px; }
+.cc-growth { font-weight: 700; }
+.cc-skills { margin: 0 0 10px; padding: 0; list-style: none; display: grid; gap: 6px; }
+.output ul.cc-skills > li { margin: 0; padding: 6px 0 6px 14px; border-left: 4px solid var(--field); line-height: 1.45; }
+.output ul.cc-skills > li.is-up { border-left-color: var(--good-ink); }
+.output ul.cc-skills > li::before, .output ul.cc-missed-list > li::before { display: none; }
+.cc-missed { grid-area: missed; margin-top: 26px; }
 .cc-missed-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .output ul.cc-missed-list > li {
     margin: 0;
@@ -1452,68 +1544,74 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
     justify-content: space-between;
     gap: 8px 14px;
     padding: 10px 14px;
-    border-left: 4px dashed var(--warn-ink);
-    background: var(--navy);
+    border-radius: var(--r-row);
+    background: var(--paper-sunk);
+    box-shadow: inset 0 0 0 1.5px var(--bad-ink);
 }
 .cc-missed-q { flex: 1 1 280px; min-width: 0; overflow-wrap: break-word; }
 .cc-missed-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-
-/* The sequence: each question in order, its result in words. Rows slide in one after
-   another; they are in the DOM (and readable) from the first frame. */
-.cc-sequence { grid-area: seq; display: grid; gap: 4px; margin: 22px 0 4px 36px; padding: 0; list-style: none; }
+/* The sequence: each question in order, its number on a dot drawn like its arc segment,
+   its result in words. In the DOM (and readable) from the first frame. */
+.cc-sequence { grid-area: seq; display: grid; gap: 4px; margin: 22px 0 4px; padding: 0; list-style: none; }
 .cc-step {
     display: grid;
     grid-template-columns: 34px 70px minmax(0, 1fr);
     align-items: center;
     gap: 12px;
-    padding: 8px 20px 8px 16px;
-    background: var(--black);
-    color: var(--on-dark);
-    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+    padding: 7px 18px 7px 8px;
+    background: var(--paper-sunk);
+    border-radius: var(--r-cap);
     animation: stepIn .42s var(--ease-out) both;
     animation-delay: calc(var(--i, 0) * 55ms + .1s);
 }
-.cc-step-num { font: 700 24px/1 var(--display); }
+.cc-step-num {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font: 700 18px/1 var(--display);
+}
+.cc-step.is-ok .cc-step-num { background: var(--field); color: var(--black); }
+.cc-step.is-miss .cc-step-num { background: var(--paper); color: var(--bad-ink); box-shadow: inset 0 0 0 1.5px var(--bad-ink); }
 .cc-step-state { font-size: 13px; font-weight: 700; }
-.cc-step.is-ok .cc-step-state { color: var(--good); }
-.cc-step.is-miss .cc-step-state { color: var(--warn); }
+.cc-step.is-ok .cc-step-state { color: var(--good-ink); }
+.cc-step.is-miss .cc-step-state { color: var(--bad-ink); }
 .cc-step-q {
     display: -webkit-box;
     overflow: hidden;
-    color: #A9BAD2;
+    color: var(--mute);
     font-size: 14px;
     line-height: 1.45;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
 }
-
-.cc-reward { grid-area: reward; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; margin: 22px 0 0 36px; }
-.cc-xp { margin: 0; font: 700 56px/1 var(--display); }
+.cc-reward { grid-area: reward; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; margin: 26px 0 0; }
+.cc-xp { margin: 0; font: 700 48px/1 var(--display); }
 .cc-level { margin: 0; font-weight: 700; }
 .cc-reward .bar-track { flex: 1 1 200px; max-width: 360px; }
-.cc-actions { grid-area: actions; margin: 16px 0 0 36px; }
-.cc-today { grid-area: today; margin: 10px 0 0 36px; font-size: 14px; color: var(--mute); }
-.share-line { grid-area: share; margin: 8px 0 0 36px; }
-.feedback-line { grid-area: fb; margin: 8px 0 0 36px; }
-.completion-card .bar-track { background: rgba(2, 5, 11, .16); }
+.cc-actions { grid-area: actions; margin: 16px 0 0; }
+.cc-today { grid-area: today; margin: 10px 0 0; font-size: 14px; color: var(--mute); }
+.share-line { grid-area: share; margin: 8px 0 0; }
+.feedback-line { grid-area: fb; margin: 8px 0 0; }
+.completion-card .bar-track { background: rgba(2, 5, 11, .14); }
 .completion-card .bar-fill { background: var(--black); }
 .completion-card a { color: var(--black); }
-
 @media (max-width: 899px) {
     .completion-card {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: "score" "kick" "title" "detail" "next" "missed" "seq" "reward" "actions" "today" "share" "fb";
+        grid-template-areas: "score" "kick" "title" "lead" "next" "detail" "missed" "seq" "reward" "actions" "today" "share" "fb";
         grid-template-rows: none;
-        padding: 0 20px 24px;
+        padding: 22px 20px 24px;
     }
-    .cc-score { min-height: 0; aspect-ratio: 1 / .86; margin: 0 -20px 4px; clip-path: polygon(0 0, 100% 0, 100% 86%, 0 100%); }
-    .completion-card > .cc-result > .kicker { margin-top: 18px; }
-    .cc-missed, .cc-sequence, .cc-reward, .cc-actions, .cc-today, .share-line, .feedback-line { margin-left: 0; }
+    .cc-score { margin: 0 auto; width: min(100%, 520px); }
+    .completion-card > .cc-result > .kicker { margin-top: 16px; }
 }
 @media (max-width: 719px) {
-    .completion-card { margin-right: 6px; box-shadow: 6px 6px 0 var(--black); }
-    .cc-num { font-size: clamp(110px, 34vw, 170px); }
+    .completion-card { padding: 18px 14px 22px; }
+    .cc-lead { font-size: 16px; }
     .completion-card .actions button { width: 100%; }
+    .cc-step { grid-template-columns: 32px 60px minmax(0, 1fr); padding: 6px 14px 6px 6px; }
 }
 
 /* --- Bars and charts ------------------------------------------------------------ */
@@ -1522,7 +1620,7 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
     height: 12px;
     overflow: hidden;
     background: var(--line);
-    clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+    border-radius: var(--r-cap);
 }
 .bar-fill {
     display: block;
@@ -1571,7 +1669,7 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
 
 .trend-legend { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 6px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--mute); }
 .trend-legend li { display: flex; align-items: center; gap: 7px; }
-.trend-legend i { width: 14px; height: 10px; transform: skewX(-14deg); }
+.trend-legend i { width: 10px; height: 10px; border-radius: 50%; }
 
 .mastery-radar { max-width: 440px; margin: 8px auto 14px; }
 .mastery-radar svg { display: block; height: auto; overflow: visible; }
@@ -1610,7 +1708,7 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
     margin-bottom: 18px;
     background: var(--field);
     color: var(--black);
-    clip-path: polygon(0 0, calc(100% - 32px) 0, 100% 32px, 100% 100%, 0 100%);
+    border-radius: var(--r-card);
 }
 .status-strip .status-level { padding: 16px 24px 18px; }
 .insights-grid + .status-strip { margin-top: 18px; }
@@ -1635,11 +1733,17 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
 .status-cell dt { font-size: 13px; color: var(--mute); }
 .status-cell dd { margin: 0 0 6px; font: 700 30px/1.05 var(--display); }
 
-/* --- Home: the poster -------------------------------------------------------------------
-   V4 "Cut Poster". Three planes: blue (the headline), paper (the action), and the dark desk
-   the orbit sits on, with an off-register royal edge along the cut. The headline is read
-   first and the cut leads down to the button on the paper. Big numerals are real: the due
-   count, the set's progress, an accuracy, or days to the next review. */
+/* --- Home: the orbit poster ---------------------------------------------------------
+   V5 "Orbit Field". The poster is the review orbit drawn at poster scale: its 15-day ring
+   is the blue disc, the hairlines on it are the 1- and 6-day rings, the 38-day ring runs
+   out across the headline, and the core holds the next action, with the cards that are
+   due round its edge. The headline turns black where it crosses the disc. Reading order:
+   value (headline), description, then the action in the core.
+   Geometry (all from the poster's width and the viewport height):
+     --R    the disc's radius (the 15-day ring)
+     --W    the orbit drawing's width, so that its 15-day ring lands exactly on --R
+            (chart units: 432 wide, 15-day ring 157.8, core 67.2: see renderOrbit)
+     --core the core's radius (.426 R) */
 body[data-view="home"] .scene-top {
     position: absolute;
     top: calc(var(--top) + 18px);
@@ -1650,108 +1754,84 @@ body[data-view="home"] .ai-chip { color: var(--on-dark); }
 
 .command {
     --poster-h: min(calc(100vh - var(--top)), 940px);
+    --pad-top: 84px;
+    --R: min(36vh, 26cqw);
+    --cx: 68cqw;
+    --cy: calc(var(--R) + 52px);
+    --W: calc(var(--R) * 2.7378);
+    --core: calc(var(--R) * .426);
     position: relative;
     isolation: isolate;
     container-type: inline-size;
     max-width: none !important;
     min-height: var(--poster-h);
     margin: -18px calc(-1 * var(--gutter)) 34px;
-    padding: 76px var(--gutter) 56px;
-    color: var(--black);
+    padding: var(--pad-top) var(--gutter) 56px;
+    color: var(--on-dark);
     overflow: hidden;
 }
-.command[data-state="returning"] { --poster-h: min(calc(100vh - var(--top)), 820px); }
-.command :focus-visible { outline-color: var(--black); }
+.command :focus-visible { outline-color: var(--on-dark); }
 
-.command-planes > i { position: absolute; z-index: 0; }
-/* Each plane's box covers only its own region (the polygon is in the box's coordinates),
-   so the text beside a plane is never on it, and contrast checks see the real background. */
-.cp-blue { inset: 0 34% 0 0; background: var(--field); clip-path: polygon(0 0, 100% 0, 75.76% 100%, 0 100%); }
-.cp-edge { inset: 0 30% 0 46%; background: var(--royal); clip-path: polygon(83.33% 0, calc(83.33% + 38px) 0, calc(16.67% + 38px) 100%, 16.67% 100%); }
-.cp-paper { inset: 40% 0 0 0; z-index: 2 !important; background: var(--paper); clip-path: polygon(0 76.67%, 100% 0, 100% 100%, 0 100%); }
-.command[data-state="returning"] .cp-blue { inset: 0 39% 0 0; clip-path: polygon(0 0, 100% 0, 77.05% 100%, 0 100%); }
-.command[data-state="returning"] .cp-edge { inset: 0 30% 0 46%; clip-path: polygon(62.5% 0, calc(62.5% + 38px) 0, calc(4.17% + 38px) 100%, 4.17% 100%); }
-.command[data-state="returning"] .cp-paper { inset: 64% 0 0 0; clip-path: polygon(49% 100%, 56% 27.78%, 100% 0, 100% 100%); }
-
-.command-copy {
-    position: relative;
-    z-index: 3;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 34cqw);
-    grid-template-rows: auto auto auto 1fr;
-    grid-template-areas: "kick ." "fig ." "title title" ". body";
-    min-height: calc(var(--poster-h) - 132px);
-}
-.command .kicker { grid-area: kick; margin-bottom: 16px; color: var(--black); }
-.command-figure { grid-area: fig; display: flex; align-items: flex-end; gap: 16px; margin: 0 0 8px -.06em; }
-.cf-num { font: 700 clamp(150px, 22cqw, 330px)/.74 var(--display); letter-spacing: -.03em; }
+.command-copy { position: relative; z-index: 3; }
+.command .kicker { margin-bottom: 16px; color: var(--cyan); }
+.command-figure { display: flex; align-items: flex-end; gap: 16px; margin: 0 0 8px -.06em; }
+.cf-num { font: 700 clamp(150px, 21cqw, 320px)/.74 var(--display); letter-spacing: -.03em; }
 .cf-unit {
     max-width: 6.5em;
     margin-bottom: .2em;
     font: 700 clamp(24px, 2.6cqw, 40px)/.92 var(--display);
     text-transform: uppercase;
 }
+/* Display type may cross into the disc (it turns black there) but never reaches the core. */
 .command h1 {
-    grid-area: title;
-    max-width: 12em;
-    font-size: clamp(40px, 5.4cqw, 86px);
+    max-width: calc(var(--cx) - var(--core) - var(--gutter) - 28px);
+    font-size: clamp(40px, 5.2cqw, 84px);
     line-height: .9;
     text-transform: uppercase;
     text-wrap: balance;
 }
-/* First visit: one giant word on the blue plane, the rest of the line on a black slab. */
-.command[data-state="first"] h1 { max-width: none; }
 .h1-big {
     display: block;
     width: max-content;
     max-width: 100%;
-    margin-left: -.05em;
-    font-size: clamp(84px, 16.4cqw, 300px);
+    /* PRACTICE is 3.26em wide (3.42em in the width-matched fallback): the word fills the
+       headline's box, crosses the disc's edge, and stops before the core. Painted through
+       a gradient, the text must stay inside its box, so no negative margins here. */
+    font-size: clamp(76px, min(17cqw, calc((var(--cx) - var(--core) - var(--gutter) - 36px) / 3.45)), 300px);
     line-height: .78;
     letter-spacing: -.02em;
 }
 .h1-tag {
-    display: inline-block;
-    margin-top: 20px;
-    padding: 12px 26px 14px 20px;
-    background: var(--black);
-    color: var(--on-dark);
-    font-size: clamp(24px, 3cqw, 50px);
-    line-height: .98;
-    clip-path: polygon(0 0, 100% 0, calc(100% - 16px) 100%, 0 100%);
+    display: block;
+    max-width: 9.5em;
+    margin-top: 18px;
+    font-size: clamp(26px, 3.2cqw, 52px);
+    line-height: .96;
 }
 /* Due reviews: the headline carries the giant count beside its words. */
-.command h1.has-num { display: flex; align-items: flex-end; gap: 6px 22px; max-width: none; margin-left: -.06em; }
-.h1-num { flex: none; font-size: clamp(170px, 26cqw, 400px); line-height: .74; letter-spacing: -.04em; }
-.h1-words { display: block; max-width: 5.6em; padding-bottom: .08em; font-size: clamp(40px, 5.4cqw, 86px); text-wrap: balance; }
+.command h1.has-num { display: flex; align-items: flex-end; gap: 6px 22px; }
+.h1-num { flex: none; font-size: clamp(170px, 24cqw, 380px); line-height: .74; letter-spacing: -.04em; }
+.h1-words { display: block; max-width: 5.6em; padding-bottom: .08em; font-size: clamp(40px, 5.2cqw, 84px); text-wrap: balance; }
 
-.command-body { grid-area: body; align-self: end; position: relative; }
-.command-dek { max-width: 40ch; margin: 0 0 20px; font-size: 18px; line-height: 1.45; color: var(--black); }
+/* Reading text stays on the dark, clear of the disc. */
+.command-dek,
+.command-list { max-width: min(44ch, calc(var(--cx) - var(--R) - var(--gutter) - 40px)); }
+.command-dek { margin: 24px 0 0; font-size: 18px; line-height: 1.45; color: var(--on-dark); }
+.command[data-state="returning"] .command-dek { margin-top: 18px; font-weight: 700; }
 
-/* Returning: the task stays on the blue (count, words, what is due); the action is the
-   one thing on the paper, so the orbit on the dark desk is never covered. */
-.command[data-state="returning"] .command-copy {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 38cqw);
-    grid-template-rows: auto auto auto auto auto 1fr;
-    grid-template-areas: "kick ." "fig ." "title ." "dek ." "list ." ". acts";
-}
-.command[data-state="returning"] .command-body { display: contents; }
-.command[data-state="returning"] .command-dek { grid-area: dek; max-width: 34ch; margin: 14px 0 18px; font-weight: 700; }
-.command[data-state="returning"] .command-list { grid-area: list; max-width: min(640px, 44cqw); margin-bottom: 18px; }
-.command[data-state="returning"] .command-actions { grid-area: acts; align-self: end; padding-left: 2cqw; }
-
-.command-list { display: grid; gap: 5px; margin: 0 0 18px; padding: 0; list-style: none; }
+.command-list { display: grid; gap: 6px; margin: 18px 0 0; padding: 0; list-style: none; }
 .command-list li {
     display: grid;
-    grid-template-columns: minmax(0, 9em) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 8.5em) minmax(0, 1fr);
     align-items: center;
     gap: 2px 14px;
-    padding: 9px 20px 9px 16px;
-    background: var(--black);
+    padding: 10px 18px;
+    border-radius: var(--r-row);
+    background: var(--navy);
+    box-shadow: inset 0 0 0 1px var(--line);
     color: var(--on-dark);
     font-size: 15px;
     line-height: 1.4;
-    clip-path: polygon(var(--slant) 0, 100% 0, calc(100% - var(--slant)) 100%, 0 100%);
 }
 .cl-what { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .cl-course { color: var(--warn); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
@@ -1759,103 +1839,164 @@ body[data-view="home"] .ai-chip { color: var(--on-dark); }
 .cl-q { min-width: 0; color: var(--mute); }
 .command-list li.cl-more { display: block; color: var(--mute); font-weight: 700; }
 
-.command-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; }
+/* The action lives in the core: the point every ring is drawn around. */
+.command-actions {
+    position: absolute;
+    z-index: 4;
+    left: calc(var(--cx) - var(--gutter));
+    top: calc(var(--cy) - var(--pad-top));
+    width: calc(var(--core) * 1.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
 .hero-cta { min-height: 54px; padding: 12px 34px; font-size: 18px; }
-/* The signal on the paper: the one black slab. */
 .command .hero-cta {
-    --btn-fill: var(--black);
-    --btn-ink: var(--on-dark);
-    --btn-wipe: var(--field);
-    --btn-ink-hover: var(--black);
-    min-height: 60px;
-    padding: 14px 42px;
+    --btn-fill: var(--cyan);
+    --btn-ink: var(--black);
+    --btn-wipe: var(--on-dark);
+    max-width: 100%;
+    min-height: 58px;
+    padding: 12px 34px;
     font-size: 19px;
+    text-align: center;
 }
 button.command-alt {
     min-height: 44px;
     padding: 4px 0;
-    color: var(--black);
-    font-size: 16px;
-    text-align: left;
+    color: var(--cyan);
+    font-size: 15px;
     text-decoration: underline;
     text-decoration-thickness: 2px;
     text-underline-offset: 5px;
 }
 button.command-alt::before, button.command-alt::after { display: none; }
-button.command-alt:not(:disabled):hover { color: var(--black); text-decoration-thickness: 4px; }
+button.command-alt:not(:disabled):hover { color: var(--on-dark); }
 
-/* The orbit sits on the dark desk, top right, cropped by the poster's edge; the paper
-   plane overlaps its outer rings. Its rule is written above it. */
+/* The orbit drawing, centred on (--cx, --cy). Only the disc is a link to Review, so a tap
+   beside the action never leaves the page by surprise. */
 .command .orbit {
     position: absolute;
     z-index: 1;
-    top: 72px;
-    right: -4cqw;
-    width: min(40cqw, 600px);
+    left: calc(var(--cx) - var(--W) / 2);
+    top: calc(var(--cy) - var(--W) / 2);
+    width: var(--W);
     margin: 0;
-    display: flex;
-    flex-direction: column-reverse;
-    color: var(--on-dark);
 }
-.command[data-state="returning"] .orbit { width: min(36cqw, 540px); right: 2cqw; top: 60px; }
 .orbit-chart { display: block; width: 100%; margin: 0 auto; color: inherit; }
 .orbit-chart:empty { aspect-ratio: 1 / 1; }
 .orbit-chart:focus-visible { outline: 2px solid var(--on-dark); outline-offset: 6px; }
-.orbit-caption { max-width: 40ch; margin: 0 0 4px auto; padding-right: 4cqw; color: var(--mute); font-size: 13px; line-height: 1.45; text-align: right; }
-.command[data-state="returning"] .orbit-caption { padding-right: 0; }
-/* A first visit has nothing in the orbit yet: the rings stay as the poster's graphic. */
-.command[data-state="first"] .orbit-caption { display: none; }
+.command .orbit-chart { pointer-events: none; }
+.command .orbit-chart:focus-visible { outline: none; }
+.command .orbit-chart:focus-visible .ob-disc { stroke: var(--on-dark); stroke-width: 3; }
+.command .ob-disc { pointer-events: auto; cursor: pointer; }
+.orbit-caption { color: var(--mute); font-size: 13px; line-height: 1.45; }
+.command .orbit-caption {
+    position: absolute;
+    left: 50%;
+    top: calc(50% + var(--R) + 16px);
+    width: max-content;
+    max-width: min(46ch, calc(var(--R) * 2));
+    margin: 0;
+    padding: 4px 12px;
+    border-radius: var(--r-row);
+    background: var(--ink);
+    transform: translateX(-50%);
+    text-align: center;
+}
 
-/* Narrower screens: the planes become the blocks' own backgrounds, so the paper always
-   starts under the headline, however tall the headline turns out to be. */
+/* The poster's orbit: the disc, black hairlines for the rings on it, the 38-day ring on the
+   dark, the black core, and the real cards as dots (due ones round the core's edge). */
+.command .ob-sector { display: none; }
+.command .ob-ring { stroke: rgba(2, 5, 11, .55); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.command .ob-ring[data-days="15"] { stroke: none; }
+.command .ob-ring[data-days="38"] { stroke: var(--control-edge); }
+.command .ob-tick { fill: var(--black); font-size: 6px; letter-spacing: .12em; text-transform: uppercase; }
+.command .ob-tick:is([data-days="15"], [data-days="38"]) { fill: var(--mute); }
+.command .ob-core { fill: var(--black); stroke: none; }
+.command .ob-dot { fill: var(--on-dark); stroke: var(--black); stroke-width: 1.6; }
+.command .ob-dot.is-due { fill: var(--warn); stroke: var(--black); stroke-width: 2; }
+.command .ob-dot.is-new { fill: var(--black); stroke: var(--on-dark); }
+
+/* Narrower screens: the copy stacks, then the orbit, with the action in its core. The disc
+   sits below the description, so reading text never lands on the blue. */
 @media (max-width: 959px) {
-    .command { min-height: 0; padding: 66px var(--gutter) 0; background: var(--field); }
-    .command-planes { display: none; }
-    .command-copy, .command[data-state="returning"] .command-copy { display: flex; flex-direction: column; min-height: 0; }
-    .command[data-state="returning"] .command-body { display: block; }
-    .h1-big { font-size: clamp(76px, 25cqw, 170px); }
-    .h1-tag { font-size: clamp(22px, 5.6cqw, 40px); }
-    .command h1 { font-size: clamp(36px, 8.6cqw, 64px); }
-    .h1-num { font-size: clamp(130px, 38cqw, 260px); }
-    .h1-words { font-size: clamp(34px, 8.6cqw, 64px); }
-    .cf-num { font-size: clamp(120px, 34cqw, 240px); }
-    .command-body {
-        margin: 26px calc(-1 * var(--gutter)) 0;
-        padding: 46px var(--gutter) 26px;
-        background: var(--paper);
-        clip-path: polygon(0 30px, 100% 0, 100% 100%, 0 100%);
+    .command {
+        --R: clamp(116px, 34vw, 230px);
+        --core: calc(var(--R) * .426);
+        --W: calc(var(--R) * 2.7378);
+        --pad-top: 62px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        min-height: 0;
+        padding-bottom: 8px;
     }
-    .command-body { align-self: stretch; }
-    .command[data-state="returning"] .command-dek { margin-top: 0; }
-    .command[data-state="returning"] .command-list { max-width: none; }
-    .command[data-state="returning"] .command-actions { padding-left: 0; }
+    .command-copy, .command-body { display: contents; }
+    .command .kicker { grid-row: 1; }
+    .command-figure { grid-row: 2; }
+    .command h1 { grid-row: 3; max-width: none; }
+    .command-dek { grid-row: 4; }
+    .command-list { grid-row: 7; margin-top: 4px; }
+    .command .orbit, .command-actions { grid-row: 6; grid-column: 1; }
+    .command-dek, .command-list { max-width: 46ch; }
+    .h1-big { font-size: clamp(76px, 26cqw, 170px); }
+    .h1-tag { font-size: clamp(22px, 6cqw, 40px); max-width: 11em; margin-top: 12px; }
+    .command h1 { font-size: clamp(36px, 8.6cqw, 64px); }
+    .h1-num { font-size: clamp(120px, 34cqw, 240px); }
+    .h1-words { font-size: clamp(32px, 8.4cqw, 60px); }
+    .cf-num { font-size: clamp(110px, 32cqw, 230px); }
+    /* The orbit block: the disc's top sits just under the description; the core's centre
+       is (62%, --R + 14px) of the block, and the action is centred there. */
     .command .orbit {
         position: relative;
+        left: auto;
         top: auto;
-        right: auto;
         width: auto;
-        margin: 0 calc(-1 * var(--gutter));
-        padding: 40px var(--gutter) 30px;
-        flex-direction: column;
-        background: var(--ink);
+        height: calc(var(--R) * 2 + 60px);
+        margin-top: 18px;
     }
-    .command[data-state="returning"] .orbit { width: auto; top: auto; right: auto; }
-    .orbit-chart { width: min(100%, 360px); }
-    .orbit-caption { margin: 12px auto 0; padding: 0; text-align: center; }
-    .command[data-state="first"] .orbit { display: none; }
+    .command .orbit-chart {
+        position: absolute;
+        left: calc(62% - var(--W) / 2);
+        top: calc(var(--R) + 14px - var(--W) / 2);
+        width: var(--W);
+    }
+    .command .orbit-caption {
+        left: 0;
+        right: 0;
+        top: auto;
+        bottom: 0;
+        width: auto;
+        transform: none;
+        text-align: left;
+    }
+    .command-actions { display: contents; }
+    #nextStepBtn {
+        grid-row: 6;
+        grid-column: 1;
+        position: relative;
+        z-index: 4;
+        left: 12%;
+        align-self: start;
+        justify-self: center;
+        margin-top: calc(18px + var(--R) + 14px);
+        transform: translateY(-50%);
+    }
+    #nextStepAlt { grid-row: 8; justify-self: start; text-align: left; }
+    .command .hero-cta { max-width: calc(var(--core) * 2.3); min-height: 52px; padding: 10px 22px; font-size: 17px; }
+    .command .ob-tick { font-size: 13px; }
+    .command .ob-tick[data-days="38"], .command .ob-tick[data-days="1"] { display: none; }
 }
 @media (max-width: 719px) {
-    .command { margin: -14px calc(-1 * var(--gutter)) 22px; padding-top: 54px; }
+    .command { margin: -14px calc(-1 * var(--gutter)) 22px; }
     .command .kicker { margin-bottom: 12px; }
-    .h1-tag { margin-top: 14px; padding: 10px 20px 12px 14px; }
-    .command-body { margin-top: 22px; padding: 40px var(--gutter) 22px; clip-path: polygon(0 24px, 100% 0, 100% 100%, 0 100%); }
-    .command-dek { font-size: 16px; margin-bottom: 16px; }
-    .command .hero-cta { width: 100%; }
-    .command-list li { grid-template-columns: minmax(0, 1fr); padding: 9px 18px 10px 16px; }
+    .command-dek { font-size: 16px; margin-top: 16px; }
+    .command-list li { grid-template-columns: minmax(0, 1fr); padding: 9px 16px 10px; }
     /* A first visit has no study days yet, so the date waits until there is activity. */
     body[data-view="home"] .scene:has(#nextStep[data-state="first"]) .today { display: none; }
-    body[data-view="home"] .ai-chip { color: var(--black); }
-    body[data-view="home"] .ai-chip::before { background: var(--black); }
 }
 
 /* --- The orbit chart (Home and Review) --------------------------------------------------
@@ -1867,6 +2008,7 @@ button.command-alt:not(:disabled):hover { color: var(--black); text-decoration-t
 .ob-sector.is-dim { fill: rgba(12, 151, 230, .03); }
 .ob-ring { fill: none; stroke: rgba(245, 248, 255, .32); stroke-width: 1; }
 .ob-tick { fill: var(--mute); font: 700 11px var(--text); letter-spacing: .05em; }
+.ob-disc { fill: var(--field); }
 .ob-core { fill: var(--black); stroke: var(--field); stroke-width: 2; }
 .ob-label { fill: var(--white); font: 700 12px var(--text); letter-spacing: .1em; text-transform: uppercase; }
 .ob-count { fill: var(--mute); font-weight: 400; letter-spacing: .03em; text-transform: none; }
@@ -1904,7 +2046,7 @@ button.command-alt:not(:disabled):hover { color: var(--black); text-decoration-t
     font-size: 15px;
     line-height: 1.4;
     counter-increment: step;
-    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+    border-radius: var(--r-card);
     animation: dealIn .6s var(--ease-out) both;
 }
 .welcome-steps li:nth-child(2) { animation-delay: .07s; }
@@ -1976,7 +2118,7 @@ button.welcome-dismiss:not(:disabled):hover { color: var(--cyan); }
     width: 100%;
     min-height: 4px;
     background: var(--field);
-    clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+    border-radius: var(--r-cap);
     transform-origin: bottom;
     animation: growUp .6s var(--ease-out) both;
 }
@@ -2058,7 +2200,7 @@ details.reveal[open] > summary { margin-bottom: 6px; }
     padding: 12px 16px 14px;
     background: var(--field);
     color: var(--black);
-    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+    border-radius: var(--r-card);
 }
 .kp-label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .kp-name { font: 700 clamp(28px, 3vw, 38px)/1.02 var(--display); overflow-wrap: anywhere; }
@@ -2074,7 +2216,7 @@ details.reveal[open] > summary { margin-bottom: 6px; }
     margin-bottom: 18px;
     padding: 22px 26px;
     background: var(--panel);
-    clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+    border-radius: var(--r-card);
 }
 .drill-head {
     display: flex;
@@ -2092,7 +2234,7 @@ details.reveal[open] > summary { margin-bottom: 6px; }
     background: var(--line);
     font-size: 13px;
     font-weight: 700;
-    clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+    border-radius: var(--r-cap);
 }
 .ev-status[data-status="building"] { background: var(--field); color: var(--black); }
 .ev-status[data-status="struggling"] { background: var(--warn); color: var(--black); }
@@ -2132,7 +2274,7 @@ details.explanation[open] > summary { margin-bottom: 4px; }
     width: 9px;
     height: 9px;
     background: var(--cyan);
-    transform: skewX(-18deg);
+    border-radius: 50%;
 }
 .next-list li[data-kind="review_moved"]::before, .next-list li[data-kind="step_back"]::before { background: var(--warn); }
 .next-list li[data-kind="spaced_review"]::before { background: var(--good); }
@@ -2196,7 +2338,7 @@ dialog.confirm {
     border: 0;
     background: var(--panel);
     color: var(--white);
-    clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+    border-radius: var(--r-card);
 }
 dialog.confirm[open] { animation: slideIn .28s var(--ease-out) both; }
 dialog.confirm::backdrop { background: rgba(2, 5, 11, .76); }
@@ -2216,7 +2358,9 @@ dialog.confirm p { color: var(--mute); }
 .legal-back a { color: var(--cyan); font-weight: 700; }
 .legal h1 { margin-bottom: 8px; font-size: clamp(46px, 6vw, 76px); line-height: .94; }
 .legal h2 { margin: 34px 0 8px; font-size: 30px; }
-.legal p, .legal li { line-height: 1.65; }
+.legal p, .legal li { max-width: 68ch; line-height: 1.65; }
+.legal a { color: var(--cyan); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+.legal a:hover { color: var(--on-dark); }
 .legal ul, .legal ol { padding-left: 22px; }
 .legal li { margin-bottom: 6px; }
 .legal-back { margin-bottom: 20px; }
@@ -2243,6 +2387,7 @@ dialog.confirm p { color: var(--mute); }
 @keyframes radarIn { from { transform: scale(.2); } }
 @keyframes dotIn { from { transform: scale(0); } }
 @keyframes stepIn { from { transform: translateX(-18px); } }
+@keyframes segIn { from { transform: scale(.55); opacity: 0; } }
 /* The result's numerals land like a stamp. */
 @keyframes stamp {
     0% { transform: scale(1.18) translateY(-6px); }
@@ -2264,53 +2409,44 @@ dialog.confirm p { color: var(--mute); }
     to { background-position: -130% 0, 0 0; }
 }
 @keyframes cardCut {
-    from { transform: translateX(-34px) skewX(-5deg); }
+    from { transform: translateY(16px) scale(.985); }
     to { transform: none; }
 }
 @keyframes dealIn {
     from { transform: translateY(26px) rotate(-5deg); }
     to { transform: none; }
 }
-@keyframes bandIn {
-    from { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
-    to { clip-path: polygon(0 0, 100% 0, var(--mast-cut-ratio) 100%, 0 100%); }
+/* Rings open outward from their disc; the disc itself never moves, so the type that
+   turns black inside it stays aligned and readable from the first frame. */
+@keyframes ringOpen {
+    from { transform: translate(-50%, -50%) scale(.55); opacity: 0; }
+    to { transform: translate(-50%, -50%); opacity: 1; }
 }
-/* Home's planes cut in with transforms only: the copy and the button stay on screen and
-   take clicks from the first frame (a clip-path reveal hid them for most of a second). */
-@keyframes planeFromLeft {
-    from { transform: translateX(-22%); }
-    to { transform: none; }
-}
-@keyframes planeFromBelow {
-    from { transform: translateY(16%); }
-    to { transform: none; }
+@keyframes ringDraw {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 @keyframes paperUp {
     from { transform: translateY(22px); }
     to { transform: none; }
 }
-@keyframes orbitIn {
-    from { transform: scale(.72) rotate(-16deg); }
-    to { transform: none; }
-}
 
-/* The one orchestrated moment: on first load, the masthead plane and Home's planes cut in.
-   Only decoration moves (the masthead is aria-hidden; the planes carry no content). */
-.boot .band { animation: bandIn .62s var(--ease-snap) both; }
-.boot .cp-blue { animation: planeFromLeft .6s var(--ease-snap) both; }
-.boot .cp-edge { animation: planeFromLeft .6s var(--ease-snap) .06s both; }
-.boot .cp-paper { animation: planeFromBelow .6s var(--ease-snap) .12s both; }
+/* The one orchestrated moment: on first load, the rings open round the masthead disc and
+   round Home's orbit, and the copy rises a little. The disc, the copy's position on screen
+   and the action are there from the first frame and take clicks at once. */
+.boot .band-ring { animation: ringOpen .8s var(--ease-out) both; }
+.boot .band-ring.is-far { animation-delay: .08s; }
 .boot .view.is-entering > .command { animation: none; }
 .boot .command-copy { animation: paperUp .5s var(--ease-out) .08s both; }
+.boot .command .ob-ring, .boot .command .ob-tick { animation: ringDraw .7s var(--ease-out) .15s both; }
 @media (max-width: 959px) {
-    /* 22px stays inside the paper's own bottom padding, so the button is never clipped. */
-    .boot .command-body { animation: paperUp .5s var(--ease-snap) .1s both; }
+    .boot .command-copy { animation: none; }
+    .boot .command h1, .boot .command-dek { animation: paperUp .5s var(--ease-out) .08s both; }
 }
-.boot .orbit-chart { animation: orbitIn .9s var(--ease-out) .34s both; }
 
 /* --- Tablet: rail shrinks to icons, band turns horizontal --------------------------- */
 @media (max-width: 1099px) {
-    :root { --mast: 196px; --mast-word: 168px; --mast-cut-a: 80%; --mast-cut-b: 64%; --mast-cut-ratio: 80%; --head-x: 0px; --head-y: calc(var(--mast) - 70px); }
+    :root { --mast: 196px; --mast-word: 150px; --head-x: 0px; --head-y: calc(var(--mast) - 70px); }
 
     .brand-name { display: none; }
     .brand { padding-right: 6px; }
@@ -2331,14 +2467,10 @@ dialog.confirm p { color: var(--mute); }
     .orbit-body { grid-template-columns: minmax(0, 1fr); }
     .orbit-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; max-width: 560px; }
 }
-@media (max-width: 959px) {
-    body[data-view="home"] .ai-chip { color: var(--black); }
-    body[data-view="home"] .ai-chip::before { background: var(--black); }
-}
 
 /* --- Phone: navigation docks to the bottom edge -------------------------------------- */
 @media (max-width: 719px) {
-    :root { --top: 0px; --mast: 108px; --mast-word: 66px; --mast-cut-a: 100%; --head-y: calc(var(--mast) - 50px); --gutter: 16px; }
+    :root { --top: 0px; --mast: 108px; --mast-word: 66px; --head-y: calc(var(--mast) - 50px); --gutter: 16px; }
     html { scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 
     /* The top bar becomes the tab bar at the bottom edge. */
@@ -2366,12 +2498,12 @@ dialog.confirm p { color: var(--mute); }
     .nav-link:hover, .nav-link:active { transform: none; }
     .nav-badge { position: absolute; top: 2px; right: 50%; margin-right: -24px; min-width: 18px; padding: 1px 5px; font-size: 13px; }
     .nav-ind::before { display: none; }
-    .nav-ind::after { height: var(--ind-h, 0); transform: translate(var(--ind-x, 0), var(--ind-y, 0)); clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+    .nav-ind::after { height: var(--ind-h, 0); transform: translate(var(--ind-x, 0), var(--ind-y, 0)); border-radius: var(--r-cap); }
 
-    .band { clip-path: polygon(0 0, 100% 0, 100% 62%, 0 100%); }
-    .band-word { bottom: 6px; line-height: .78; }
+    .band { --disc: 150px; }
+    .band-ring.is-far { display: none; }
+    .band-word { bottom: 6px; line-height: .78; --iy: calc(var(--mast-word) * .78 + 6px - var(--disc) * .38); }
     body:not([data-view="home"]) .today { visibility: hidden; }
-    .band::before { display: none; }
     .band-stripes { left: auto; right: 16px; top: 46px; width: 84px; }
     .band-count { left: auto; right: 16px; top: 8px; bottom: auto; }
     .band-count em { display: none; }
@@ -2380,9 +2512,6 @@ dialog.confirm p { color: var(--mute); }
     .scene { padding: 14px var(--gutter) calc(90px + env(safe-area-inset-bottom)); }
     .scene-top { font-size: 13px; }
     .today strong { font-size: 20px; }
-    /* The chip sits on the blue plane on a phone. */
-    body:not([data-view="home"]) .ai-chip { color: var(--black); }
-    body:not([data-view="home"]) .ai-chip::before { background: var(--black); }
 
     .panel { padding: 18px 16px; }
     button.formula-btn { min-height: 44px; min-width: 44px; }
@@ -2399,22 +2528,6 @@ dialog.confirm p { color: var(--mute); }
     }
     /* Where the questions came from (new, due review, built-in or AI) still matters here. */
     .set-meta { display: block; font-size: 12px; letter-spacing: 0; }
-    /* During a set the band already names the page and counts the questions, so the page
-       heading and the date step aside (the heading stays for screen readers). */
-    #view-practice[data-mode="focus"] .view-head {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        min-height: 0;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
-    }
-    body[data-view="practice"] .scene:has(#view-practice[data-mode="focus"]) .today { display: none; }
-    /* With the heading hidden, the set still starts below the masthead's count. */
-    #view-practice[data-mode="focus"] { padding-top: calc(var(--mast) - 30px); }
     .score-text { align-self: center; text-align: left; }
     .set-cells { gap: 4px; }
     button.set-cell { min-width: 40px; min-height: 44px; padding: 2px 6px; }
@@ -2431,7 +2544,6 @@ dialog.confirm p { color: var(--mute); }
     .review-readouts { display: none; }
     .orbit-canvas .ob-svg { margin-top: 0; }
     .orbit-canvas .ob-label { display: none; }
-    .cc-step { grid-template-columns: 30px 64px minmax(0, 1fr); padding: 8px 14px 8px 12px; }
     .welcome-steps { grid-template-columns: minmax(0, 1fr); gap: 6px; }
     .welcome-steps li { padding: 12px 14px 12px 52px; }
     .welcome-steps li::before { top: 10px; font-size: 36px; }

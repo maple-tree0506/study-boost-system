@@ -785,6 +785,9 @@ test("first visit: the Home button is fully on screen with the real fonts and wi
             await page.evaluate(() => localStorage.clear());
             await open(page, server.base, "home");
             await page.waitForSelector('#nextStep[data-state="first"]');
+            // The headline crosses into the orbit's disc on wide screens; the colour change
+            // there is set by script once the layout is known.
+            if (w >= 960) await page.waitForSelector("#home-title.is-inverted");
             const m = await page.evaluate(() => {
                 const btn = document.getElementById("nextStepBtn").getBoundingClientRect();
                 // The headline's own letters: the giant word and the slab (the h1's box spans the poster).
@@ -793,16 +796,30 @@ test("first visit: the Home button is fully on screen with the real fonts and wi
                 const tabs = document.querySelector(".rail").getBoundingClientRect();
                 // On a phone the rail is the bottom tab bar; elsewhere it's the top bar.
                 const usable = tabs.top > innerHeight / 2 ? tabs.top : innerHeight;
-                const orbit = document.getElementById("orbit").getBoundingClientRect();
-                // Nothing (a plane, the orbit, the tab bar) lies over the button's centre.
+                const disc = document.querySelector("#orbitChart .ob-disc").getBoundingClientRect();
+                const core = document.querySelector("#orbitChart .ob-core").getBoundingClientRect();
+                const dek = document.getElementById("commandDek").getBoundingClientRect();
+                // Nothing (the orbit, the tab bar) lies over the button's centre.
                 const hit = document.elementFromPoint(btn.left + btn.width / 2, btn.top + btn.height / 2);
                 const clickable = !!hit && document.getElementById("nextStepBtn").contains(hit);
-                return { top: btn.top, bottom: btn.bottom, usable, clickable, titleRight: title.right, orbitLeft: orbit.left, orbitTop: orbit.top, titleBottom: title.bottom };
+                return {
+                    top: btn.top, bottom: btn.bottom, usable, clickable, titleRight: title.right,
+                    coreLeft: core.left, discLeft: disc.left, discTop: disc.top, dekRight: dek.right, dekBottom: dek.bottom,
+                    inverted: document.getElementById("home-title").classList.contains("is-inverted")
+                };
             });
             const where = fonts + " " + w + "x" + h;
             assert.ok(m.top >= 0 && m.bottom <= m.usable, where + ": button " + Math.round(m.top) + "-" + Math.round(m.bottom) + " vs usable " + Math.round(m.usable));
             assert.ok(m.clickable, where + ": the button's centre is not covered");
-            if (w >= 960) assert.ok(m.titleRight <= m.orbitLeft + 1, where + ": the headline stays out of the orbit column");
+            if (w >= 960) {
+                // V5: the headline may cross the disc (drawn in black there) but never reaches
+                // the core, where the button is; the description stays off the disc.
+                assert.ok(m.titleRight <= m.coreLeft - 8, where + ": headline " + Math.round(m.titleRight) + " stops before the core " + Math.round(m.coreLeft));
+                if (m.titleRight > m.discLeft) assert.ok(m.inverted, where + ": the part on the disc is inverted");
+                assert.ok(m.dekRight <= m.discLeft, where + ": the description stays off the disc");
+            } else {
+                assert.ok(m.dekBottom <= m.discTop, where + ": the description sits above the disc");
+            }
             assert.deepEqual(page.errors, []);
             await page.close();
         }

@@ -1,5 +1,13 @@
 # StudyBoost — UX Flow
 
+## v5: "Orbit Field" (November 2026)
+
+The screens keep their order and actions. V5 changes their composition. Home's next
+action sits in the core of the student's review orbit. During a set the page header steps
+aside, so the question comes first. The result leads with the score under an arc of the
+set's answers, one learning line, and one next step. Review's due count sits in a disc.
+See `docs/REDESIGN-V5.md`.
+
 ## v4: "Cut Poster" (November 2026)
 
 The screens below keep their order and actions; V4 changes their composition (masthead planes,

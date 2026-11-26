@@ -154,7 +154,10 @@
 
     <!-- The title band: the current page name, set huge. Decorative, because each view
          also has a real heading for screen readers. -->
+    <!-- Masthead: a blue disc in the page's corner with its rings running out across the
+         page; the page name is set huge, solid inside the disc and an outline outside it. -->
     <div class="band" aria-hidden="true">
+        <i class="band-disc"></i><i class="band-ring"></i><i class="band-ring is-far"></i>
         <div class="band-stripes" id="bandStripes"><i></i><b id="bandStep"></b><i></i></div>
         <span class="band-word" id="bandWord">STUDY</span>
         <div class="band-count" id="bandCount" hidden></div>
@@ -165,7 +168,7 @@
 
     <main class="scene" id="main" tabindex="-1">
         <div class="scene-top">
-            <p class="today"><strong id="todayDate">&nbsp;</strong> <span id="todayPart"></span></p>
+            <p class="today" data-invert=".band-disc"><strong id="todayDate">&nbsp;</strong> <span id="todayPart"></span></p>
             <p class="ai-chip" id="aiChip" data-state="checking">Checking connection</p>
         </div>
 
@@ -173,14 +176,14 @@
              The command center. A returning student sees their real next task first;
              a first visit sees the product promise. #nextStep carries the step kind. -->
         <section class="view" id="view-home" data-view="home" aria-labelledby="home-title">
+            <!-- The poster is built on the review orbit: its 15-day ring is the blue disc,
+                 display type turns black where it crosses the disc, and the core holds the
+                 next action. -->
             <header class="command" id="nextStep" data-kind="start" data-state="first">
-                <!-- The poster's planes: blue (the headline's field), paper (where the action
-                     sits), and an off-register royal edge along the cut. Decorative. -->
-                <div class="command-planes" aria-hidden="true"><i class="cp-edge"></i><i class="cp-blue"></i><i class="cp-paper"></i></div>
                 <div class="command-copy">
                     <p class="kicker" id="commandKicker">Adaptive AP practice</p>
-                    <p class="command-figure" id="commandFigure" hidden></p>
-                    <h1 id="home-title" tabindex="-1"><span class="h1-big">Practice</span> <span class="h1-tag">that brings back what you miss.</span></h1>
+                    <p class="command-figure" id="commandFigure" data-invert="#orbitChart .ob-disc" hidden></p>
+                    <h1 id="home-title" tabindex="-1" data-invert="#orbitChart .ob-disc"><span class="h1-big">Practice</span> <span class="h1-tag">that brings back what you miss.</span></h1>
                     <div class="command-body">
                         <p class="command-dek" id="commandDek">AP-style questions from a built-in bank for 13 AP courses. The ones you miss come back on a spaced schedule until they stick.</p>
                         <ol class="command-list" id="commandList" aria-label="Due now" hidden></ol>

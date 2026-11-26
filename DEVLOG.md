@@ -11,6 +11,45 @@ Newest entries first.
 
 ---
 
+## 2026-11 — V5 visual redo: "Orbit Field"
+**Why:** a second whole-site redo, asking for type that takes part in the composition,
+graphics that tie regions together, and state you can read in the picture. Home and the
+result each needed one memorable image, and the Review Orbit had to make real review data
+part of the brand. V4 already had big type, the cut, and a blue/black split, so Home
+needed a new composition.
+**How it was chosen:** two directions on the same content and viewports. A: type leads
+(a giant word inverting across a blue block). B: the orbit leads (the 15-day ring as a
+blue disc, the action in the core). B won: the picture points at the action, the geometry
+is new, and the real orbit becomes the brand. A's inversion rule was kept.
+Record: `docs/REDESIGN-V5.md`.
+**What changed:**
+- Home is the review orbit at poster scale, with real cards as dots and due ones round the
+  core.
+- The result is a horizon arc of the set's answers over the score, with one learning line
+  and one next step first.
+- Review's due count sits in a disc, and its orbit rings carry real dates.
+- Mastheads are a corner disc with the page name inverted.
+- Answering hides the masthead, date, and display heading.
+- Capsules and circles replace slants; the page change is a disc.
+- The trust pages load the app's fonts and cap reading lines.
+
+**Found on the way:**
+- Text painted through a background is clipped to its own box, so PRACTICE lost its last
+  letter until it was sized from the measured word width (3.26 em; 3.42 em in the
+  fallback).
+- On phones the orbit drawing painted over the button in the same grid cell, which needed
+  a stacking order.
+- A returning phone pushed Start review below the fold until the due list moved below the
+  orbit.
+- The trust pages never preloaded the fonts, so they showed the fallback face.
+
+**Changed tests (intended):** the Home-button test's V4 rule "the headline stays out of
+the orbit column" became V5's rule (it stops before the core; the part on the disc is
+inverted; the description stays off the disc). One unit test was added for
+`ReviewOrbit.layout({ dueRim })`.
+
+---
+
 ## 2026-11 — V4 visual redo: "Cut Poster"
 **Why:** the brief asked for a whole-site visual change visible at a glance, with the
 tension of strong game-menu art direction (whole-screen composition, type built into the
