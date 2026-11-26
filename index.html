@@ -174,15 +174,20 @@
              a first visit sees the product promise. #nextStep carries the step kind. -->
         <section class="view" id="view-home" data-view="home" aria-labelledby="home-title">
             <header class="command" id="nextStep" data-kind="start" data-state="first">
+                <!-- The poster's planes: blue (the headline's field), paper (where the action
+                     sits), and an off-register royal edge along the cut. Decorative. -->
+                <div class="command-planes" aria-hidden="true"><i class="cp-edge"></i><i class="cp-blue"></i><i class="cp-paper"></i></div>
                 <div class="command-copy">
                     <p class="kicker" id="commandKicker">Adaptive AP practice</p>
                     <p class="command-figure" id="commandFigure" hidden></p>
-                    <h1 id="home-title" tabindex="-1"><span class="h1-wide">Practice that brings back what you miss.</span><span class="h1-narrow">Practice AP. Review what you miss.</span></h1>
-                    <p class="command-dek" id="commandDek">AP-style questions from a built-in bank for 13 AP courses. The ones you miss come back on a spaced schedule until they stick.</p>
-                    <ol class="command-list" id="commandList" aria-label="Due now" hidden></ol>
-                    <div class="command-actions">
-                        <button type="button" class="hero-cta" id="nextStepBtn">Start studying</button>
-                        <button type="button" class="command-alt" id="nextStepAlt" hidden></button>
+                    <h1 id="home-title" tabindex="-1"><span class="h1-big">Practice</span> <span class="h1-tag">that brings back what you miss.</span></h1>
+                    <div class="command-body">
+                        <p class="command-dek" id="commandDek">AP-style questions from a built-in bank for 13 AP courses. The ones you miss come back on a spaced schedule until they stick.</p>
+                        <ol class="command-list" id="commandList" aria-label="Due now" hidden></ol>
+                        <div class="command-actions">
+                            <button type="button" class="hero-cta" id="nextStepBtn">Start studying</button>
+                            <button type="button" class="command-alt" id="nextStepAlt" hidden></button>
+                        </div>
                     </div>
                 </div>
                 <figure class="orbit" id="orbit">
@@ -271,12 +276,33 @@
                 <h2 id="quiz-title" tabindex="-1">Practice Questions</h2>
                 <p>Choose a course and difficulty. Questions you miss go to Review on their own.</p>
             </header>
-            <section class="panel setup-panel" id="practiceSetup" aria-label="Set up a practice set">
-                <div class="grid-3">
-                    <div class="field">
+            <!-- The setup sheet: course and topic first (what most students change), the set's
+                 options beside them, and the start button right under the choice. -->
+            <section class="panel setup-panel paper" id="practiceSetup" aria-label="Set up a practice set">
+                <div class="setup-main">
+                    <div class="field field-course">
                         <label for="apSubjectInput">AP course</label>
                         <select id="apSubjectInput"></select>
                     </div>
+                    <div class="field field-topic">
+                        <label for="topicInput">Focus topic (optional)</label>
+                        <input id="topicInput" type="text" list="topicOptions" autocomplete="off" placeholder="e.g. Related rates, Glycolysis, Kirchhoff's laws">
+                        <datalist id="topicOptions"></datalist>
+                        <p class="hint bank-hint" id="bankHint" aria-live="polite" hidden></p>
+                        <div class="topic-fill" id="topicFill" hidden>
+                            <label for="topicFillInput">If there aren't enough questions on this topic</label>
+                            <select id="topicFillInput">
+                                <option value="fill" selected>Fill the set with other questions from the course</option>
+                                <option value="only">Only questions on this topic (a shorter set)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="actions setup-go">
+                        <button id="quizBtn" type="button">Start practice</button>
+                    </div>
+                </div>
+                <fieldset class="setup-options">
+                    <legend>Set options</legend>
                     <div class="field">
                         <label for="questionFormatInput">Question format</label>
                         <select id="questionFormatInput">
@@ -295,30 +321,14 @@
                             <option value="challenge">Challenge (AP exam rigor)</option>
                         </select>
                     </div>
-                </div>
-                <div class="field">
-                    <label for="topicInput">Focus topic (optional)</label>
-                    <input id="topicInput" type="text" list="topicOptions" autocomplete="off" placeholder="e.g. Related rates, Glycolysis, Kirchhoff's laws">
-                    <datalist id="topicOptions"></datalist>
-                    <p class="hint bank-hint" id="bankHint" aria-live="polite" hidden></p>
-                    <div class="topic-fill" id="topicFill" hidden>
-                        <label for="topicFillInput">If there aren't enough questions on this topic</label>
-                        <select id="topicFillInput">
-                            <option value="fill" selected>Fill the set with other questions from the course</option>
-                            <option value="only">Only questions on this topic (a shorter set)</option>
-                        </select>
+                    <div class="field">
+                        <label class="check-row" for="useNotesContextInput">
+                            <input id="useNotesContextInput" type="checkbox" checked />
+                            Base questions on my notes
+                        </label>
+                        <p class="hint" id="notesContextHint">Optional: paste notes to tailor questions to your material.</p>
                     </div>
-                </div>
-                <div class="field">
-                    <label class="check-row" for="useNotesContextInput">
-                        <input id="useNotesContextInput" type="checkbox" checked />
-                        Base questions on my notes
-                    </label>
-                    <p class="hint" id="notesContextHint">Optional: paste notes to tailor questions to your material.</p>
-                </div>
-                <div class="actions">
-                    <button id="quizBtn" type="button">Generate Practice Questions</button>
-                </div>
+                </fieldset>
             </section>
             <div class="status quiz-status" id="quizStatus" aria-live="polite"></div>
             <div class="output output-quiz" id="quizOutput">
@@ -435,7 +445,6 @@
                 <h2 id="insights-label" tabindex="-1">Your Progress</h2>
                 <p>Every number here comes from questions you graded yourself.</p>
             </header>
-            <div class="status-strip" id="statusStrip"></div>
             <div class="insights-grid">
                 <section class="panel" aria-labelledby="progress-title">
                     <div class="panel-head">
@@ -461,6 +470,8 @@
                     </div>
                 </section>
             </div>
+            <!-- Level, streak, and today's counts: after the learning evidence. -->
+            <div class="status-strip" id="statusStrip"></div>
         </section>
 
         <!-- SETUP =========================================================
@@ -473,16 +484,6 @@
                 <p>Your study settings and your data. Everything works without an AI connection.</p>
             </header>
             <div class="setup-grid">
-                <section class="panel" aria-labelledby="motion-title">
-                    <h3 id="motion-title">Motion</h3>
-                    <p class="hint">Page transitions, the opening sequence, and chart reveals. Reduced motion keeps every change on screen and removes the movement.</p>
-                    <fieldset class="choice-group">
-                        <legend class="sr-only">Motion</legend>
-                        <label class="check-row"><input type="radio" name="motionPref" value="system" checked> Match my device setting</label>
-                        <label class="check-row"><input type="radio" name="motionPref" value="reduce"> Reduce motion</label>
-                    </fieldset>
-                    <div class="status" id="motionStatus" aria-live="polite"></div>
-                </section>
                 <section class="panel" aria-labelledby="data-title">
                     <h3 class="data-heading" id="data-title">Your data</h3>
                     <p class="hint">Your mistake log, topic mastery, XP, streak, and settings are stored in this browser. Back them up, or restore them on another device. Restoring replaces those; before it does, it shows the backup's date and how many mistakes it holds.</p>
@@ -493,6 +494,16 @@
                         <input id="importDataInput" type="file" accept="application/json" aria-label="Choose a StudyBoost backup file" hidden>
                     </div>
                     <div class="status" id="dataStatus" aria-live="polite"></div>
+                </section>
+                <section class="panel" aria-labelledby="motion-title">
+                    <h3 id="motion-title">Motion</h3>
+                    <p class="hint">Page transitions, the opening sequence, and chart reveals. Reduced motion keeps every change on screen and removes the movement.</p>
+                    <fieldset class="choice-group">
+                        <legend class="sr-only">Motion</legend>
+                        <label class="check-row"><input type="radio" name="motionPref" value="system" checked> Match my device setting</label>
+                        <label class="check-row"><input type="radio" name="motionPref" value="reduce"> Reduce motion</label>
+                    </fieldset>
+                    <div class="status" id="motionStatus" aria-live="polite"></div>
                 </section>
             </div>
             <details class="panel dev-panel" id="connectionPanel">

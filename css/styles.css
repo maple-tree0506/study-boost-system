@@ -82,22 +82,43 @@
     --field-deep: #0A82C9;
     --cyan: #00D9FF;
 
-    /* Text */
+    /* Text. --white and --mute flip on paper (see "Paper"); --on-dark never does. */
     --white: #F5F8FF;
     --mute: #A9BAD2;
+    --on-dark: #F5F8FF;
 
-    /* Status. Reserved for state, and always paired with a word or a number. */
+    /* Paper: the warm white sheet for reading and answering (black type, 17.9:1). */
+    --paper: #F2F0EA;
+    --paper-sunk: #E6E2D8;
+
+    /* Status. Reserved for state, and always paired with a word or a number. The base
+       colours are fills (black text on them); the -ink colours are for status written
+       as text or drawn as a thin line, and turn dark on paper. */
     --good: #3CF2C0;
     --warn: #E6F24A;
     --bad: #FF5C7A;
+    --good-ink: var(--good);
+    --warn-ink: var(--warn);
+    --bad-ink: var(--bad);
 
     --display: "Big Shoulders", "Big Shoulders Fallback", "Big Shoulders Fallback Roboto", "Big Shoulders Fallback DejaVu", "Arial Narrow", Impact, sans-serif;
     --text: "Instrument Sans", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
 
-    --rail: 216px;
-    --band: 158px;
-    --band-slant: 44px;
-    --measure: 1040px;
+    /* Layout. The top bar, the masthead plane and its cut, and the content gutter. */
+    --top: 64px;
+    --mast: 236px;
+    /* Sized so the longest page name (PROGRESS, 3.76em) ends before the heading beside it. */
+    --mast-word: clamp(120px, 13vw, 210px);
+    /* The plane's top and bottom edges, as fractions of the page width, and the bottom
+       edge as a fraction of the plane's own width (cut-b / cut-a). The plane's box ends at
+       cut-a, so nothing beside it ever sits on (or is measured against) the blue. */
+    --mast-cut-a: 58%;
+    --mast-cut-b: 46%;
+    --mast-cut-ratio: 79.3%;
+    --head-x: 61%;
+    --head-y: 28px;
+    --gutter: clamp(24px, 4.4vw, 72px);
+    --measure: 1120px;
     --cut: 20px;
 
     /* Spacing scale (4px base) */
@@ -131,7 +152,7 @@
 [hidden] { display: none !important; }
 
 /* Scroll padding keeps a focused control clear of the sticky score bar and tab bar. */
-html { scroll-behavior: smooth; scroll-padding-top: 64px; -webkit-text-size-adjust: 100%; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--top) + 96px); -webkit-text-size-adjust: 100%; }
 
 body {
     margin: 0;
@@ -179,6 +200,60 @@ code {
 }
 .skip-link:focus { transform: none; }
 
+/* --- Paper ---------------------------------------------------------------------
+   The reading and answering surface: a warm white sheet with black type, laid on the dark
+   desk. Inside it the same tokens are flipped, so feedback, answers, tags, inputs, focus
+   outlines, and buttons adapt without paper-only copies of their rules. Every text colour
+   here is at least 4.5:1 on --paper; --control-edge is 4.9:1. */
+.paper,
+.output-quiz .qa-card,
+.mistake-original,
+.variant-card,
+.panel-output,
+dialog.confirm {
+    --white: #0B1322;
+    --mute: #4A5568;
+    --ink: #FFFFFF;
+    --navy: var(--paper-sunk);
+    --panel: #ECE9E1;
+    --raise: #DCD8CD;
+    --line: #C3BEB1;
+    --control-edge: #5E6878;
+    --cyan: var(--royal);
+    --good-ink: #0B6B4F;
+    --warn-ink: #6B5E00;
+    --bad-ink: #B0163A;
+    background: var(--paper);
+    color: var(--white);
+    color-scheme: light;
+}
+/* On paper the signal is the black slab; outlines are black. */
+:is(.paper, .output-quiz .qa-card, .mistake-original, .variant-card, .panel-output, dialog.confirm) button {
+    --btn-fill: var(--black);
+    --btn-ink: var(--on-dark);
+    --btn-wipe: var(--field);
+    --btn-ink-hover: var(--black);
+}
+:is(.paper, .output-quiz .qa-card, .mistake-original, .variant-card, .panel-output, dialog.confirm) :is(button.secondary, button.outline, button.rate) {
+    --btn-fill: transparent;
+    --btn-edge: var(--black);
+    --btn-ink: var(--black);
+    --btn-wipe: var(--black);
+    --btn-ink-hover: var(--on-dark);
+}
+:is(.paper, .output-quiz .qa-card, .mistake-original, .variant-card, .panel-output, dialog.confirm) button.danger {
+    --btn-fill: transparent;
+    --btn-edge: var(--bad-ink);
+    --btn-ink: var(--bad-ink);
+    --btn-wipe: var(--bad-ink);
+    --btn-ink-hover: var(--on-dark);
+}
+:is(.paper, .output-quiz .qa-card, .mistake-original, .variant-card, .panel-output, dialog.confirm) :is(.tag.subject, .tag.counts, .tag.level-medium) { color: var(--on-dark); }
+:is(.paper, .output-quiz .qa-card, .mistake-original, .variant-card, .panel-output, dialog.confirm) ::placeholder { color: #5E6878; opacity: 1; }
+:is(.paper, .output-quiz .qa-card, .mistake-original, .variant-card, .panel-output, dialog.confirm) select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2302050B' stroke-width='2'/%3E%3C/svg%3E");
+}
+
 /* --- Ambient rings ------------------------------------------------------------ */
 .stage {
     position: fixed;
@@ -199,15 +274,18 @@ code {
 }
 .stage-rings .dash { stroke-dasharray: 3 15; stroke-width: 1.5; }
 
-/* --- Rail --------------------------------------------------------------------- */
+/* --- Top bar ------------------------------------------------------------------
+   V4 "Cut Poster": navigation is one black bar across the top (the bottom tab bar on a
+   phone), so every page gets the full width for its own composition. */
 .rail {
     position: fixed;
-    inset: 0 auto 0 0;
+    inset: 0 0 auto 0;
     z-index: 30;
-    width: var(--rail);
+    height: var(--top);
     display: flex;
-    flex-direction: column;
-    padding: 22px 0 20px;
+    align-items: stretch;
+    gap: 8px;
+    padding: 0 24px 0 20px;
     background: var(--black);
 }
 
@@ -215,37 +293,40 @@ code {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 0 22px;
-    color: var(--white);
+    padding-right: 14px;
+    color: var(--on-dark);
     text-decoration: none;
 }
-.brand-mark { width: 34px; height: 34px; flex: none; color: var(--white); }
-.brand-name { font: 700 27px/1 var(--display); }
+.brand-mark { width: 30px; height: 30px; flex: none; color: var(--on-dark); }
+.brand-name { font: 700 26px/1 var(--display); }
 .brand-name span { color: var(--cyan); }
 
-.nav { position: relative; margin-top: 30px; }
-.nav-list { position: relative; list-style: none; margin: 0; padding: 0; }
+.nav { position: relative; display: flex; }
+.nav-list { position: relative; display: flex; list-style: none; margin: 0; padding: 0; }
+.nav-list li { display: flex; }
 
 .nav-link {
     position: relative;
     display: flex;
-    align-items: baseline;
-    gap: 9px;
-    padding: 9px 22px;
-    color: var(--white);
-    font: 700 32px/1 var(--display);
+    align-items: center;
+    gap: 8px;
+    padding: 0 18px;
+    color: var(--on-dark);
+    font: 700 23px/1 var(--display);
+    letter-spacing: .02em;
+    text-transform: uppercase;
     text-decoration: none;
     transition: color var(--fast), transform var(--med) var(--ease-out);
 }
 .nav-ico { display: none; }
-.nav-step { font-size: 17px; color: var(--mute); transition: color var(--fast); }
-.nav-link:hover { color: var(--cyan); transform: translateX(6px); }
+/* The step number is said once, in each page's kicker. */
+.nav-step { display: none; }
+.nav-link:hover { color: var(--cyan); transform: translateY(-2px); }
 .nav-link[aria-current] { color: var(--black); transform: none; }
-.nav-link[aria-current] .nav-step { color: var(--black); }
-.nav-link:focus-visible { outline-offset: -4px; }
+.nav-link:focus-visible { outline-offset: -5px; }
 
-/* The marker is two slanted slips on different timings, so the cyan one trails the
-   white one when the student changes page. */
+/* The marker: a white slip with a blue slip printed a little off-register behind it. They
+   move on different timings, so the blue one trails when the page changes. */
 .nav-ind { position: absolute; inset: 0; pointer-events: none; }
 .nav-ind::before,
 .nav-ind::after {
@@ -254,97 +335,118 @@ code {
     top: 0;
     left: 0;
     width: var(--ind-w, 0);
-    height: var(--ind-h, 0);
-    transform: translate(var(--ind-x, 0), var(--ind-y, 0));
-    clip-path: polygon(0 0, 100% 0, calc(100% - 20px) 100%, 0 100%);
+    height: calc(var(--ind-h, 0) - 20px);
+    transform: translate(var(--ind-x, 0), calc(var(--ind-y, 0) + 10px));
+    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
 }
 .nav-ind::before {
-    background: var(--cyan);
-    margin: 5px 0 0 6px;
-    transition: transform .52s var(--ease-out);
+    background: var(--field);
+    margin: 6px 0 0 7px;
+    transition: transform .52s var(--ease-out), width .52s var(--ease-out);
 }
 .nav-ind::after {
-    background: var(--white);
-    margin-right: 10px;
-    transition: transform .32s var(--ease-out);
+    background: var(--on-dark);
+    transition: transform .3s var(--ease-out), width .3s var(--ease-out);
 }
 
 .nav-badge {
     align-self: center;
-    margin-left: auto;
-    min-width: 24px;
-    padding: 2px 7px;
+    min-width: 22px;
+    padding: 2px 6px;
     background: var(--warn);
     color: var(--black);
-    font: 700 16px/1.1 var(--display);
+    font: 700 15px/1.1 var(--display);
     text-align: center;
     transform: skewX(-12deg);
 }
 
-.hud { margin-top: auto; padding: 0 22px; }
-.hud-level { margin: 0 0 6px; font: 700 20px/1 var(--display); color: var(--mute); }
-.hud-level b { font-size: 40px; color: var(--white); }
-.hud-meta { margin: 6px 0 0; font-size: 13px; line-height: 1.35; color: var(--mute); }
+.hud {
+    display: grid;
+    grid-template-columns: auto 112px;
+    align-content: center;
+    column-gap: 12px;
+    margin-left: auto;
+    color: var(--mute);
+}
+.hud-level { grid-row: 1 / span 3; align-self: center; margin: 0; font: 700 16px/1 var(--display); text-transform: uppercase; }
+.hud-level b { display: block; font-size: 34px; color: var(--on-dark); }
+.hud .bar-track { height: 6px; align-self: end; }
+.hud-meta { margin: 3px 0 0; font-size: 11px; line-height: 1.2; white-space: nowrap; }
 
-/* --- Title band --------------------------------------------------------------- */
+/* --- Masthead ------------------------------------------------------------------
+   Each page opens on a blue plane cut on the diagonal, its name set huge and cropped by
+   the plane. The real heading sits beside it on the dark side of the cut. Decorative
+   (aria-hidden); Home has its own poster instead. */
 .band {
-    position: fixed;
-    inset: 0 auto 0 var(--rail);
-    z-index: 20;
-    width: var(--band);
+    position: absolute;
+    top: var(--top);
+    left: 0;
+    z-index: 1;
+    width: var(--mast-cut-a);
+    height: var(--mast);
     overflow: hidden;
+    pointer-events: none;
     background: var(--field);
     color: var(--black);
-    clip-path: polygon(0 0, 100% 0, calc(100% - var(--band-slant)) 100%, 0 100%);
+    clip-path: polygon(0 0, 100% 0, var(--mast-cut-ratio) 100%, 0 100%);
+}
+body[data-view="home"] .band { display: none; }
+/* An off-register black shadow plane behind the blue, the cut printed twice. */
+.band::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--royal);
+    clip-path: polygon(calc(100% - 46px) 0, 100% 0, var(--mast-cut-ratio) 100%, calc(var(--mast-cut-ratio) - 46px) 100%);
 }
 .band-word {
     position: absolute;
-    top: 16px;
-    left: -2px;
-    writing-mode: vertical-rl;
-    font: 700 clamp(132px, 22vh, 164px)/.86 var(--display);
-    letter-spacing: -.005em;
+    left: clamp(16px, 4vw, 56px);
+    bottom: calc(var(--mast-word) * -.17);
+    font: 700 var(--mast-word)/.8 var(--display);
+    letter-spacing: -.01em;
     white-space: nowrap;
 }
 .band-word.is-entering { animation: wordIn .46s var(--ease-out) both; }
 .band-stripes {
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 42px;
+    top: 18px;
+    left: calc(100% - 260px);
+    width: 150px;
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     color: var(--black);
 }
-.band-stripes i { flex: 1; height: 16px; background: linear-gradient(var(--field-deep) 0 5px, transparent 5px 11px, var(--field-deep) 11px); }
-/* The step number is said once, in the kicker (and the rail's numbers on wider screens). */
-.band-stripes b { display: none; font: 700 58px/1 var(--display); }
+.band-stripes i { flex: 1; height: 10px; background: linear-gradient(var(--field-deep) 0 3px, transparent 3px 7px, var(--field-deep) 7px); }
+.band-stripes b { display: none; }
+/* During a set the plane carries the real question number instead of the page name. */
 .band-count {
     position: absolute;
-    top: 20px;
-    left: 16px;
-    right: calc(var(--band-slant) - 6px);
+    left: clamp(16px, 4vw, 56px);
+    bottom: 12px;
     display: flex;
-    flex-direction: column;
+    align-items: baseline;
+    gap: 10px;
     color: var(--black);
 }
-.band-count b { font: 700 clamp(104px, 17vh, 150px)/.8 var(--display); letter-spacing: -.02em; }
-.band-count span { margin-top: 8px; font: 700 44px/1 var(--display); }
+.band-count b { font: 700 calc(var(--mast-word) * .92)/.78 var(--display); letter-spacing: -.03em; }
+.band-count span { font: 700 calc(var(--mast-word) * .32)/1 var(--display); }
 .band-count em {
-    margin-top: 14px;
+    align-self: flex-end;
+    margin-bottom: 8px;
     font: 700 12px/1.2 var(--text);
     font-style: normal;
     letter-spacing: .2em;
     text-transform: uppercase;
 }
 body[data-band="count"] .band-word { visibility: hidden; }
-body[data-band="count"] .band-stripes { display: none; }
 
-/* --- Page transition ---------------------------------------------------------- */
+/* --- Page transition ----------------------------------------------------------
+   Three planes (blue, paper, black) slash across on the page's cut, then clear. */
 .wipe {
     position: fixed;
-    inset: 0 0 0 var(--rail);
+    inset: 0;
     z-index: 25;
     overflow: hidden;
     pointer-events: none;
@@ -353,23 +455,22 @@ body[data-band="count"] .band-stripes { display: none; }
 .wipe.is-active { visibility: visible; }
 .wipe i {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: -14%;
-    width: 128%;
-    transform: translateX(-112%);
+    top: -20%;
+    bottom: -20%;
+    left: -30%;
+    width: 160%;
+    transform: translateX(-140%);
 }
-.wipe i:nth-child(1) { background: var(--white); }
-.wipe i:nth-child(2) { background: var(--cyan); }
-.wipe i:nth-child(3) { background: var(--royal); }
+.wipe i:nth-child(1) { background: var(--field); }
+.wipe i:nth-child(2) { background: var(--paper); }
+.wipe i:nth-child(3) { background: var(--black); }
 
 /* --- Scene -------------------------------------------------------------------- */
 .scene {
     position: relative;
     z-index: 10;
     min-height: 100vh;
-    margin-left: calc(var(--rail) + var(--band) - var(--band-slant));
-    padding: 18px 48px 28px calc(var(--band-slant) + 44px);
+    padding: calc(var(--top) + 18px) var(--gutter) 28px;
     display: flex;
     flex-direction: column;
     /* Entrance animations slide in from the right. Clip them here, or phones widen
@@ -388,8 +489,7 @@ body[data-band="count"] .band-stripes { display: none; }
     align-items: baseline;
     justify-content: space-between;
     gap: 16px;
-    max-width: var(--measure);
-    margin-bottom: 26px;
+    margin-bottom: 18px;
     color: var(--mute);
     font-size: 14px;
 }
@@ -398,7 +498,7 @@ body[data-band="count"] .band-stripes { display: none; }
    nothing below it moves when the date appears (it was a layout shift on Home). */
 .today { margin: 0; display: flex; align-items: baseline; gap: 10px; }
 .today strong { white-space: nowrap; }
-.today strong { font: 700 24px/1 var(--display); color: var(--white); }
+.today strong { font: 700 22px/1 var(--display); color: var(--black); }
 .ai-chip { position: relative; margin: 0; padding-left: 20px; }
 .ai-chip::before {
     content: "";
@@ -413,16 +513,20 @@ body[data-band="count"] .band-stripes { display: none; }
 .ai-chip[data-state="ai"]::before { background: var(--good); }
 .ai-chip[data-state="offline"]::before { background: var(--cyan); }
 .ai-chip[data-state="down"]::before { background: var(--bad); }
+#todayPart { color: var(--black); }
 
-body[data-view="home"] .scene-top { max-width: none; }
-body[data-view="home"] .scene-top,
-body[data-view="home"] .today strong { color: var(--black); }
-/* On Home the connection chip sits over the orbit's black slab. */
-body[data-view="home"] .ai-chip { color: var(--white); }
-
+/* Pages with a masthead: the date rides on the blue plane, the chip on the dark side. */
+body:not([data-view="home"]) .scene-top { min-height: 24px; }
+body:not([data-view="home"]) .view-head {
+    position: relative;
+    z-index: 2;
+    min-height: calc(var(--mast) - 64px);
+    margin: 0 0 26px var(--head-x);
+    padding-top: var(--head-y);
+}
 .view-head { margin-bottom: 24px; }
-.view-head h2 { font-size: clamp(40px, 4.6vw, 66px); line-height: .94; text-wrap: balance; }
-.view-head p { max-width: 64ch; margin: 12px 0 0; color: var(--mute); }
+.view-head h2 { font-size: clamp(38px, 4vw, 60px); line-height: .94; text-wrap: balance; }
+.view-head p { max-width: 58ch; margin: 12px 0 0; color: var(--mute); }
 
 /* Kicker: the small line above a headline that says where you are. */
 .kicker {
@@ -447,8 +551,8 @@ body[data-view="home"] .ai-chip { color: var(--white); }
     border: 0;
 }
 
-/* Staggered entrance, played once when a view opens. */
-.view.is-entering > * { animation: rise .52s var(--ease-out) both; }
+/* Staggered entrance, played once when a view opens: from the cut, up and in. */
+.view.is-entering > * { animation: rise .5s var(--ease-out) both; }
 .view.is-entering > :nth-child(2) { animation-delay: .05s; }
 .view.is-entering > :nth-child(3) { animation-delay: .1s; }
 .view.is-entering > :nth-child(4) { animation-delay: .15s; }
@@ -711,7 +815,7 @@ button[aria-busy="true"]::after {
 /* The set bar: what this set is, one cell per question (each opens it), and the score. */
 .score-banner {
     position: sticky;
-    top: 0;
+    top: var(--top);
     z-index: 5;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -755,8 +859,8 @@ button.set-cell.is-current::before { box-shadow: inset 0 0 0 2px var(--btn-edge)
     overflow-wrap: break-word;
     transition: border-color var(--med);
 }
-.qa-card:has(.feedback.ok) { border-left-color: var(--good); }
-.qa-card:has(.feedback.bad) { border-left-color: var(--bad); }
+.qa-card:has(.feedback.ok) { border-left-color: var(--good-ink); }
+.qa-card:has(.feedback.bad) { border-left-color: var(--bad-ink); }
 .error-card.is-due { border-left-color: var(--warn); }
 
 .output-quiz .qa-card, .output-review .error-card { animation: rise .44s var(--ease-out) both; }
@@ -817,7 +921,7 @@ button.set-cell.is-current::before { box-shadow: inset 0 0 0 2px var(--btn-edge)
 .qa-card .mcq-options label:has(input:disabled):hover { transform: none; }
 .qa-card .mcq-options label:has(input:checked) { border-color: var(--cyan); background: var(--raise); }
 .qa-card .mcq-options input { margin-top: 3px; }
-.qa-card .mcq-options label.is-answer { border-color: var(--good); }
+.qa-card .mcq-options label.is-answer { border-color: var(--good-ink); }
 .qa-card .mcq-options label.is-answer::after,
 .qa-card .mcq-options label.is-wrong::after {
     margin-left: auto;
@@ -826,9 +930,9 @@ button.set-cell.is-current::before { box-shadow: inset 0 0 0 2px var(--btn-edge)
     font-weight: 700;
     line-height: 1.8;
 }
-.qa-card .mcq-options label.is-answer::after { content: "Correct answer"; color: var(--good); }
-.qa-card .mcq-options label.is-wrong { border-color: var(--bad); }
-.qa-card .mcq-options label.is-wrong::after { content: "Your pick"; color: var(--bad); }
+.qa-card .mcq-options label.is-answer::after { content: "Correct answer"; color: var(--good-ink); }
+.qa-card .mcq-options label.is-wrong { border-color: var(--bad-ink); }
+.qa-card .mcq-options label.is-wrong::after { content: "Your pick"; color: var(--bad-ink); }
 
 .feedback {
     margin-top: 10px;
@@ -838,8 +942,8 @@ button.set-cell.is-current::before { box-shadow: inset 0 0 0 2px var(--btn-edge)
     font-size: 15px;
     animation: slideIn .3s var(--ease-out) both;
 }
-.feedback.ok { border-left-color: var(--good); color: var(--good); font-weight: 700; }
-.feedback.bad { border-left-color: var(--bad); color: var(--bad); font-weight: 700; }
+.feedback.ok { border-left-color: var(--good-ink); color: var(--good-ink); font-weight: 700; }
+.feedback.bad { border-left-color: var(--bad-ink); color: var(--bad-ink); font-weight: 700; }
 .feedback.hint-only { border-left-color: var(--mute); color: var(--white); }
 
 .short-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
@@ -921,28 +1025,62 @@ button.rate:not(:disabled):hover::after { transform: none; }
 .rs-num, .stat-num { font: 700 46px/1 var(--display); color: var(--white); }
 .rs-label, .stat-label { margin-top: 4px; font-size: 13px; color: var(--mute); }
 
-/* --- Practice focus mode ---------------------------------------------------------------
-   With a set on screen, the setup form folds into the set bar and one question shows at a
-   time. The view head shrinks: the band already shows the question number, huge. */
+/* --- Practice: the setup sheet and the workbench ---------------------------------------
+   Setup is a paper form: course and topic first, the start button under them, the set's
+   options beside. With a set on screen the page tightens: the masthead carries the real
+   question number, the set bar sits under the top bar, and the question is a paper sheet
+   with an off-register blue print behind it. Study content never slants. */
+.setup-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 1fr);
+    gap: 4px 36px;
+    padding: 28px 32px 26px;
+    box-shadow: 12px 12px 0 var(--field);
+    clip-path: none;
+}
+.setup-main .field-course select { min-height: 52px; font-size: 18px; font-weight: 700; }
+.setup-main .field-topic input { min-height: 48px; font-size: 17px; }
+.setup-go { margin-top: 6px; }
+.setup-go button { min-height: 56px; padding: 12px 40px; font-size: 18px; }
+.setup-options {
+    min-width: 0;
+    margin: 0;
+    padding: 0 0 0 24px;
+    border: 0;
+    border-left: 2px solid var(--line);
+}
+.setup-options legend {
+    float: left;
+    width: 100%;
+    margin: 0 0 12px;
+    padding: 0;
+    color: var(--mute);
+    font: 700 12px/1.3 var(--text);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+.setup-options .field { clear: both; }
+
 .quiz-status { margin: 0 0 12px; }
 #view-practice[data-mode="focus"] .view-head p:not(.kicker),
 #view-practice[data-mode="results"] .view-head p:not(.kicker) { display: none; }
-#view-practice[data-mode="focus"] .view-head,
-#view-practice[data-mode="results"] .view-head { margin-bottom: 14px; }
 #view-practice[data-mode="focus"] .view-head h2,
-#view-practice[data-mode="results"] .view-head h2 { font-size: clamp(30px, 3vw, 42px); }
+#view-practice[data-mode="results"] .view-head h2 { font-size: clamp(30px, 3vw, 44px); }
 
+/* The question sheet. */
 .output-quiz .qa-card {
-    padding: 26px 30px 20px;
+    margin: 6px 12px 22px 0;
+    padding: 30px 36px 22px;
     border-left: 0;
-    clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 0 100%);
+    box-shadow: 12px 12px 0 var(--field);
 }
-.output-quiz .qa-card .card-head { margin-bottom: 14px; }
-.output-quiz .qa-title { font-size: 32px; }
-.qa-of { color: var(--mute); font-size: .62em; }
-.output-quiz .qa-q { max-width: 64ch; margin-bottom: 18px; font-size: 21px; line-height: 1.5; }
-.output-quiz .qa-card.is-graded:has(.feedback.ok) { box-shadow: inset 4px 0 0 var(--good); }
-.output-quiz .qa-card.is-graded:has(.feedback.bad) { box-shadow: inset 4px 0 0 var(--bad); }
+.output-quiz .qa-card .card-head { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--black); }
+.output-quiz .qa-title { font-size: 34px; text-transform: uppercase; }
+.qa-of { color: var(--mute); font-size: .6em; }
+.output-quiz .qa-q { max-width: 64ch; margin-bottom: 20px; font-size: 21px; line-height: 1.55; }
+/* After a check, the print behind the sheet turns to the state's colour. */
+.output-quiz .qa-card.is-graded:has(.feedback.ok) { box-shadow: 12px 12px 0 var(--good); }
+.output-quiz .qa-card.is-graded:has(.feedback.bad) { box-shadow: 12px 12px 0 var(--bad); animation: jolt .34s var(--ease-out); }
 .qa-actions { align-items: center; }
 .key-hint { color: var(--mute); font-size: 13px; }
 @media (hover: none) { .key-hint { display: none; } }
@@ -952,26 +1090,67 @@ button.rate:not(:disabled):hover::after { transform: none; }
     align-items: center;
     justify-content: space-between;
     gap: 10px 16px;
-    margin-top: 18px;
+    margin-top: 20px;
     padding-top: 14px;
     border-top: 1px solid var(--line);
 }
 .q-nav { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; }
+
+/* Options on the sheet: one alignment line for the keys, text that wraps, long formulas
+   scrolling inside their own row. Selected, right, and wrong each have a word and a shape. */
+.output-quiz .qa-card .mcq-options label,
+.variant-card .mcq-options label { background: var(--ink); }
+.output-quiz .qa-card .mcq-options label:has(input:checked),
+.variant-card .mcq-options label:has(input:checked) { border: 2px solid var(--black); background: var(--ink); }
+.qa-card .mcq-options label:has(input:checked) .opt-key { background: var(--black); color: var(--on-dark); }
+.output-quiz .opt-text, .variant-card .opt-text { overflow-x: auto; overflow-y: hidden; }
+/* Right and wrong also differ in line shape (solid / dashed), not only in colour. */
+.qa-card .mcq-options label.is-answer { border: 2px solid var(--good-ink); }
+.qa-card .mcq-options label.is-wrong { border: 2px dashed var(--bad-ink); }
+.qa-card .mcq-options label:has(input:disabled):not(.is-answer):not(.is-wrong) { opacity: .72; }
+
+@media (max-width: 1099px) {
+    .setup-panel { grid-template-columns: minmax(0, 1fr); }
+    .setup-options { padding: 16px 0 0; border-left: 0; border-top: 2px solid var(--line); }
+    .setup-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+    .setup-options legend, .setup-options .field:last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 719px) {
+    .setup-panel { padding: 20px 16px 18px; box-shadow: 6px 6px 0 var(--field); margin-right: 6px; }
+    .setup-options { grid-template-columns: minmax(0, 1fr); }
+    /* The start button stays in reach above the tab bar while the form scrolls. */
+    .setup-go {
+        position: sticky;
+        bottom: calc(68px + env(safe-area-inset-bottom));
+        z-index: 2;
+        margin: 6px -16px 0;
+        padding: 10px 16px;
+        background: var(--paper);
+    }
+    .setup-go button { width: 100%; }
+    .output-quiz .qa-card { margin: 4px 6px 18px 0; padding: 18px 16px 16px; box-shadow: 6px 6px 0 var(--field); }
+    .output-quiz .qa-card.is-graded:has(.feedback.ok) { box-shadow: 6px 6px 0 var(--good); }
+    .output-quiz .qa-card.is-graded:has(.feedback.bad) { box-shadow: 6px 6px 0 var(--bad); }
+    .output-quiz .qa-title { font-size: 22px; }
+    .output-quiz .qa-q { font-size: 18px; }
+}
 
 /* --- Review: today's reviews and the review queue -------------------------------------
    Review opens with what is due and one button; the chart and library follow. During the
    queue, the bar on the mistake page says where you are and what comes after a rating. */
 .review-today {
     max-width: var(--measure);
-    margin: 0 0 22px;
-    padding: 16px 20px 18px;
-    border-left: 4px solid var(--line);
-    background: var(--panel);
+    margin: 0 0 26px;
+    padding: 20px 26px 22px;
+    border-left: 6px solid var(--line);
+    background: var(--black);
+    box-shadow: 10px 10px 0 var(--panel);
 }
 .review-today:has([data-action="queue-start"]) { border-left-color: var(--warn); }
 .review-today .kicker { margin-bottom: 4px; }
-.rt-title { margin: 0 0 6px; font-size: clamp(28px, 3vw, 38px); line-height: 1; }
-.rt-title b { color: var(--warn); }
+/* The due count is the card's giant numeral, the way Home sets its count. */
+.rt-title { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 16px; margin: 0 0 10px; font-size: clamp(30px, 3.2vw, 44px); line-height: .95; text-transform: uppercase; }
+.rt-title b { font-size: clamp(96px, 9vw, 140px); line-height: .76; letter-spacing: -.03em; color: var(--warn); }
 .review-today p:not(.kicker) { margin: 0 0 12px; color: var(--mute); }
 .review-today .rt-done { color: var(--white); }
 .review-today .actions { margin: 0; }
@@ -1187,57 +1366,101 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
 .dev-note { color: var(--mute); font-size: 14px; }
 .dev-panel[open] > summary { margin-bottom: 12px; }
 
-/* --- Completion ---------------------------------------------------------------- */
+/* --- Results: the score poster ------------------------------------------------------
+   A paper poster, composed differently from Home: the real score is the centre of gravity,
+   on a blue cell cut on the diagonal, with the set's questions as numbered dots on a ring
+   behind it. To its right: what each skill showed, then the one next step. The full
+   question list, XP, and sharing come after. */
 .completion-card {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-    gap: 6px 36px;
-    margin-bottom: 16px;
-    padding: 30px 34px 28px;
-    overflow: hidden;
+    grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+    grid-template-areas:
+        "score kick"
+        "score title"
+        "score detail"
+        "score next"
+        "missed missed"
+        "seq seq"
+        "reward reward"
+        "actions actions"
+        "today today"
+        "share share"
+        "fb fb";
+    grid-template-rows: auto auto auto 1fr;
+    gap: 0 40px;
+    margin: 6px 12px 22px 0;
+    padding: 0 36px 30px 0;
+    box-shadow: 12px 12px 0 var(--black);
+    animation: cardCut .5s var(--ease-out) both;
+    scroll-margin-top: calc(var(--top) + 16px);
+}
+.completion-card > * { position: relative; min-width: 0; }
+.cc-result { display: contents; }
+.completion-card > .cc-result > .kicker { grid-area: kick; margin: 34px 0 8px; color: var(--black); }
+.cc-title { grid-area: title; font-size: clamp(36px, 3.6vw, 52px); text-transform: uppercase; }
+.cc-title:focus { outline: none; }
+
+.cc-score {
+    grid-area: score;
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 380px;
+    margin: 0 0 22px;
+    padding: 34px 40px 30px 30px;
     background: var(--field);
     color: var(--black);
-    clip-path: polygon(0 0, calc(100% - 44px) 0, 100% 44px, 100% 100%, 44px 100%, 0 calc(100% - 44px));
-    animation: cardCut .56s var(--ease-out) both;
-    scroll-margin-top: 16px;
+    clip-path: polygon(0 0, 100% 0, 92% 100%, 0 100%);
 }
-.completion-card > * { position: relative; }
-.completion-card::before {
-    content: "";
-    position: absolute;
-    right: -14%;
-    top: -50%;
-    width: 46%;
-    height: 200%;
-    background: var(--white);
-    opacity: .16;
-    transform: rotate(20deg);
+.cc-ring { position: absolute; inset: 34px 15% 34px 3%; width: auto; height: calc(100% - 68px); margin: auto; overflow: visible; }
+.cc-ring-line { fill: none; stroke: var(--black); stroke-width: 1.2; stroke-dasharray: 2 5; }
+.cc-ring-core { fill: none; stroke: var(--royal); stroke-width: 18; opacity: .5; }
+.cc-ring-dot circle { stroke: var(--black); stroke-width: 2; }
+.cc-ring-dot.is-ok circle { fill: var(--good); }
+.cc-ring-dot.is-miss circle { fill: var(--paper); stroke-dasharray: 3 2; }
+.cc-ring-dot text { fill: var(--black); font: 700 11px var(--text); }
+.cc-ring-dot { transform-box: fill-box; transform-origin: center; animation: dotIn .4s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 70ms + .25s); }
+.cc-num {
+    position: relative;
+    font: 700 clamp(150px, 15vw, 230px)/.8 var(--display);
+    letter-spacing: -.03em;
+    white-space: nowrap;
+    animation: stamp .5s var(--ease-snap) both;
 }
-.cc-title { font-size: 34px; }
-.cc-score { margin: 2px 0 0; font: 700 clamp(104px, 15vw, 176px)/.86 var(--display); }
-.cc-of { font-size: .46em; }
-.cc-reward { align-self: end; padding-bottom: 8px; }
-.cc-xp { margin: 0 0 6px; font: 700 58px/1 var(--display); }
-.cc-level { margin: 0 0 8px; font-weight: 700; }
-.cc-detail { grid-column: 1 / -1; margin-top: 12px; }
-.cc-detail p { margin: 0 0 3px; }
+.cc-of { font-size: .42em; letter-spacing: 0; }
+
+.cc-detail { grid-area: detail; margin-top: 16px; }
+.cc-detail p { margin: 0 0 4px; }
 .cc-growth { font-weight: 700; }
-.cc-skills { margin: 0 0 8px; padding: 0; list-style: none; display: grid; gap: 4px; }
-.cc-skills li { line-height: 1.45; }
-.cc-actions { grid-column: 1 / -1; margin-top: 14px; }
+.cc-skills { margin: 0 0 10px; padding: 0; list-style: none; display: grid; gap: 6px; }
+.output ul.cc-skills > li { margin: 0; padding: 6px 0 6px 12px; border-left: 4px solid var(--black); line-height: 1.45; }
+.output ul.cc-skills > li::before, .output ul.cc-missed-list > li::before { display: none; }
 /* The one next step, right after what was learned. */
-.cc-next { grid-column: 1 / -1; align-items: center; margin-top: 12px; }
+.cc-next { grid-area: next; align-self: start; align-items: center; margin-top: 16px; }
+.cc-next button { min-height: 56px; padding: 12px 34px; font-size: 18px; }
 .cc-next-why { flex: 1 1 220px; margin: 0; font-size: 15px; }
-.cc-today { grid-column: 1 / -1; margin: 10px 0 0; font-size: 14px; }
-.share-line, .feedback-line { grid-column: 1 / -1; margin: 8px 0 0; }
-.completion-card .kicker { color: var(--black); }
-.completion-card :focus-visible { outline-color: var(--black); }
-.cc-title:focus { outline: none; }
+
+.cc-missed { grid-area: missed; margin: 6px 0 0 36px; }
+.cc-missed h4 { margin-bottom: 8px; font-size: 28px; text-transform: uppercase; }
+.cc-missed-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.output ul.cc-missed-list > li {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+    padding: 10px 14px;
+    border-left: 4px dashed var(--warn-ink);
+    background: var(--navy);
+}
+.cc-missed-q { flex: 1 1 280px; min-width: 0; overflow-wrap: break-word; }
+.cc-missed-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* The sequence: each question in order, its result in words. Rows slide in one after
    another; they are in the DOM (and readable) from the first frame. */
-.cc-sequence { grid-column: 1 / -1; display: grid; gap: 4px; margin: 20px 0 4px; padding: 0; list-style: none; }
+.cc-sequence { grid-area: seq; display: grid; gap: 4px; margin: 22px 0 4px 36px; padding: 0; list-style: none; }
 .cc-step {
     display: grid;
     grid-template-columns: 34px 70px minmax(0, 1fr);
@@ -1245,7 +1468,7 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
     gap: 12px;
     padding: 8px 20px 8px 16px;
     background: var(--black);
-    color: var(--white);
+    color: var(--on-dark);
     clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
     animation: stepIn .42s var(--ease-out) both;
     animation-delay: calc(var(--i, 0) * 55ms + .1s);
@@ -1257,39 +1480,40 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
 .cc-step-q {
     display: -webkit-box;
     overflow: hidden;
-    color: var(--mute);
+    color: #A9BAD2;
     font-size: 14px;
     line-height: 1.45;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
 }
 
-.cc-missed { grid-column: 1 / -1; margin-top: 14px; }
-.cc-missed h4 { margin-bottom: 8px; font-size: 26px; }
-.cc-missed-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.cc-missed-list li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px 14px;
-    padding: 10px 14px;
-    background: rgba(2, 5, 11, .16);
-}
-.cc-missed-q { flex: 1 1 280px; min-width: 0; overflow-wrap: break-word; }
-.cc-missed-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-
-.completion-card .bar-track { background: rgba(2, 5, 11, .24); }
+.cc-reward { grid-area: reward; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; margin: 22px 0 0 36px; }
+.cc-xp { margin: 0; font: 700 56px/1 var(--display); }
+.cc-level { margin: 0; font-weight: 700; }
+.cc-reward .bar-track { flex: 1 1 200px; max-width: 360px; }
+.cc-actions { grid-area: actions; margin: 16px 0 0 36px; }
+.cc-today { grid-area: today; margin: 10px 0 0 36px; font-size: 14px; color: var(--mute); }
+.share-line { grid-area: share; margin: 8px 0 0 36px; }
+.feedback-line { grid-area: fb; margin: 8px 0 0 36px; }
+.completion-card .bar-track { background: rgba(2, 5, 11, .16); }
 .completion-card .bar-fill { background: var(--black); }
 .completion-card a { color: var(--black); }
-.completion-card button { --btn-fill: var(--black); --btn-ink: var(--white); --btn-wipe: var(--white); }
-.completion-card button.secondary,
-.completion-card button.outline {
-    --btn-fill: transparent;
-    --btn-edge: var(--black);
-    --btn-ink: var(--black);
-    --btn-wipe: var(--black);
-    --btn-ink-hover: var(--white);
+
+@media (max-width: 899px) {
+    .completion-card {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "score" "kick" "title" "detail" "next" "missed" "seq" "reward" "actions" "today" "share" "fb";
+        grid-template-rows: none;
+        padding: 0 20px 24px;
+    }
+    .cc-score { min-height: 0; aspect-ratio: 1 / .86; margin: 0 -20px 4px; clip-path: polygon(0 0, 100% 0, 100% 86%, 0 100%); }
+    .completion-card > .cc-result > .kicker { margin-top: 18px; }
+    .cc-missed, .cc-sequence, .cc-reward, .cc-actions, .cc-today, .share-line, .feedback-line { margin-left: 0; }
+}
+@media (max-width: 719px) {
+    .completion-card { margin-right: 6px; box-shadow: 6px 6px 0 var(--black); }
+    .cc-num { font-size: clamp(110px, 34vw, 170px); }
+    .completion-card .actions button { width: 100%; }
 }
 
 /* --- Bars and charts ------------------------------------------------------------ */
@@ -1389,6 +1613,7 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
     clip-path: polygon(0 0, calc(100% - 32px) 0, 100% 32px, 100% 100%, 0 100%);
 }
 .status-strip .status-level { padding: 16px 24px 18px; }
+.insights-grid + .status-strip { margin-top: 18px; }
 .status-strip .bar-track { background: rgba(2, 5, 11, .24); }
 .status-strip .bar-fill { background: var(--black); }
 .status-strip .hud-meta { color: var(--black); }
@@ -1410,86 +1635,140 @@ input[type="search"]::-webkit-search-cancel-button { filter: invert(1); }
 .status-cell dt { font-size: 13px; color: var(--mute); }
 .status-cell dd { margin: 0 0 6px; font: 700 30px/1.05 var(--display); }
 
-/* --- Home: the command center ----------------------------------------------------------
-   One field region: the real next task and its action, on the poster blue. The orbit sits
-   on a black slab cut in on a diagonal, so status colours keep their contrast. */
-.command {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1.08fr) minmax(300px, .92fr);
-    align-items: center;
-    gap: 12px;
-    max-width: none !important;
-    /* Pulled under the scene-top line and behind the slanted band, so the band and the
-       command read as one sheet of blue that opens to the right. */
-    margin: -86px -48px 30px calc(-1 * (var(--band-slant) + 44px) - 8px);
-    padding: 92px 48px 84px calc(var(--band-slant) + 52px);
-    background: var(--field);
-    color: var(--black);
-    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 76px), 0 100%);
+/* --- Home: the poster -------------------------------------------------------------------
+   V4 "Cut Poster". Three planes: blue (the headline), paper (the action), and the dark desk
+   the orbit sits on, with an off-register royal edge along the cut. The headline is read
+   first and the cut leads down to the button on the paper. Big numerals are real: the due
+   count, the set's progress, an accuracy, or days to the next review. */
+body[data-view="home"] .scene-top {
+    position: absolute;
+    top: calc(var(--top) + 18px);
+    left: var(--gutter);
+    right: var(--gutter);
 }
-.command-copy { position: relative; z-index: 1; min-width: 0; padding-right: 12px; container-type: inline-size; }
-.command .kicker { margin-bottom: 18px; color: var(--black); }
+body[data-view="home"] .ai-chip { color: var(--on-dark); }
+
+.command {
+    --poster-h: min(calc(100vh - var(--top)), 940px);
+    position: relative;
+    isolation: isolate;
+    container-type: inline-size;
+    max-width: none !important;
+    min-height: var(--poster-h);
+    margin: -18px calc(-1 * var(--gutter)) 34px;
+    padding: 76px var(--gutter) 56px;
+    color: var(--black);
+    overflow: hidden;
+}
+.command[data-state="returning"] { --poster-h: min(calc(100vh - var(--top)), 820px); }
 .command :focus-visible { outline-color: var(--black); }
 
-.command-figure { display: flex; align-items: flex-end; gap: 14px; margin: 0 0 10px -6px; }
-.cf-num { font: 700 clamp(132px, 17vw, 250px)/.76 var(--display); letter-spacing: -.02em; }
+.command-planes > i { position: absolute; z-index: 0; }
+/* Each plane's box covers only its own region (the polygon is in the box's coordinates),
+   so the text beside a plane is never on it, and contrast checks see the real background. */
+.cp-blue { inset: 0 34% 0 0; background: var(--field); clip-path: polygon(0 0, 100% 0, 75.76% 100%, 0 100%); }
+.cp-edge { inset: 0 30% 0 46%; background: var(--royal); clip-path: polygon(83.33% 0, calc(83.33% + 38px) 0, calc(16.67% + 38px) 100%, 16.67% 100%); }
+.cp-paper { inset: 40% 0 0 0; z-index: 2 !important; background: var(--paper); clip-path: polygon(0 76.67%, 100% 0, 100% 100%, 0 100%); }
+.command[data-state="returning"] .cp-blue { inset: 0 39% 0 0; clip-path: polygon(0 0, 100% 0, 77.05% 100%, 0 100%); }
+.command[data-state="returning"] .cp-edge { inset: 0 30% 0 46%; clip-path: polygon(62.5% 0, calc(62.5% + 38px) 0, calc(4.17% + 38px) 100%, 4.17% 100%); }
+.command[data-state="returning"] .cp-paper { inset: 64% 0 0 0; clip-path: polygon(49% 100%, 56% 27.78%, 100% 0, 100% 100%); }
+
+.command-copy {
+    position: relative;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 34cqw);
+    grid-template-rows: auto auto auto 1fr;
+    grid-template-areas: "kick ." "fig ." "title title" ". body";
+    min-height: calc(var(--poster-h) - 132px);
+}
+.command .kicker { grid-area: kick; margin-bottom: 16px; color: var(--black); }
+.command-figure { grid-area: fig; display: flex; align-items: flex-end; gap: 16px; margin: 0 0 8px -.06em; }
+.cf-num { font: 700 clamp(150px, 22cqw, 330px)/.74 var(--display); letter-spacing: -.03em; }
 .cf-unit {
     max-width: 6.5em;
-    margin-bottom: .18em;
-    font: 700 clamp(24px, 2.4vw, 36px)/.92 var(--display);
+    margin-bottom: .2em;
+    font: 700 clamp(24px, 2.6cqw, 40px)/.92 var(--display);
     text-transform: uppercase;
 }
 .command h1 {
-    max-width: 15em;
-    text-wrap: balance;
-    font-size: clamp(40px, 4.4vw, 70px);
-    line-height: .92;
+    grid-area: title;
+    max-width: 12em;
+    font-size: clamp(40px, 5.4cqw, 86px);
+    line-height: .9;
     text-transform: uppercase;
+    text-wrap: balance;
+}
+/* First visit: one giant word on the blue plane, the rest of the line on a black slab. */
+.command[data-state="first"] h1 { max-width: none; }
+.h1-big {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    margin-left: -.05em;
+    font-size: clamp(84px, 16.4cqw, 300px);
+    line-height: .78;
+    letter-spacing: -.02em;
+}
+.h1-tag {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 12px 26px 14px 20px;
+    background: var(--black);
+    color: var(--on-dark);
+    font-size: clamp(24px, 3cqw, 50px);
+    line-height: .98;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 16px) 100%, 0 100%);
 }
 /* Due reviews: the headline carries the giant count beside its words. */
-.command h1.has-num { display: flex; align-items: flex-end; gap: 6px 20px; max-width: none; margin-left: -6px; }
-.h1-num { flex: none; font-size: clamp(132px, 17vw, 250px); line-height: .76; letter-spacing: -.02em; }
-.h1-words { display: block; max-width: 6.2em; padding-bottom: .06em; text-wrap: balance; }
-/* First visit: the product promise is the headline, poster size. */
-.command[data-state="first"] h1 { max-width: none; font-size: clamp(58px, 7.4vw, 124px); line-height: .9; }
-/* Where container units work: sized by the headline's own column (rail, band, padding, and
-   the orbit already taken off) and by the window height, so the button under it stays in
-   the first screen. */
-.command[data-state="first"] h1 { font-size: clamp(40px, min(17cqi, 12.5vh), 124px); }
-/* Phone headline is shorter; the wide one is the brand line. */
-.h1-narrow { display: none; }
-.command-dek { max-width: 46ch; margin: 16px 0 20px; font-size: 18px; line-height: 1.45; }
+.command h1.has-num { display: flex; align-items: flex-end; gap: 6px 22px; max-width: none; margin-left: -.06em; }
+.h1-num { flex: none; font-size: clamp(170px, 26cqw, 400px); line-height: .74; letter-spacing: -.04em; }
+.h1-words { display: block; max-width: 5.6em; padding-bottom: .08em; font-size: clamp(40px, 5.4cqw, 86px); text-wrap: balance; }
 
-.command-list { display: grid; gap: 5px; max-width: 660px; margin: 0 0 22px; padding: 0; list-style: none; }
+.command-body { grid-area: body; align-self: end; position: relative; }
+.command-dek { max-width: 40ch; margin: 0 0 20px; font-size: 18px; line-height: 1.45; color: var(--black); }
+
+/* Returning: the task stays on the blue (count, words, what is due); the action is the
+   one thing on the paper, so the orbit on the dark desk is never covered. */
+.command[data-state="returning"] .command-copy {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 38cqw);
+    grid-template-rows: auto auto auto auto auto 1fr;
+    grid-template-areas: "kick ." "fig ." "title ." "dek ." "list ." ". acts";
+}
+.command[data-state="returning"] .command-body { display: contents; }
+.command[data-state="returning"] .command-dek { grid-area: dek; max-width: 34ch; margin: 14px 0 18px; font-weight: 700; }
+.command[data-state="returning"] .command-list { grid-area: list; max-width: min(640px, 44cqw); margin-bottom: 18px; }
+.command[data-state="returning"] .command-actions { grid-area: acts; align-self: end; padding-left: 2cqw; }
+
+.command-list { display: grid; gap: 5px; margin: 0 0 18px; padding: 0; list-style: none; }
 .command-list li {
     display: grid;
-    grid-template-columns: minmax(0, 10.5em) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 9em) minmax(0, 1fr);
     align-items: center;
-    gap: 2px 16px;
-    padding: 9px 22px 9px 18px;
+    gap: 2px 14px;
+    padding: 9px 20px 9px 16px;
     background: var(--black);
-    color: var(--white);
+    color: var(--on-dark);
     font-size: 15px;
     line-height: 1.4;
     clip-path: polygon(var(--slant) 0, 100% 0, calc(100% - var(--slant)) 100%, 0 100%);
 }
 .cl-what { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.cl-course { color: var(--cyan); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.cl-course { color: var(--warn); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .cl-topic { font-weight: 700; overflow-wrap: anywhere; }
 .cl-q { min-width: 0; color: var(--mute); }
 .command-list li.cl-more { display: block; color: var(--mute); font-weight: 700; }
 
 .command-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; }
-/* The signal on the field: the one white slab. */
 .hero-cta { min-height: 54px; padding: 12px 34px; font-size: 18px; }
+/* The signal on the paper: the one black slab. */
 .command .hero-cta {
-    --btn-fill: var(--signal-on-field);
-    --btn-ink: var(--black);
-    --btn-wipe: var(--black);
-    --btn-ink-hover: var(--white);
-    min-height: 58px;
-    padding: 14px 40px;
+    --btn-fill: var(--black);
+    --btn-ink: var(--on-dark);
+    --btn-wipe: var(--field);
+    --btn-ink-hover: var(--black);
+    min-height: 60px;
+    padding: 14px 42px;
     font-size: 19px;
 }
 button.command-alt {
@@ -1505,23 +1784,79 @@ button.command-alt {
 button.command-alt::before, button.command-alt::after { display: none; }
 button.command-alt:not(:disabled):hover { color: var(--black); text-decoration-thickness: 4px; }
 
-/* The orbit slab bleeds to the command's top, right, and bottom edges. */
+/* The orbit sits on the dark desk, top right, cropped by the poster's edge; the paper
+   plane overlaps its outer rings. Its rule is written above it. */
 .command .orbit {
-    position: relative;
-    align-self: stretch;
+    position: absolute;
+    z-index: 1;
+    top: 72px;
+    right: -4cqw;
+    width: min(40cqw, 600px);
+    margin: 0;
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    margin: -92px -48px -84px 0;
-    padding: 96px 40px 104px 16%;
-    background: var(--black);
-    color: var(--white);
-    clip-path: polygon(22% 0, 100% 0, 100% 100%, 0 100%);
+    flex-direction: column-reverse;
+    color: var(--on-dark);
 }
-.orbit-chart { display: block; width: min(100%, 440px); margin: 0 auto; color: inherit; }
+.command[data-state="returning"] .orbit { width: min(36cqw, 540px); right: 2cqw; top: 60px; }
+.orbit-chart { display: block; width: 100%; margin: 0 auto; color: inherit; }
 .orbit-chart:empty { aspect-ratio: 1 / 1; }
-.orbit-chart:focus-visible { outline: 2px solid var(--white); outline-offset: 6px; }
-.orbit-caption { max-width: 44ch; margin: 14px auto 0; color: var(--mute); font-size: 14px; line-height: 1.45; text-align: center; }
+.orbit-chart:focus-visible { outline: 2px solid var(--on-dark); outline-offset: 6px; }
+.orbit-caption { max-width: 40ch; margin: 0 0 4px auto; padding-right: 4cqw; color: var(--mute); font-size: 13px; line-height: 1.45; text-align: right; }
+.command[data-state="returning"] .orbit-caption { padding-right: 0; }
+/* A first visit has nothing in the orbit yet: the rings stay as the poster's graphic. */
+.command[data-state="first"] .orbit-caption { display: none; }
+
+/* Narrower screens: the planes become the blocks' own backgrounds, so the paper always
+   starts under the headline, however tall the headline turns out to be. */
+@media (max-width: 959px) {
+    .command { min-height: 0; padding: 66px var(--gutter) 0; background: var(--field); }
+    .command-planes { display: none; }
+    .command-copy, .command[data-state="returning"] .command-copy { display: flex; flex-direction: column; min-height: 0; }
+    .command[data-state="returning"] .command-body { display: block; }
+    .h1-big { font-size: clamp(76px, 25cqw, 170px); }
+    .h1-tag { font-size: clamp(22px, 5.6cqw, 40px); }
+    .command h1 { font-size: clamp(36px, 8.6cqw, 64px); }
+    .h1-num { font-size: clamp(130px, 38cqw, 260px); }
+    .h1-words { font-size: clamp(34px, 8.6cqw, 64px); }
+    .cf-num { font-size: clamp(120px, 34cqw, 240px); }
+    .command-body {
+        margin: 26px calc(-1 * var(--gutter)) 0;
+        padding: 46px var(--gutter) 26px;
+        background: var(--paper);
+        clip-path: polygon(0 30px, 100% 0, 100% 100%, 0 100%);
+    }
+    .command-body { align-self: stretch; }
+    .command[data-state="returning"] .command-dek { margin-top: 0; }
+    .command[data-state="returning"] .command-list { max-width: none; }
+    .command[data-state="returning"] .command-actions { padding-left: 0; }
+    .command .orbit {
+        position: relative;
+        top: auto;
+        right: auto;
+        width: auto;
+        margin: 0 calc(-1 * var(--gutter));
+        padding: 40px var(--gutter) 30px;
+        flex-direction: column;
+        background: var(--ink);
+    }
+    .command[data-state="returning"] .orbit { width: auto; top: auto; right: auto; }
+    .orbit-chart { width: min(100%, 360px); }
+    .orbit-caption { margin: 12px auto 0; padding: 0; text-align: center; }
+    .command[data-state="first"] .orbit { display: none; }
+}
+@media (max-width: 719px) {
+    .command { margin: -14px calc(-1 * var(--gutter)) 22px; padding-top: 54px; }
+    .command .kicker { margin-bottom: 12px; }
+    .h1-tag { margin-top: 14px; padding: 10px 20px 12px 14px; }
+    .command-body { margin-top: 22px; padding: 40px var(--gutter) 22px; clip-path: polygon(0 24px, 100% 0, 100% 100%, 0 100%); }
+    .command-dek { font-size: 16px; margin-bottom: 16px; }
+    .command .hero-cta { width: 100%; }
+    .command-list li { grid-template-columns: minmax(0, 1fr); padding: 9px 18px 10px 16px; }
+    /* A first visit has no study days yet, so the date waits until there is activity. */
+    body[data-view="home"] .scene:has(#nextStep[data-state="first"]) .today { display: none; }
+    body[data-view="home"] .ai-chip { color: var(--black); }
+    body[data-view="home"] .ai-chip::before { background: var(--black); }
+}
 
 /* --- The orbit chart (Home and Review) --------------------------------------------------
    Instrument layer: hairline rings at the SM-2 intervals, faint course sectors, and dots
@@ -1692,7 +2027,7 @@ button.welcome-dismiss:not(:disabled):hover { color: var(--cyan); }
 }
 .sheet-title { font-size: 28px; margin-bottom: 10px; }
 .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.mistake-original { border-left: 4px solid var(--bad); }
+.mistake-original { border-left: 6px solid var(--bad-ink); }
 
 .static-options { display: grid; gap: 6px; margin: 0 0 10px; padding: 0; list-style: none; }
 .static-options li {
@@ -1703,14 +2038,14 @@ button.welcome-dismiss:not(:disabled):hover { color: var(--cyan); }
     border: 1px solid var(--line);
     background: var(--navy);
 }
-.static-options li.is-answer { border-color: var(--good); }
-.static-options li.is-wrong { border-color: var(--bad); }
+.static-options li.is-answer { border-color: var(--good-ink); }
+.static-options li.is-wrong { border-color: var(--bad-ink); }
 .opt-text { flex: 1; min-width: 0; }
 .opt-mark { flex: none; font-size: 13px; font-weight: 700; line-height: 1.8; }
-.is-answer .opt-mark { color: var(--good); }
-.is-wrong .opt-mark { color: var(--bad); }
+.is-answer .opt-mark { color: var(--good-ink); }
+.is-wrong .opt-mark { color: var(--bad-ink); }
 
-.due-note { margin: 0 0 8px; padding: 8px 12px; border-left: 3px solid var(--warn); background: var(--navy); font-size: 14px; }
+.due-note { margin: 0 0 8px; padding: 8px 12px; border-left: 3px solid var(--warn-ink); background: var(--navy); font-size: 14px; }
 details.reveal > summary { padding: 8px 0; color: var(--cyan); font-weight: 700; cursor: pointer; }
 details.reveal[open] > summary { margin-bottom: 6px; }
 
@@ -1869,15 +2204,16 @@ dialog.confirm h2 { font-size: 36px; margin-bottom: 10px; }
 dialog.confirm p { color: var(--mute); }
 
 /* --- Trust pages -------------------------------------------------------------------- */
-.page-legal { --rail: 0px; }
-.page-legal .band { left: 0; }
+/* No top bar here: the masthead starts at the top edge and the text clears it. */
+.page-legal { --top: 0px; }
 .legal {
     position: relative;
     z-index: 10;
     max-width: 760px;
-    margin-left: var(--band);
-    padding: 30px 32px 64px 44px;
+    margin: 0 0 0 var(--gutter);
+    padding: calc(var(--mast) + 30px) 0 64px;
 }
+.legal-back a { color: var(--cyan); font-weight: 700; }
 .legal h1 { margin-bottom: 8px; font-size: clamp(46px, 6vw, 76px); line-height: .94; }
 .legal h2 { margin: 34px 0 8px; font-size: 30px; }
 .legal p, .legal li { line-height: 1.65; }
@@ -1907,6 +2243,20 @@ dialog.confirm p { color: var(--mute); }
 @keyframes radarIn { from { transform: scale(.2); } }
 @keyframes dotIn { from { transform: scale(0); } }
 @keyframes stepIn { from { transform: translateX(-18px); } }
+/* The result's numerals land like a stamp. */
+@keyframes stamp {
+    0% { transform: scale(1.18) translateY(-6px); }
+    70% { transform: scale(.98); }
+    100% { transform: none; }
+}
+/* A wrong answer: the sheet takes one short knock sideways. */
+@keyframes jolt {
+    0% { transform: none; }
+    25% { transform: translateX(-9px); }
+    55% { transform: translateX(6px); }
+    80% { transform: translateX(-2px); }
+    100% { transform: none; }
+}
 @keyframes flash { from { box-shadow: 0 0 0 3px var(--cyan); } to { box-shadow: 0 0 0 3px transparent; } }
 @keyframes stripes { to { background-position: 48px 0; } }
 @keyframes sweep {
@@ -1923,94 +2273,57 @@ dialog.confirm p { color: var(--mute); }
 }
 @keyframes bandIn {
     from { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
-    to { clip-path: polygon(0 0, 100% 0, calc(100% - var(--band-slant)) 100%, 0 100%); }
+    to { clip-path: polygon(0 0, 100% 0, var(--mast-cut-ratio) 100%, 0 100%); }
 }
-@keyframes heroIn {
-    from { clip-path: polygon(0 0, 0 0, 0 calc(100% - 76px), 0 100%); }
-    to { clip-path: polygon(0 0, 100% 0, 100% calc(100% - 76px), 0 100%); }
+/* Home's planes cut in with transforms only: the copy and the button stay on screen and
+   take clicks from the first frame (a clip-path reveal hid them for most of a second). */
+@keyframes planeFromLeft {
+    from { transform: translateX(-22%); }
+    to { transform: none; }
+}
+@keyframes planeFromBelow {
+    from { transform: translateY(16%); }
+    to { transform: none; }
+}
+@keyframes paperUp {
+    from { transform: translateY(22px); }
+    to { transform: none; }
 }
 @keyframes orbitIn {
     from { transform: scale(.72) rotate(-16deg); }
     to { transform: none; }
 }
 
-/* The one orchestrated moment: on first load, the band and hero cut in from the left. */
+/* The one orchestrated moment: on first load, the masthead plane and Home's planes cut in.
+   Only decoration moves (the masthead is aria-hidden; the planes carry no content). */
 .boot .band { animation: bandIn .62s var(--ease-snap) both; }
-.boot .view.is-entering > .command { animation: heroIn .7s var(--ease-snap) .16s both; }
+.boot .cp-blue { animation: planeFromLeft .6s var(--ease-snap) both; }
+.boot .cp-edge { animation: planeFromLeft .6s var(--ease-snap) .06s both; }
+.boot .cp-paper { animation: planeFromBelow .6s var(--ease-snap) .12s both; }
+.boot .view.is-entering > .command { animation: none; }
+.boot .command-copy { animation: paperUp .5s var(--ease-out) .08s both; }
+@media (max-width: 959px) {
+    /* 22px stays inside the paper's own bottom padding, so the button is never clipped. */
+    .boot .command-body { animation: paperUp .5s var(--ease-snap) .1s both; }
+}
 .boot .orbit-chart { animation: orbitIn .9s var(--ease-out) .34s both; }
 
 /* --- Tablet: rail shrinks to icons, band turns horizontal --------------------------- */
 @media (max-width: 1099px) {
-    :root { --rail: 78px; --band: 0px; --band-slant: 0px; }
+    :root { --mast: 196px; --mast-word: 168px; --mast-cut-a: 80%; --mast-cut-b: 64%; --mast-cut-ratio: 80%; --head-x: 0px; --head-y: calc(var(--mast) - 70px); }
 
-    .brand { justify-content: center; padding: 0; }
     .brand-name { display: none; }
-    .nav { margin-top: 22px; }
-    .nav-link {
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        padding: 10px 2px;
-        font: 700 13px/1 var(--text);
-        text-align: center;
-    }
-    .nav-link:hover { transform: none; }
-    .nav-ico { display: block; width: 24px; height: 24px; }
-    .nav-step { display: none; }
-    .nav-badge { position: absolute; top: 4px; right: 8px; margin: 0; min-width: 20px; font-size: 14px; }
+    .brand { padding-right: 6px; }
+    .nav-link { padding: 0 12px; font-size: 20px; }
     .hud { display: none; }
-    .nav-ind::before, .nav-ind::after { clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); margin: 0; }
-    .nav-ind::before { margin: 3px 0 0 3px; }
 
-    .band {
-        position: absolute;
-        inset: 0 0 auto var(--rail);
-        width: auto;
-        height: 104px;
-        clip-path: polygon(0 0, 100% 0, 100% 62%, 0 100%);
-    }
-    .band-word {
-        position: absolute;
-        top: 12px;
-        left: 22px;
-        writing-mode: horizontal-tb;
-        font-size: 76px;
-        line-height: .9;
-    }
-    .band-stripes { left: auto; right: 22px; top: 8px; bottom: auto; width: 150px; }
-    .band-stripes b { font-size: 42px; }
-    .band-stripes i { height: 11px; background: linear-gradient(var(--field-deep) 0 3px, transparent 3px 8px, var(--field-deep) 8px); }
-    @keyframes bandIn {
-        from { clip-path: polygon(0 0, 0 0, 0 62%, 0 100%); }
-        to { clip-path: polygon(0 0, 100% 0, 100% 62%, 0 100%); }
-    }
-
-    .wipe { inset: 0 0 0 var(--rail); }
-    .scene { margin-left: var(--rail); padding: 112px 28px 28px; }
-    .scene-top { margin-bottom: 18px; }
-
-    body[data-view="home"] .band-word { font-size: 60px; }
-    .command {
-        margin: -112px -28px 26px;
-        padding: 150px 28px 92px;
-        grid-template-columns: minmax(0, 1fr) minmax(240px, .78fr);
-    }
-    .command .orbit { margin: -150px -28px -92px 0; padding: 140px 22px 110px 14%; }
-    body[data-view="home"] .scene-top { top: 0; }
     .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 32px; }
     .status-sheet { display: block; grid-column: 1 / -1; }
-    .band-count { top: 10px; left: auto; right: 24px; flex-direction: row; align-items: baseline; gap: 6px; }
-    .band-count b { font-size: 70px; }
-    .band-count span { margin: 0; font-size: 32px; }
-    .band-count em { display: none; }
-    body[data-band="count"] .band-word { visibility: visible; }
 
     .status-sheet .status-level { max-width: 420px; }
     .status-sheet .status-cells { padding: 10px 0 0; }
     .welcome-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .welcome-steps li { min-height: 0; }
-    .legal { margin-left: 0; padding: 124px 24px 56px; }
-    .page-legal .band { left: 0; }
 }
 
 /* --- Narrow tablet: the command stacks, the orbit slab moves underneath --------------- */
@@ -2019,80 +2332,60 @@ dialog.confirm p { color: var(--mute); }
     .orbit-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; max-width: 560px; }
 }
 @media (max-width: 959px) {
-    .command { grid-template-columns: minmax(0, 1fr); padding-bottom: 0; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 48px), 0 100%); }
-    .command .orbit {
-        margin: 24px -28px 0;
-        padding: 72px 28px 96px;
-        clip-path: polygon(0 44px, 100% 0, 100% 100%, 0 100%);
-    }
-    .orbit-chart { width: min(100%, 380px); }
     body[data-view="home"] .ai-chip { color: var(--black); }
     body[data-view="home"] .ai-chip::before { background: var(--black); }
-    .command-copy { display: flex; flex-direction: column; }
-    .command-actions { order: 1; margin-bottom: 18px; }
-    .command-list { order: 2; margin-bottom: 0; }
 }
 
 /* --- Phone: navigation docks to the bottom edge -------------------------------------- */
 @media (max-width: 719px) {
-    :root { --rail: 0px; }
+    :root { --top: 0px; --mast: 108px; --mast-word: 66px; --mast-cut-a: 100%; --head-y: calc(var(--mast) - 50px); --gutter: 16px; }
     html { scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 
+    /* The top bar becomes the tab bar at the bottom edge. */
     .rail {
         inset: auto 0 0 0;
-        width: auto;
+        height: auto;
         padding: 0 0 env(safe-area-inset-bottom);
     }
     .brand { display: none; }
-    .nav { width: 100%; margin: 0; }
-    .nav-list { display: flex; }
+    .nav { width: 100%; }
+    .nav-list { width: 100%; }
     .nav-list li { flex: 1 1 0; min-width: 0; }
-    .nav-link { min-height: 60px; justify-content: center; padding: 7px 0 6px; font-size: 11px; }
-    .nav-link:active { transform: none; }
-    .nav-badge { top: 2px; right: 50%; margin-right: -24px; min-width: 18px; padding: 1px 5px; font-size: 13px; }
-    .nav-ind::before, .nav-ind::after { clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); margin: 0; }
+    .nav-link {
+        flex: 1;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        min-height: 60px;
+        padding: 7px 0 6px;
+        font: 700 11px/1 var(--text);
+        letter-spacing: 0;
+        text-transform: none;
+    }
+    .nav-ico { display: block; width: 22px; height: 22px; }
+    .nav-link:hover, .nav-link:active { transform: none; }
+    .nav-badge { position: absolute; top: 2px; right: 50%; margin-right: -24px; min-width: 18px; padding: 1px 5px; font-size: 13px; }
     .nav-ind::before { display: none; }
+    .nav-ind::after { height: var(--ind-h, 0); transform: translate(var(--ind-x, 0), var(--ind-y, 0)); clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
 
-    .band { left: 0; height: 70px; }
-    .band-word, body[data-view="home"] .band-word { top: 10px; left: 16px; font-size: 46px; }
-    .band-stripes { width: 96px; right: 16px; top: 6px; }
-    .band-stripes b { font-size: 32px; }
-    .wipe { inset: 0; }
+    .band { clip-path: polygon(0 0, 100% 0, 100% 62%, 0 100%); }
+    .band-word { bottom: 6px; line-height: .78; }
+    body:not([data-view="home"]) .today { visibility: hidden; }
+    .band::before { display: none; }
+    .band-stripes { left: auto; right: 16px; top: 46px; width: 84px; }
+    .band-count { left: auto; right: 16px; top: 8px; bottom: auto; }
+    .band-count em { display: none; }
+    body[data-band="count"] .band-word { visibility: visible; }
 
-    .scene { padding: 80px 16px calc(90px + env(safe-area-inset-bottom)); }
+    .scene { padding: 14px var(--gutter) calc(90px + env(safe-area-inset-bottom)); }
     .scene-top { font-size: 13px; }
-    .today strong { font-size: 22px; }
+    .today strong { font-size: 20px; }
+    /* The chip sits on the blue plane on a phone. */
+    body:not([data-view="home"]) .ai-chip { color: var(--black); }
+    body:not([data-view="home"]) .ai-chip::before { background: var(--black); }
 
     .panel { padding: 18px 16px; }
     button.formula-btn { min-height: 44px; min-width: 44px; }
-    .command {
-        grid-template-columns: minmax(0, 1fr);
-        margin: -80px -16px 22px;
-        padding: 112px 16px 0;
-        clip-path: polygon(0 0, 100% 0, 100% calc(100% - 40px), 0 100%);
-    }
-    .command[data-state="first"] h1 { font-size: clamp(40px, 13vw, 64px); }
-    .h1-wide { display: none; }
-    .h1-narrow { display: inline; }
-    .command[data-state="first"] .command-dek { margin: 12px 0 18px; font-size: 16px; }
-    .command[data-state="first"] .kicker { margin-bottom: 12px; }
-    /* A first visit has no study days yet, so the date waits until there is activity. */
-    body[data-view="home"] .scene:has(#nextStep[data-state="first"]) .today { display: none; }
-    .command h1 { font-size: clamp(34px, 10vw, 52px); }
-    .cf-num { font-size: clamp(120px, 40vw, 180px); }
-    .command .hero-cta { width: 100%; }
-    .command-list li { grid-template-columns: minmax(0, 1fr); padding: 9px 18px 10px 16px; }
-    .command .orbit {
-        margin: 20px -16px 0;
-        padding: 64px 16px 84px;
-        clip-path: polygon(0 36px, 100% 0, 100% 100%, 0 100%);
-    }
-    .orbit-chart { width: min(100%, 330px); }
-    body[data-view="home"] .ai-chip { color: var(--black); }
-    body[data-view="home"] .ai-chip::before { background: var(--black); }
-    .band-count { right: 16px; top: 8px; }
-    .band-count b { font-size: 44px; }
-    .band-count span { font-size: 22px; }
 
     .home-grid { grid-template-columns: minmax(0, 1fr); }
     .setup-grid { grid-template-columns: minmax(0, 1fr); }
@@ -2112,19 +2405,19 @@ dialog.confirm p { color: var(--mute); }
         position: absolute;
         width: 1px;
         height: 1px;
+        min-height: 0;
+        padding: 0;
         margin: -1px;
         overflow: hidden;
         clip-path: inset(50%);
         white-space: nowrap;
     }
     body[data-view="practice"] .scene:has(#view-practice[data-mode="focus"]) .today { display: none; }
-    /* The band shows "01 / 05" in display type; the card's own title can be quiet. */
-    .output-quiz .qa-title { font-size: 22px; }
+    /* With the heading hidden, the set still starts below the masthead's count. */
+    #view-practice[data-mode="focus"] { padding-top: calc(var(--mast) - 30px); }
     .score-text { align-self: center; text-align: left; }
     .set-cells { gap: 4px; }
     button.set-cell { min-width: 40px; min-height: 44px; padding: 2px 6px; }
-    .output-quiz .qa-card { padding: 18px 16px 16px; clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%); }
-    .output-quiz .qa-q { font-size: 18px; }
     .qa-card .mcq-options label:has(.opt-key) { font-size: 17px; }
     .q-nav { width: 100%; }
     .q-nav button { flex: 1 1 auto; }
@@ -2145,16 +2438,7 @@ dialog.confirm p { color: var(--mute); }
 
     .qa-card, .error-card { padding: 14px; }
     .qa-q { font-size: 17px; }
-    .completion-card {
-        grid-template-columns: minmax(0, 1fr);
-        padding: 24px 20px;
-        clip-path: polygon(0 0, calc(100% - 30px) 0, 100% 30px, 100% 100%, 30px 100%, 0 calc(100% - 30px));
-    }
-    .completion-card .actions button { width: 100%; }
-    /* Phone: the score, then what was learned and the next step; XP after the list. */
-    .completion-card > .cc-reward { order: 2; }
-    .completion-card > .cc-actions, .completion-card > .cc-today,
-    .completion-card > .share-line, .completion-card > .feedback-line { order: 3; }
+    /* (Results poster phone rules live with the poster.) */
     .status-strip { grid-template-columns: minmax(0, 1fr); }
     .subject-row { grid-template-columns: minmax(0, 1fr) auto; }
     .subject-row .bar-track { grid-column: 1 / -1; grid-row: 2; }
@@ -2169,7 +2453,7 @@ dialog.confirm p { color: var(--mute); }
     button { min-height: 44px; }
     button.small, button.text-btn { min-height: 44px; }
 
-    .legal { padding: 104px 16px 48px; }
+    .legal { margin: 0 var(--gutter); padding-top: calc(var(--mast) + 20px); }
     .legal-back { margin-bottom: 14px; }
 }
 

@@ -11,6 +11,48 @@ Newest entries first.
 
 ---
 
+## 2026-11 — V4 visual redo: "Cut Poster"
+**Why:** the brief asked for a whole-site visual change visible at a glance, with the
+tension of strong game-menu art direction (whole-screen composition, type built into the
+image, asymmetric division, big contrasts of scale, rhythm in state changes), producing a
+recognisable StudyBoost and copying nothing. Behaviour stays as it was.
+**How it was chosen:** two Home compositions on the same content and viewports (390×844,
+1440×900), each extended to the returning Home and the result screen: A, big type and
+asymmetric planes; B, the orbit's rings as the page's structure. A won: it reorders the
+screen (V3 already put the title left and the orbit right, which B only scaled up), it is
+the clearest first visit on a phone, and its planes, crops, and paper extend to every page.
+B's ring of real results became the result poster's ring. Record: `docs/REDESIGN-V4.md`.
+**What changed:** a top bar replaces the left rail; each page opens on a masthead plane
+(the page name cropped on blue, the heading on the dark side); Home is a cut poster (giant
+word or real count on blue, the action on paper, the orbit on the dark desk); reading and
+answering happen on paper (a token scope flips text, lines, surfaces, and status inks for
+everything inside); the Practice setup puts course and topic first with "Start practice"
+under them; questions sit on a paper sheet with an off-register print that turns to the
+state's colour (a wrong answer jolts once); the result is a score poster with the set's
+questions as numbered dots on a ring; Review leads with a giant due count; Progress shows
+the evidence before level and streak; Settings lists "Your data" first; a new page
+transition slashes three planes across on the cut.
+**Found and fixed on the way:** axe measured text beside a clipped plane against the plane
+(it ignores clip-path), flagging the heading, kicker, and chip on every page; the planes'
+boxes are now sized to their regions. The horizontal nav marker went stale when the Review
+badge appeared after first paint; it now follows the row's size. On a phone the set bar
+covered the masthead's count once the heading was hidden. On first load the whole Home
+poster was revealed with a clip-path from zero width (as in V3), so the button could not be
+seen or tapped for up to about 0.9 s; now only the planes move (transforms) and the button
+takes a tap from the first frame. The "asks before replacing" test failed intermittently
+(once in the previous round, once in four repeated runs here before the fix): it answered
+question 1 with whatever option came first, and
+when the random set opened with a chain-rule question answered wrong, the saved miss rightly
+turned the strict "Chain rule" request into a set of that due review, not the "nothing
+matches" case the test meant. It now answers question 1 correctly and asserts that no
+mistake was saved; a reproduction with a saved chain-rule miss shows the app's behaviour.
+**Changed tests (intended):** the Home layout test measures the headline's two spans instead
+of the h1's box (it now spans the poster), and it now also checks that nothing covers the
+button's centre (this caught the first-load problem above). The phone masthead test is
+unchanged; the masthead word was made smaller so it passes.
+
+---
+
 ## 2026-11 — Design review round 2: first screens and the phone path
 **Why:** a second design review of the live site (matching PR #6) kept the visual identity
 and asked for the strongest look to stay on Home, the orbit, and the result, while answering,

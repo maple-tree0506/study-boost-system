@@ -88,7 +88,7 @@ requirements-dev.txt      runtime + pytest + Pillow
 index.html                The whole app: one document, 6 views + 1 sub-page, icon sprite, script tags
 css/styles.css            Design system implementation (tokens at the top)
 js/app.js                 UI glue: rendering, generation, grading, mistake log, stats, backup, mistake page (~3.3k lines)
-js/shell.js               Views, hash routing (incl. #mistake/<id>), page wipe, nav marker, tooltips, confirm dialog
+js/shell.js               Views, hash routing (incl. #mistake/<id>), page transition (plane slash), nav marker, tooltips, confirm dialog
 js/question-bank.js       window.OFFLINE_BANK: 14 subjects x {basic, medium, challenge} x {mcq, sa}
 js/spaced-repetition.js   SM-2 scheduler (pure, pluggable)
 js/mastery-model.js       Topic mastery: EMA + volume-gated levels + per-source counts (pure)
@@ -101,11 +101,13 @@ assets/og-image.png       Social preview card (regenerate with scripts/make_og_i
 assets/fonts/             Self-hosted Big Shoulders + Instrument Sans (SIL OFL licenses alongside)
 robots.txt, sitemap.xml   SEO files, served by exact routes
 tests/                    pytest suites (test_*.py), node:test suites (*.test.js), tests/e2e/ Playwright suite
-tests/visual/             Review tool (not CI): capture.js (screenshots, overflow, axe, lab timings) + labelled fixtures.js
+tests/visual/             Review tool (not CI): capture.js (screenshots of 16 states, seeded so runs match, fonts-blocked state, overflow, axe, lab timings) + labelled fixtures.js
 docs/ARCHITECTURE.md      Module overview
-docs/DESIGN-SYSTEM.md     Visual rules ("Signal Blue" grammar, tokens, components, motion, a11y states, data honesty)
-docs/REDESIGN-PROGRESS.md The flagship redesign record: audit, research, prototypes, decisions, iterations, results
-docs/redesign/            Before/after screenshots from the redesign
+docs/DESIGN-SYSTEM.md     Visual rules (V4 "Cut Poster": planes and the cut, paper scope, tokens, layout, motion, a11y, data honesty)
+docs/REDESIGN-V4.md       The V4 visual redo record: baseline, two Home prototypes, decision, changes per scene, verification
+docs/redesign-v4/         Before/after pairs (same state, same viewport) and the two prototypes
+docs/REDESIGN-PROGRESS.md The earlier "Signal Blue" redesign record (V3)
+docs/redesign/            Before/after screenshots from the V3 redesign
 docs/UX-FLOW.md           The guided "spine" and screen-by-screen flow
 docs/VARIANT-PRACTICE.md  Similar-question practice: design, gates, rules, API, tests, limits
 docs/QUESTION-BANK-STANDARD.md   Authoring rules for js/question-bank.js
@@ -147,12 +149,21 @@ One inline script in `<head>` applies the student's "Reduce motion" setting
   auto-render; degrades to raw text if the CDN is unreachable).
 - **Views**: one document. `home`, `notes`, `practice`, `review`, `progress`, `setup`,
   plus the sub-page `mistake` (`#mistake/<id>`). `js/shell.js` shows one view at a time
-  (all stay in the DOM), runs the slanted page wipe, keeps the nav marker (the mistake
-  page keeps **Review** marked), and fires `document` event `studyboost:view` with
+  (all stay in the DOM), runs the page transition (blue, paper, and black planes slash
+  across), keeps the nav marker (the mistake page keeps **Review** marked; it follows size
+  changes of the nav row), and fires `document` event `studyboost:view` with
   `detail { view, param }`. `Shell.go("mistake/err-123")`, `Shell.current()`,
   `Shell.param()`, `Shell.confirm({...})`, `Shell.countUp(el, n)`, `Shell.reducedMotion()`
   (device setting or the student's choice), `Shell.setBand({num, of, label} | null)` (a real
   number in the band instead of the page name; Practice uses it for "02 / 07").
+- **Layout (V4 "Cut Poster", `docs/DESIGN-SYSTEM.md`)**: `.rail` is a fixed top bar
+  (bottom tab bar under 720px); `.band` is each page's masthead (a blue plane cut on the
+  diagonal with the page name cropped in it; its box ends at the cut); Home has no
+  masthead (`.command` is a full-width poster with `.command-planes`). Reading and
+  answering surfaces are **paper**: `.paper` and a few components flip the text, line,
+  surface, and status-ink tokens, so nested components adapt (see the "Paper" section at
+  the top of `css/styles.css`). Status colours as fills: `--good/--warn/--bad`; as text or
+  thin lines: `--good-ink/--warn-ink/--bad-ink`.
 - **Practice focus mode**: all cards of a set are rendered; only `.qa-card.is-current`
   shows. State in `app.js`: `practiceIndex`, `practiceSetupOpen`, `resultsShown`,
   `currentSetMeta` (`origin`: `ai` | `bank` | `review`). `#view-practice[data-mode]` is
@@ -422,7 +433,7 @@ Full design: `docs/VARIANT-PRACTICE.md`. Summary:
 | Python | `pytest -q` | `test_api.py` (attempts, stats, chat proxy JSON mode, migrations, seed, rate limit), `test_mathcheck.py`, `test_variant_templates.py`, `test_variant_engine.py` (every gate, repair, diagnosis, fallbacks with a scripted fake LLM), `test_variants_api.py` (endpoint with a mocked provider: success, repair, 429, timeouts, 401/404/500, quota, legacy DB, "no question text in the DB"). Uses a temp DB via `conftest.py`. |
 | JS unit | `node --test <explicit list>` (section 2) | SM-2, practice selection, mastery, bank validator, Home logic (incl. the Progress top line), Review Orbit and library rules, similar-question rules. |
 | End to end | `node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js` | `variant-flow`: two `server.py` copies on free ports (no key; a scripted mock OpenAI-compatible provider) drive Chromium through capture, the full loop to "likely mastered", the honest no-generator path, the AI path with a rate limit, key never in the browser, phone width. `redesign-flow`: Home command center (returning and first visit), Practice focus mode with keyboard answers and the result sequence, typing never triggers shortcuts, Review Orbit filters / keyboard selection / list view / search / confirmed delete, the offline Notes excerpt keeps one point per line, Reduce motion applied before first paint, 320px width, plus skill-tag matching, the only-matching option, per-skill result lines, offline Progress and its separate course filter, stale-topic clearing, locked recall ratings, a refresh-safe pick, strict sets without other skills' reviews, replacing a set safely, the Home button with real and fallback fonts at 4 sizes, the phone band, the review queue, the full phone path (miss → feedback → similar → due review), upload retries counted once, finished sets and the Notes excerpt after a refresh, phone touch targets, and Continue on Home. Set `KATEX_DIST=<katex/dist>` to render math offline; otherwise the CDN is blocked and math stays raw text. |
-| Visual review (not CI) | `node tests/visual/capture.js <outDir> [--only=a,b] [--perf] [--axe] [--sizes]` | Screenshots of 14 labelled-fixture states, console errors, horizontal overflow at 7 sizes, axe-core (WCAG 2.x A/AA tags, needs `AXE_JS`), lab timings (LCP, CLS, long tasks; median of 3 plus a 4x CPU run). Lab numbers are diagnostics, not field Core Web Vitals. |
+| Visual review (not CI) | `node tests/visual/capture.js <outDir> [--only=a,b] [--perf] [--axe] [--sizes]` | Screenshots of 16 labelled-fixture states (45 shots), console errors, horizontal overflow at 9 sizes (320×568 to 1920×1080), axe-core (WCAG 2.x A/AA tags, needs `AXE_JS`), lab timings (LCP, CLS, long tasks; median of 3 plus a 4x CPU run). Lab numbers are diagnostics, not field Core Web Vitals. |
 
 CI (`.github/workflows/ci.yml`, on push/PR to `main`): jobs `test` (pytest, Python 3.12),
 `js-test` (Node 20), `e2e` (installs `playwright@1.49.1` + Chromium). No real AI provider is
@@ -474,6 +485,19 @@ is per user). New similar-question code needs no new packages or settings.
 - Default branch: `main`. Similar-question practice and the flagship redesign were
   developed on branch `claude/zen-ramanujan-t57aza`. Merge it into `main`, or point your
   tools at that branch, to work on the newest code.
+- November 2026, V4 visual redo "Cut Poster" (record in `docs/REDESIGN-V4.md`):
+  - Shell: a top bar instead of the left rail; a masthead plane per page instead of the
+    vertical band; a new page transition. Home is a cut poster (giant word or real count
+    on blue, the action on paper, the orbit on the dark desk). Practice setup is a paper
+    form with course and topic first ("Start practice"); questions are paper sheets with an
+    off-register print that turns to the state's colour (a wrong answer jolts). Results is a
+    score poster with the set's questions as numbered dots on a ring. Review leads with a
+    giant due count. Settings lists "Your data" first.
+  - New: the paper token scope, `--paper`, `--on-dark`, status `-ink` tokens, width-sized
+    plane boxes, `resultRingSvg` (decorative, `app.js`), nav marker `ResizeObserver`,
+    two harness states (`home-first-fallback`, `review-queue`) and seeded randomness.
+  - No change to grading, generation rules, skill counting, review scheduling, variant
+    generation, data sent or stored, persistence, or the API.
 - November 2026, design review round 2 (first screens and the phone path):
   - Strict topic sets no longer carry other skills' due reviews; a failed or empty request
     keeps the current set; replacing an unfinished set asks first.

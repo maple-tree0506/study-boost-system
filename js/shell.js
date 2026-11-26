@@ -174,8 +174,9 @@
         settle();
     }
 
-    // Three slanted panels sweep in, the view changes while they cover it, and they
-    // sweep out. The whole gesture stays under 0.6s so it never slows studying down.
+    // Three planes (blue, paper, black) slash across on the page's cut, the view changes
+    // while they cover it, and they clear the other way. The whole gesture stays under
+    // 0.6s so it never slows studying down; the layer never takes clicks.
     function transitionTo(name, moveFocus, param) {
         param = param || "";
         if (name === current) {
@@ -207,8 +208,8 @@
         wipe.classList.add("is-active");
         var covers = bands.map(function (band, i) {
             return band.animate(
-                [{ transform: "translateX(-112%) skewX(-16deg)" }, { transform: "translateX(0) skewX(-16deg)" }],
-                { duration: 230, delay: i * 45, easing: EASE_IN, fill: "both" }
+                [{ transform: "translateX(-140%) skewX(-24deg)" }, { transform: "translateX(0) skewX(-24deg)" }],
+                { duration: 220, delay: i * 50, easing: EASE_IN, fill: "both" }
             );
         });
 
@@ -217,8 +218,8 @@
             if (moveFocus) focusHeading(name);
             var reveals = bands.map(function (band, i) {
                 return band.animate(
-                    [{ transform: "translateX(0) skewX(-16deg)" }, { transform: "translateX(116%) skewX(-16deg)" }],
-                    { duration: 280, delay: (bands.length - 1 - i) * 40, easing: EASE_OUT, fill: "both" }
+                    [{ transform: "translateX(0) skewX(-24deg)" }, { transform: "translateX(140%) skewX(-24deg)" }],
+                    { duration: 260, delay: (bands.length - 1 - i) * 40, easing: EASE_OUT, fill: "both" }
                 );
             });
             return Promise.all(reveals.map(function (a) { return a.finished; }));
@@ -255,6 +256,10 @@
 
     window.addEventListener("resize", placeIndicator);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeIndicator);
+    // In the horizontal bar a link's width moves the ones after it (the Review badge
+    // appears after the first paint), so the marker follows any change in the row's size.
+    var navList = navIndicator && navIndicator.parentElement && navIndicator.parentElement.querySelector(".nav-list");
+    if (navList && typeof window.ResizeObserver === "function") new window.ResizeObserver(placeIndicator).observe(navList);
 
     // --- Today line ----------------------------------------------------------
     (function paintToday() {
