@@ -845,20 +845,29 @@ function pickBankIndices(key, poolLen, count) {
 // The offline bank is large (~250 KB), so it is not part of the first page load. It is
 // fetched the first time a set needs it, and prefetched once the browser is idle.
 let bankPromise = null;
+// A failed request for the bank is tried again (the same waits as the page's own scripts,
+// with a fresh URL); after the last try the promise settles false and the next call starts over.
+const BANK_RETRY_WAIT = [400, 1200, 2500];
 function ensureQuestionBank() {
     if (window.OFFLINE_BANK) return Promise.resolve(true);
     if (bankPromise) return bankPromise;
     bankPromise = new Promise(function (resolve) {
-        const tag = document.createElement("script");
-        tag.src = "js/question-bank.js";
-        tag.async = true;
-        tag.onload = function () { resolve(!!window.OFFLINE_BANK); };
-        tag.onerror = function () {
-            bankPromise = null; // allow a retry
-            tag.remove();
-            resolve(false);
-        };
-        document.head.appendChild(tag);
+        (function attempt(n) {
+            const tag = document.createElement("script");
+            tag.src = "js/question-bank.js" + (n ? "?retry=" + n : "");
+            tag.async = true;
+            tag.onload = function () { resolve(!!window.OFFLINE_BANK); };
+            tag.onerror = function () {
+                tag.remove();
+                if (n < BANK_RETRY_WAIT.length) {
+                    window.setTimeout(function () { attempt(n + 1); }, BANK_RETRY_WAIT[n]);
+                    return;
+                }
+                bankPromise = null; // allow a later retry
+                resolve(false);
+            };
+            document.head.appendChild(tag);
+        })(0);
     });
     return bankPromise;
 }

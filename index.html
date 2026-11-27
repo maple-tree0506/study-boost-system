@@ -29,7 +29,91 @@
     <!-- The student's "Reduce motion" choice (Setup) must apply before the first frame,
          or the opening animation would already be playing. -->
     <script>try { if ((JSON.parse(localStorage.getItem("studyBoostUIPrefsV1") || "{}") || {}).motion === "reduce") document.documentElement.setAttribute("data-motion", "reduce"); } catch (e) {}</script>
-    <link rel="stylesheet" href="css/styles.css">
+    <!-- Load guard. A request for one of the app's own files can fail (a dropped connection,
+         a 502). Each one is then asked for again, up to 3 more times (after 0.4, 1.2 and 2.5 s,
+         with a fresh URL), and the scripts still run strictly in order, so app.js never starts
+         without a module it needs. A required file that never arrives leaves a message with a
+         Reload button instead of a half-started app. The stylesheet is covered by the error
+         listener; StudyBoostBoot.run() at the end of <body> starts the scripts. -->
+    <script>
+    (function () {
+        var boot = window.StudyBoostBoot = { failed: [], done: false };
+        var WAIT = [400, 1200, 2500];
+        // Same-origin files get a fresh URL, so no cache can hand back the failed reply.
+        function retryUrl(url, n) {
+            if (/^https?:/.test(url)) return url;
+            return url + (url.indexOf("?") === -1 ? "?" : "&") + "retry=" + n;
+        }
+        function problem(url) {
+            boot.failed.push(url);
+            var show = function () {
+                if (document.getElementById("loadProblem")) return;
+                var box = document.createElement("div");
+                box.id = "loadProblem";
+                box.setAttribute("role", "alert");
+                box.style.cssText = "position:fixed;left:16px;right:16px;bottom:16px;z-index:100;display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:14px 18px;border-radius:16px;background:#F2F0EA;color:#02050B;box-shadow:0 0 0 2px #02050B;font:15px/1.4 system-ui,sans-serif";
+                box.appendChild(document.createTextNode("Part of StudyBoost didn't load. Check your connection, then reload the page."));
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.textContent = "Reload";
+                btn.style.cssText = "min-height:44px;padding:0 22px;border:0;border-radius:999px;background:#02050B;color:#F5F8FF;font:700 15px system-ui,sans-serif;cursor:pointer";
+                btn.onclick = function () { window.location.reload(); };
+                box.appendChild(btn);
+                document.body.appendChild(box);
+            };
+            if (document.body) show(); else document.addEventListener("DOMContentLoaded", show);
+        }
+        // The stylesheet. A failed <link> fires "error" without bubbling, so listen in capture.
+        document.addEventListener("error", function (ev) {
+            var el = ev.target;
+            if (!el || el.tagName !== "LINK" || !el.hasAttribute("data-src")) return;
+            var n = Number(el.getAttribute("data-try") || 0) + 1;
+            if (n > WAIT.length) { problem(el.getAttribute("data-src")); return; }
+            window.setTimeout(function () {
+                var again = el.cloneNode(false);
+                again.setAttribute("data-try", String(n));
+                again.href = retryUrl(el.getAttribute("data-src"), n);
+                el.parentNode.replaceChild(again, el);
+            }, WAIT[n - 1]);
+        }, true);
+        // Scripts, one after another in the order given. A plain URL is required; an
+        // { src, optional: true } entry is skipped if it fails (KaTeX: math stays raw text).
+        boot.run = function (list) {
+            var i = 0;
+            (function next() {
+                if (i >= list.length) { boot.done = true; return; }
+                var item = list[i++];
+                var optional = typeof item !== "string" && !!item.optional;
+                var src = typeof item === "string" ? item : item.src;
+                (function attempt(n) {
+                    var tag = document.createElement("script");
+                    tag.src = n ? retryUrl(src, n) : src;
+                    tag.async = false;
+                    tag.onload = next;
+                    tag.onerror = function () {
+                        tag.parentNode.removeChild(tag);
+                        if (optional) { next(); return; }
+                        if (n < WAIT.length) { window.setTimeout(function () { attempt(n + 1); }, WAIT[n]); return; }
+                        problem(src);
+                    };
+                    document.body.appendChild(tag);
+                })(0);
+            })();
+        };
+    })();
+    </script>
+    <link rel="stylesheet" href="css/styles.css" data-src="css/styles.css">
+    <!-- The scripts download in parallel from here; the loader runs them in order. -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" as="script">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" as="script">
+    <link rel="preload" href="js/spaced-repetition.js" as="script">
+    <link rel="preload" href="js/practice-selection.js" as="script">
+    <link rel="preload" href="js/mastery-model.js" as="script">
+    <link rel="preload" href="js/home-summary.js" as="script">
+    <link rel="preload" href="js/review-orbit.js" as="script">
+    <link rel="preload" href="js/variant-practice.js" as="script">
+    <link rel="preload" href="js/shell.js" as="script">
+    <link rel="preload" href="js/app.js" as="script">
     <!-- KaTeX for LaTeX math rendering. Loaded async (media swap) so a slow CDN
          never blocks first paint; math typesets a beat later, and degrades to
          raw text if the CDN is unreachable. -->
@@ -544,17 +628,23 @@
         </form>
     </dialog>
 
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" defer></script>
-    <!-- js/question-bank.js (the offline bank, ~250 KB) is not loaded here: app.js fetches it
-         when it is first needed and prefetches it when the browser is idle. -->
-    <script src="js/spaced-repetition.js" defer></script>
-    <script src="js/practice-selection.js" defer></script>
-    <script src="js/mastery-model.js" defer></script>
-    <script src="js/home-summary.js" defer></script>
-    <script src="js/review-orbit.js" defer></script>
-    <script src="js/variant-practice.js" defer></script>
-    <script src="js/shell.js" defer></script>
-    <script src="js/app.js" defer></script>
+    <!-- The scripts, in order (later files use earlier globals), through the load guard in
+         <head>: a failed request is retried and nothing after it runs early. KaTeX is optional.
+         js/question-bank.js (the offline bank, ~250 KB) is not loaded here: app.js fetches it
+         when it is first needed (with the same retries) and prefetches it when idle. -->
+    <script>
+    StudyBoostBoot.run([
+        { src: "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js", optional: true },
+        { src: "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js", optional: true },
+        "js/spaced-repetition.js",
+        "js/practice-selection.js",
+        "js/mastery-model.js",
+        "js/home-summary.js",
+        "js/review-orbit.js",
+        "js/variant-practice.js",
+        "js/shell.js",
+        "js/app.js"
+    ]);
+    </script>
 </body>
 </html>

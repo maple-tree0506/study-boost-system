@@ -11,6 +11,36 @@ Newest entries first.
 
 ---
 
+## 2026-11 — Load guard: failed script requests are retried, in order
+**Why:** checking the live site after the V5 deploy, about 5% of parallel requests from
+the test session failed (connection resets and 502s that carried none of the site's own
+response headers, so most likely the session's proxy path). In 5 of 12 page loads one
+file was missing. With `<script defer>` the browser skips a failed file and still runs the
+ones after it, so `app.js` could start without `shell.js` or a model module, and the page
+broke.
+**What changed:** `index.html` preloads the scripts (still downloaded in parallel) and runs
+them one after another through a small inline loader (`StudyBoostBoot`).
+- A failed request is asked for again up to 3 more times (0.4 / 1.2 / 2.5 s, fresh
+  `?retry=n` URL), and nothing after it runs early.
+- A required file that never arrives shows a message with a Reload button instead of a
+  half-started app.
+- KaTeX (CDN) stays optional: if it fails, it is skipped and math stays raw text, as before.
+- The stylesheet and the lazily loaded question bank get the same retries.
+- `app.js` can never run twice: its top-level `let`s would throw on a second run, which
+  is why the files after a failure are held back rather than re-run.
+
+**Checked:** three new end-to-end tests, which all fail on the old code:
+- retried module, `app.js`, and question-bank requests, with the order kept and a set
+  still built;
+- a file that never arrives: the Reload message appears and nothing after the file runs;
+- a retried stylesheet.
+
+The window `load` event still waits for every script. A normal local load is about 120 ms,
+math is typeset on the first card, and the capture harness shows no console errors and no
+axe violations.
+
+---
+
 ## 2026-11 — V5 visual redo: "Orbit Field"
 **Why:** a second whole-site redo, asking for type that takes part in the composition,
 graphics that tie regions together, and state you can read in the picture. Home and the
