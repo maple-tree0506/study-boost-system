@@ -1115,3 +1115,88 @@ test("Home: a set in progress comes first, and continues where it stopped", asyn
     assert.deepEqual(page.errors, []);
     await page.close();
 });
+
+// --- Load guard: a request for one of the app's own files can fail (a dropped connection,
+// a 502 from the network path). The page asks again and still runs its scripts in order.
+
+// Fail the first `times` requests for a path (any query string), then let them through.
+async function failFirst(page, pattern, times, how) {
+    let seen = 0;
+    await page.route(pattern, (route) => {
+        seen += 1;
+        if (seen <= times) {
+            return how === "abort" ? route.abort("connectionreset") : route.fulfill({ status: 502, contentType: "text/plain", body: "upstream request failed" });
+        }
+        return route.continue();
+    });
+    return () => seen;
+}
+
+test("load guard: failed script requests are retried, and the scripts still run in order", async () => {
+    const page = await newPage(browser, { width: 1366, height: 900 });
+    const orbitTries = await failFirst(page, "**/js/review-orbit.js*", 2, "502");
+    const appTries = await failFirst(page, "**/js/app.js*", 1, "abort");
+    const bankTries = await failFirst(page, "**/js/question-bank.js*", 1, "502");
+    await page.goto(server.base + "robots.txt");
+    await page.evaluate(() => localStorage.clear());
+    await open(page, server.base, "home");
+    const state = await page.evaluate(() => ({
+        done: window.StudyBoostBoot.done,
+        failed: window.StudyBoostBoot.failed,
+        modules: [typeof window.ReviewSystem, typeof window.PracticeSelection, typeof window.MasteryModel,
+            typeof window.HomeSummary, typeof window.ReviewOrbit, typeof window.VariantPractice, typeof window.Shell],
+        orbitDrawn: !!document.querySelector("#orbitChart .ob-disc"),
+        problem: !!document.getElementById("loadProblem")
+    }));
+    assert.equal(state.done, true, "every script ran");
+    assert.deepEqual(state.failed, []);
+    assert.deepEqual(state.modules, ["object", "object", "object", "object", "object", "object", "object"]);
+    assert.ok(state.orbitDrawn, "app.js ran after the modules it needs and drew the Home orbit");
+    assert.equal(state.problem, false);
+    assert.ok(orbitTries() >= 3, "review-orbit.js was asked for again: " + orbitTries());
+    assert.ok(appTries() >= 2, "app.js was asked for again: " + appTries());
+    // The offline bank, fetched on demand, gets the same retries.
+    await open(page, server.base, "practice");
+    await page.selectOption("#apSubjectInput", "calc_ab");
+    await page.click("#quizBtn");
+    await page.waitForSelector(".qa-card.is-current", { timeout: 20000 });
+    assert.ok(bankTries() >= 2, "question-bank.js was asked for again: " + bankTries());
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("load guard: a script that never arrives says so and offers a reload; nothing after it runs", async () => {
+    const page = await newPage(browser, { width: 390, height: 844 });
+    await page.route("**/js/home-summary.js*", (route) => route.fulfill({ status: 502, contentType: "text/plain", body: "upstream request failed" }));
+    await page.goto(server.base + "#home");
+    await page.waitForSelector("#loadProblem", { timeout: 15000 });
+    const m = await page.evaluate(() => {
+        const box = document.getElementById("loadProblem");
+        const btn = box.querySelector("button");
+        const r = btn.getBoundingClientRect();
+        return {
+            role: box.getAttribute("role"), text: box.textContent, button: btn.textContent, buttonHeight: Math.round(r.height),
+            failed: window.StudyBoostBoot.failed, shell: typeof window.Shell, before: typeof window.MasteryModel
+        };
+    });
+    assert.equal(m.role, "alert");
+    assert.match(m.text, /didn't load/);
+    assert.equal(m.button, "Reload");
+    assert.ok(m.buttonHeight >= 44, "touch target " + m.buttonHeight);
+    assert.deepEqual(m.failed, ["js/home-summary.js"]);
+    assert.equal(m.before, "object", "the files before it ran");
+    assert.equal(m.shell, "undefined", "the files after it never ran with a module missing");
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});
+
+test("load guard: a failed stylesheet request is retried", async () => {
+    const page = await newPage(browser, { width: 1366, height: 900 });
+    const cssTries = await failFirst(page, "**/css/styles.css*", 1, "502");
+    await open(page, server.base, "home");
+    await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === "rgb(5, 10, 20)", null, { timeout: 15000 });
+    assert.ok(cssTries() >= 2, "styles.css was asked for again: " + cssTries());
+    assert.equal(await page.evaluate(() => !!document.getElementById("loadProblem")), false);
+    assert.deepEqual(page.errors, []);
+    await page.close();
+});

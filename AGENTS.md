@@ -68,7 +68,7 @@ node --test tests/spaced-repetition.test.js tests/practice-selection.test.js tes
 node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js   # needs: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
 ```
 
-Current counts: pytest 241, JS unit 122, end-to-end 38 (5 similar-question + 33 redesign, walkthrough, learning-feedback, and phone-path tests). The JS file list is explicit on
+Current counts: pytest 241, JS unit 122, end-to-end 41 (5 similar-question + 36 redesign, walkthrough, learning-feedback, phone-path, and load-guard tests). The JS file list is explicit on
 purpose: never run bare `node --test tests/` (newer Node mis-handles the directory).
 
 ## 3. Repository map
@@ -123,8 +123,17 @@ Gitignored and never committed: `.env`, `studyboost.db`, `__pycache__/`, `node_m
 
 ### Front end
 
-Vanilla JavaScript, no build chain. `index.html` loads classic `defer` scripts in this
-order (order matters, later files use earlier globals):
+Vanilla JavaScript, no build chain. `index.html` runs classic scripts in this order (order
+matters, later files use earlier globals) through its **load guard**: a small inline script
+in `<head>` (`StudyBoostBoot`) and the list passed to `StudyBoostBoot.run([...])` at the end
+of `<body>`. The files are preloaded (`<link rel="preload" as="script">`), so they download
+in parallel, and run one after another. A failed request for one of the app's files (a
+dropped connection, a 502) is asked for again up to 3 more times (0.4 / 1.2 / 2.5 s, with a
+`?retry=n` URL); nothing after it runs early. A required file that never arrives shows a
+`#loadProblem` message with a Reload button. KaTeX entries are `optional` (skipped if they
+fail: math stays raw text). The stylesheet (`data-src`) and `js/question-bank.js`
+(`ensureQuestionBank`) get the same retries. The window `load` event still waits for all
+scripts. To add a script: add its preload link and its entry in the `run` list.
 
 ```
 KaTeX 0.16.9 (CDN: katex.min.js, contrib/auto-render.min.js)
@@ -401,9 +410,10 @@ Full design: `docs/VARIANT-PRACTICE.md`. Summary:
 
 ## 9. Rules you must keep
 
-1. **No build step, no app dependencies.** Plain `<script defer>` files (plus the one-line
-   motion script in `<head>`). New logic goes in a pure dual-export module with
-   `node:test` tests; `app.js` stays glue.
+1. **No build step, no app dependencies.** Plain script files run in order by the inline
+   load guard in `index.html` (plus the one-line motion script in `<head>`); a new file
+   needs a preload link and an entry in `StudyBoostBoot.run([...])`. New logic goes in a
+   pure dual-export module with `node:test` tests; `app.js` stays glue.
 2. **Escape everything** inserted with `innerHTML` (`escapeHtml`), then `typesetMath`.
 3. **Buttons rendered by `app.js` contain text only**, no child elements: their slanted
    shape lives on `::before`/`::after`, and several click handlers read `ev.target` directly.
@@ -439,7 +449,7 @@ Full design: `docs/VARIANT-PRACTICE.md`. Summary:
 |---|---|---|
 | Python | `pytest -q` | `test_api.py` (attempts, stats, chat proxy JSON mode, migrations, seed, rate limit), `test_mathcheck.py`, `test_variant_templates.py`, `test_variant_engine.py` (every gate, repair, diagnosis, fallbacks with a scripted fake LLM), `test_variants_api.py` (endpoint with a mocked provider: success, repair, 429, timeouts, 401/404/500, quota, legacy DB, "no question text in the DB"). Uses a temp DB via `conftest.py`. |
 | JS unit | `node --test <explicit list>` (section 2) | SM-2, practice selection, mastery, bank validator, Home logic (incl. the Progress top line), Review Orbit and library rules, similar-question rules. |
-| End to end | `node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js` | `variant-flow`: two `server.py` copies on free ports (no key; a scripted mock OpenAI-compatible provider) drive Chromium through capture, the full loop to "likely mastered", the honest no-generator path, the AI path with a rate limit, key never in the browser, phone width. `redesign-flow`: Home command center (returning and first visit), Practice focus mode with keyboard answers and the result sequence, typing never triggers shortcuts, Review Orbit filters / keyboard selection / list view / search / confirmed delete, the offline Notes excerpt keeps one point per line, Reduce motion applied before first paint, 320px width, plus skill-tag matching, the only-matching option, per-skill result lines, offline Progress and its separate course filter, stale-topic clearing, locked recall ratings, a refresh-safe pick, strict sets without other skills' reviews, replacing a set safely, the Home button with real and fallback fonts at 4 sizes, the phone band, the review queue, the full phone path (miss → feedback → similar → due review), upload retries counted once, finished sets and the Notes excerpt after a refresh, phone touch targets, and Continue on Home. Set `KATEX_DIST=<katex/dist>` to render math offline; otherwise the CDN is blocked and math stays raw text. |
+| End to end | `node --test tests/e2e/variant-flow.e2e.js tests/e2e/redesign-flow.e2e.js` | `variant-flow`: two `server.py` copies on free ports (no key; a scripted mock OpenAI-compatible provider) drive Chromium through capture, the full loop to "likely mastered", the honest no-generator path, the AI path with a rate limit, key never in the browser, phone width. `redesign-flow`: Home command center (returning and first visit), Practice focus mode with keyboard answers and the result sequence, typing never triggers shortcuts, Review Orbit filters / keyboard selection / list view / search / confirmed delete, the offline Notes excerpt keeps one point per line, Reduce motion applied before first paint, 320px width, plus skill-tag matching, the only-matching option, per-skill result lines, offline Progress and its separate course filter, stale-topic clearing, locked recall ratings, a refresh-safe pick, strict sets without other skills' reviews, replacing a set safely, the Home button with real and fallback fonts at 4 sizes, the phone band, the review queue, the full phone path (miss → feedback → similar → due review), upload retries counted once, finished sets and the Notes excerpt after a refresh, phone touch targets, Continue on Home, and the load guard (failed script, stylesheet, and question-bank requests retried with the scripts still in order; a file that never arrives shows the Reload message and nothing after it runs). Set `KATEX_DIST=<katex/dist>` to render math offline; otherwise the CDN is blocked and math stays raw text. |
 | Visual review (not CI) | `node tests/visual/capture.js <outDir> [--only=a,b] [--perf] [--axe] [--sizes]` | Screenshots of 16 labelled-fixture states (45 shots), console errors, horizontal overflow at 9 sizes (320×568 to 1920×1080), axe-core (WCAG 2.x A/AA tags, needs `AXE_JS`), lab timings (LCP, CLS, long tasks; median of 3 plus a 4x CPU run). Lab numbers are diagnostics, not field Core Web Vitals. |
 
 CI (`.github/workflows/ci.yml`, on push/PR to `main`): jobs `test` (pytest, Python 3.12),
@@ -479,6 +489,9 @@ is per user). New similar-question code needs no new packages or settings.
 - The display-font fallback is width-matched (`Big Shoulders Fallback*` faces with
   `size-adjust`) for Arial/Liberation/Helvetica, Roboto, and DejaVu; another system font
   would still wrap differently. Checked with the fonts blocked at 320, 390, 1100, 1440 px.
+- The load guard covers `index.html`'s scripts, its stylesheet, and the question bank. It
+  cannot retry the page itself (a failed `/` is the browser's error page), and the trust
+  pages (`/about`, `/privacy`, `/terms`, no scripts) do not retry their stylesheet.
 - Rate limits are in memory per process; a multi-instance deployment needs a shared
   store. `/api/chat` (older code) still returns provider error text to the browser.
 - Answers ship to the browser (client-side answer gating); a determined user can read them.
@@ -489,6 +502,13 @@ is per user). New similar-question code needs no new packages or settings.
 
 ## 13. Current state and recent changes
 
+- November 2026, load guard: the app's scripts run through a small inline loader in
+  `index.html` that retries failed requests (up to 3 more times) and keeps the order, so a
+  dropped request no longer leaves app.js running without a module. The stylesheet and the
+  question bank are retried too; a file that never arrives shows a Reload message. Found
+  while checking the live site: about 5% of parallel requests from a cloud test session
+  failed (connection resets, 502s from its proxy), and some page loads broke. Real
+  visitors' rates are unknown.
 - Default branch: `main`. Similar-question practice and the redesigns were developed on
   branch `claude/zen-ramanujan-t57aza`. Merge it into `main`, or point your tools at that
   branch, to work on the newest code.
